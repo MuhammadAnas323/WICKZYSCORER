@@ -115,7 +115,7 @@ class CricketApiService {
     final startTime = DateTime.now();
     try {
       final headers = <String, String>{
-        'User-Agent': 'SportyApp/1.0',
+        'User-Agent': 'Crixora/1.0',
         'Accept': '*/*',
       };
       if (config.apiKey.isNotEmpty) {
@@ -192,7 +192,7 @@ class CricketApiService {
 
     try {
       final headers = <String, String>{
-        'User-Agent': 'SportyApp/1.0',
+        'User-Agent': 'Crixora/1.0',
         'Accept': '*/*',
       };
       if (config.apiKey.isNotEmpty) {

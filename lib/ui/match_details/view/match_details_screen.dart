@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
@@ -47,7 +46,6 @@ class _MatchDetailsScreenState extends ConsumerState<MatchDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchDetailsViewModelProvider(widget.matchId));
-    final cs = Theme.of(context).colorScheme;
 
     if (state.isLoading) return Scaffold(appBar: AppBar(), body: const MatchListSkeleton());
     if (state.error != null) {
@@ -82,7 +80,7 @@ class _MatchDetailsScreenState extends ConsumerState<MatchDetailsScreen>
           children: [
             _InfoTab(match: match),
             _ScorecardTab(match: match, liveData: state.liveData),
-            _CommentaryTab(match: match),
+            _CommentaryTab(match: match, liveData: state.liveData),
             _SquadsTab(match: match),
             _StatsTab(match: match),
           ],
@@ -99,7 +97,6 @@ class _MatchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inn = match.currentInnings;
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -121,23 +118,6 @@ class _MatchHeader extends StatelessWidget {
                     child: Text(match.seriesName,
                       style: AppTextStyles.labelMedium(Colors.white70),
                       overflow: TextOverflow.ellipsis)),
-                  if (liveData != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.people, size: 12, color: Colors.white70),
-                          const SizedBox(width: 4),
-                          Text(liveData!.viewers.abbreviated,
-                            style: AppTextStyles.labelSmall(Colors.white70)),
-                        ],
-                      ),
-                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -151,7 +131,7 @@ class _MatchHeader extends StatelessWidget {
                           style: AppTextStyles.titleLarge(Colors.white)),
                         Text(
                           liveData != null
-                              ? '${liveData!.runs}/${liveData!.wickets} (${liveData!.overs.toStringAsFixed(1)})'
+                              ? '${liveData!.score.runs}/${liveData!.score.wickets} (${liveData!.score.oversLabel})'
                               : match.teamAScore,
                           style: AppTextStyles.scoreMedium(Colors.white)),
                       ],
@@ -166,7 +146,7 @@ class _MatchHeader extends StatelessWidget {
                           style: AppTextStyles.titleLarge(Colors.white)),
                         Text(
                           liveData != null
-                              ? '${liveData!.runs}/${liveData!.wickets} (${liveData!.overs.toStringAsFixed(1)})'
+                              ? '${liveData!.score.runs}/${liveData!.score.wickets} (${liveData!.score.oversLabel})'
                               : match.teamBScore,
                           style: AppTextStyles.scoreMedium(Colors.white),
                           textAlign: TextAlign.right),
@@ -186,16 +166,14 @@ class _MatchHeader extends StatelessWidget {
                     Text('RR: ${liveData!.currentRunRate.toStringAsFixed(2)}',
                       style: AppTextStyles.labelMedium(Colors.white70)),
                     const Spacer(),
-                    Text(liveData!.lastBall.isNotEmpty ? 'Last: ${liveData!.lastBall}' : '',
-                      style: AppTextStyles.labelMedium(Colors.white70)),
+                    if (liveData!.thisOverBalls.isNotEmpty)
+                      Text('Last: ${liveData!.thisOverBalls.last}',
+                        style: AppTextStyles.labelMedium(Colors.white70)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('Striker: ${liveData!.striker}  |  Non-striker: ${liveData!.nonStriker}  |  Bowler: ${liveData!.bowler}',
+                Text('Striker: ${liveData!.striker.name} (${liveData!.striker.runs})  |  Non-striker: ${liveData!.nonStriker.name} (${liveData!.nonStriker.runs})  |  Bowler: ${liveData!.currentBowler.name}',
                   style: AppTextStyles.labelSmall(Colors.white54)),
-              ] else ...[
-                if (inn != null && inn.lastSixBalls.isNotEmpty)
-                  BallStrip(balls: inn.lastSixBalls),
               ],
               if (match.resultSummary != null)
                 Text(match.resultSummary!,
@@ -280,7 +258,6 @@ class _InningsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Innings header
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -298,15 +275,12 @@ class _InningsCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Batting table
         if (innings.batters.isNotEmpty) ...[_tableHeader(cs, ['Batsman', 'R', 'B', '4s', '6s', 'SR']),
           ...innings.batters.map((b) => _batterRow(cs, b))],
         const SizedBox(height: 12),
-        // Bowling table
         if (innings.bowlers.isNotEmpty) ...[_tableHeader(cs, ['Bowler', 'O', 'M', 'R', 'W', 'Econ']),
           ...innings.bowlers.map((b) => _bowlerRow(cs, b))],
         const SizedBox(height: 24),
-        // Fall of wickets
         if (innings.fallOfWickets.isNotEmpty) ...[Text('Fall of Wickets',
           style: AppTextStyles.titleSmall(cs.onSurface)),
           const SizedBox(height: 8),
@@ -403,7 +377,8 @@ class _InningsCard extends StatelessWidget {
 
 class _CommentaryTab extends StatelessWidget {
   final MatchModel match;
-  const _CommentaryTab({required this.match});
+  final LiveMatchData? liveData;
+  const _CommentaryTab({required this.match, this.liveData});
 
   Color _eventColor(String e, ColorScheme cs) {
     switch (e.toUpperCase()) {
@@ -421,9 +396,56 @@ class _CommentaryTab extends StatelessWidget {
       .expand((inn) => inn.ballEvents.reversed)
       .toList();
 
-    if (events.isEmpty) {
+    if (events.isEmpty && liveData == null) {
       return const EmptyState(emoji: '🎤', title: 'No Commentary Yet',
         subtitle: 'Ball-by-ball commentary will appear here during the match.');
+    }
+
+    if (liveData != null && liveData!.ballHistory.isNotEmpty) {
+      return ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: liveData!.ballHistory.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (_, i) {
+          final e = liveData!.ballHistory.reversed.toList()[i];
+          final label = e.wicket ? 'W' : e.runs.toString();
+          final isHighlight = e.wicket || e.runs == 4 || e.runs == 6;
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            color: isHighlight ? _eventColor(label, cs).withValues(alpha: 0.08) : null,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32, height: 32,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: _eventColor(label, cs),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(label,
+                      style: AppTextStyles.labelSmall(Colors.white)
+                        .copyWith(fontWeight: FontWeight.w800, fontSize: 10))),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Over ${e.over}.${e.ballInOver}',
+                        style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                      const SizedBox(height: 2),
+                      Text('${e.runs} run${e.runs == 1 ? '' : 's'}${e.wicket ? ' - Wicket!' : ''}${e.extraType != null && e.extraType!.isNotEmpty ? ' (${e.extraType})' : ''}',
+                        style: AppTextStyles.bodySmall(cs.onSurface).copyWith(
+                          fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w400)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
     }
 
     return ListView.separated(
@@ -497,13 +519,11 @@ class _SquadsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Team A
         Text('${match.teamA.flagEmoji} ${match.teamA.name} Playing XI',
           style: AppTextStyles.titleLarge(cs.onSurface)),
         const SizedBox(height: 8),
         ...match.teamA.playingXI.map(playerRow),
         const Divider(height: 32),
-        // Team B
         Text('${match.teamB.flagEmoji} ${match.teamB.name} Playing XI',
           style: AppTextStyles.titleLarge(cs.onSurface)),
         const SizedBox(height: 8),

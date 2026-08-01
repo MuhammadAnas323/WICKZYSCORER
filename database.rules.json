@@ -1,0 +1,19 @@
+{
+  /* TEMPORARY security rules — placeholder until real authentication is wired in.
+     TODO: Replace with authenticated rules once Scorer auth is implemented.
+
+     Intended final behaviour:
+       - Anyone can read live match data (spectator streaming).
+       - Only an authenticated Scorer can write to /liveMatches/{matchId}.
+  */
+  "rules": {
+    "liveMatches": {
+      ".read": true,
+      ".write": "auth != null",
+      "$matchId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    }
+  }
+}

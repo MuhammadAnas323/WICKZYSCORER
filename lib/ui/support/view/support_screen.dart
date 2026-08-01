@@ -104,7 +104,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
 const _faqs = [
   ('How do I Go Live?', 'Tap the Go Live button from Profile or the bottom navigation. You can stream from your own device camera to viewers within the app.'),
-  ('Is my data saved?', 'SPORTYAPP currently runs locally with no account required. Your profile and preferences are stored on your device.'),
+  ('Is my data saved?', 'CRIXORA currently runs locally with no account required. Your profile and preferences are stored on your device.'),
   ('How often do scores update?', 'Scores are updated in real-time from live match data sources.'),
   ('Can I watch other people\'s streams?', 'Yes! Streams from other broadcasters who are streaming their own camera feeds (club matches, academy games, etc.) appear in the Live Viewer section.'),
 ];

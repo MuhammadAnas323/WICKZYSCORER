@@ -6,6 +6,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/onboarding/viewmodel/onboarding_viewmodel.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
 
 class _OnboardingSlide {
   final String emoji;
@@ -75,7 +76,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     } else {
-      context.go('/home');
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        context.go(user.isScorer ? '/scorer/dashboard' : '/home');
+      } else {
+        context.go('/role-selection');
+      }
     }
   }
 
@@ -102,7 +108,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             top: MediaQuery.of(context).padding.top + 16,
             right: 24,
             child: TextButton(
-              onPressed: () => context.go('/home'),
+              onPressed: () {
+                final user = ref.read(currentUserProvider);
+                if (user != null) {
+                  context.go(user.isScorer ? '/scorer/dashboard' : '/home');
+                } else {
+                  context.go('/role-selection');
+                }
+              },
               child: Text('Skip',
                 style: AppTextStyles.labelLarge(Colors.white70)),
             ),

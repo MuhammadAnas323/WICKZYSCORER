@@ -1,5 +1,5 @@
 // lib/main.dart
-// Entry point for SPORTYAPP.
+// Entry point for CRIXORA.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,7 @@ import 'package:sportyapp/routes/app_router.dart';
 import 'package:sportyapp/theme/app_theme.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:sportyapp/firebase_options.dart';
 
@@ -18,6 +19,9 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
     );
   } catch (_) {
     // Already initialized — safe to ignore.
@@ -54,7 +58,7 @@ class SportyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'SPORTYAPP',
+      title: 'CRIXORA',
       debugShowCheckedModeBanner: false,
 
       // Theme Mode configurations

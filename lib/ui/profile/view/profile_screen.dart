@@ -5,8 +5,10 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/ui/profile/viewmodel/profile_viewmodel.dart';
-import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
 import 'package:sportyapp/ui/profile/widgets/iptv_playlist_card.dart';
+import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/data/models/app_user.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -14,11 +16,17 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(profileViewModelProvider);
-    final user = ref.watch(userDetailProvider);
+    final fbUser = ref.watch(userDetailProvider);
+    final appUser = ref.watch(currentUserProvider);
     final cs = Theme.of(context).colorScheme;
 
-    final displayName = user?.displayName ?? state.displayName;
-    final email = user?.email ?? 'Guest Profile';
+    final displayName = fbUser?.displayName ?? state.displayName;
+    final email = fbUser?.email ?? 'Guest Profile';
+    final isScorer = appUser?.role == AppUserRole.scorer;
+    final switchTarget = isScorer ? 'Spectator' : 'Scorer';
+    final switchSubtitle = isScorer
+        ? 'Switch to watching matches'
+        : 'Switch to scoring matches';
 
     return Scaffold(
       body: CustomScrollView(
@@ -43,13 +51,13 @@ class ProfileScreen extends ConsumerWidget {
                         radius: 40,
                         backgroundColor: Colors.white24,
                         child: Text(
-                          user != null
+                          fbUser != null
                               ? displayName.isNotEmpty
                                   ? displayName[0].toUpperCase()
                                   : '?'
                               : '\u{1F464}',
                           style: TextStyle(
-                            fontSize: user != null ? 32 : 40,
+                            fontSize: fbUser != null ? 32 : 40,
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
@@ -91,11 +99,38 @@ class ProfileScreen extends ConsumerWidget {
                   const IptvPlaylistCard(),
                   const SizedBox(height: 12),
 
+                  Text('Role', style: AppTextStyles.titleLarge(cs.onBackground)),
+                  const SizedBox(height: 12),
+                  _actionTile(context, Icons.swap_horiz_rounded,
+                    'Switch to $switchTarget', switchSubtitle, cs.primary,
+                    () async {
+                      final notifier = ref.read(currentUserProvider.notifier);
+                      final targetRole = isScorer ? AppUserRole.spectator : AppUserRole.scorer;
+                      final hasTargetAccount = isScorer
+                          ? await notifier.hasSpectatorAccount()
+                          : await notifier.hasScorerAccount();
+
+                      if (hasTargetAccount) {
+                        await notifier.switchRole(targetRole);
+                        if (context.mounted) {
+                          context.go(targetRole == AppUserRole.scorer
+                              ? '/scorer/dashboard'
+                              : '/home');
+                        }
+                      } else {
+                        await notifier.signOut();
+                        if (context.mounted) {
+                          context.go('/signin');
+                        }
+                      }
+                    }),
+                  const SizedBox(height: 24),
+
                   Text('Settings & Info', style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 12),
                   _navTile(context, Icons.settings_rounded, 'Settings', '/settings'),
                   _navTile(context, Icons.tune_rounded, 'Admin Settings', '/admin-settings'),
-                  _navTile(context, Icons.info_rounded, 'About SPORTYAPP', '/about'),
+                  _navTile(context, Icons.info_rounded, 'About CRIXORA', '/about'),
                   _navTile(context, Icons.support_agent_rounded, 'Contact / Support', '/support'),
                 ],
               ),

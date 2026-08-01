@@ -1,10 +1,10 @@
 // lib/theme/app_colors.dart
-// Cricket-inspired color palette for SPORTYAPP.
+// Cricket-inspired color palette for CRIXORA.
 // Defines light and dark variants for every semantic color.
 
 import 'package:flutter/material.dart';
 
-/// Central color constants for SPORTYAPP.
+/// Central color constants for CRIXORA.
 class AppColors {
   AppColors._();
 

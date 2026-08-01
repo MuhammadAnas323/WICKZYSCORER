@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/data/repositories/match_repository.dart';
 import 'package:sportyapp/data/repositories/team_repository.dart';
@@ -9,9 +10,22 @@ import 'package:sportyapp/data/repositories/video_repository.dart';
 import 'package:sportyapp/data/repositories/user_repository.dart';
 import 'package:sportyapp/data/repositories/fixture_repository.dart';
 import 'package:sportyapp/data/repositories/notification_repository.dart';
+import 'package:sportyapp/data/services/realtime_database_service.dart';
+import 'package:sportyapp/data/services/firestore_scorer_service.dart';
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
+});
+
+final realtimeDatabaseProvider = Provider<RealtimeDatabaseService>((ref) {
+  return RealtimeDatabaseService(FirebaseDatabase.instance);
+});
+
+final firestoreScorerServiceProvider = Provider<FirestoreScorerService>((ref) {
+  return FirestoreScorerService(
+    ref.watch(firestoreProvider),
+    ref.watch(realtimeDatabaseProvider),
+  );
 });
 
 final matchRepositoryProvider = Provider<MatchRepository>((ref) {

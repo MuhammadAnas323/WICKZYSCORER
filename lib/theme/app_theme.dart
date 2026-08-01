@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// Builds light and dark ThemeData for SPORTYAPP.
+/// Builds light and dark ThemeData for CRIXORA.
 class AppTheme {
   AppTheme._();
 

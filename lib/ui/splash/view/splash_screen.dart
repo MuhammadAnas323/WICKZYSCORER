@@ -1,7 +1,15 @@
+// lib/ui/splash/view/splash_screen.dart
+// CRIXORA premium animated splash screen — a single full-bleed animated photo
+// with a slow Ken Burns drift, dark gradient, wordmark reveal and progress bar.
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sportyapp/theme/app_colors.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/ui/splash/viewmodel/splash_viewmodel.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -13,17 +21,15 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
-  late AnimationController _scaleController;
-  late AnimationController _rotateController;
-  late AnimationController _shimmerController;
-  late AnimationController _particleController;
-  late AnimationController _fadeController;
+  static const String _photoAsset = 'assets/images/Crixora.png';
+  static const String _wordmark = 'CRIXORA';
 
-  late Animation<double> _scaleAnim;
-  late Animation<double> _rotateAnim;
-  late Animation<double> _shimmerAnim;
-  late Animation<double> _particleOpacity;
-  late Animation<double> _fadeAnim;
+  late final AnimationController _photoController;
+  late final AnimationController _textController;
+  late final AnimationController _progressController;
+
+  late final Animation<double> _photoZoom;
+  late final Animation<Offset> _photoPan;
 
   bool _navigated = false;
 
@@ -31,70 +37,39 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
 
-    _scaleController = AnimationController(
+    // One slow, continuous drift for the single photo.
+    _photoController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _scaleAnim = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: Curves.elasticOut,
-      ),
-    );
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
 
-    _rotateController = AnimationController(
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
+
+    _progressController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _rotateAnim = Tween<double>(begin: -0.04, end: 0.04).animate(
-      CurvedAnimation(
-        parent: _rotateController,
-        curve: Curves.easeInOut,
-      ),
+    )..forward();
+
+    _photoZoom = Tween<double>(begin: 1.0, end: 1.25).animate(
+      CurvedAnimation(parent: _photoController, curve: Curves.easeInOut),
     );
 
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat();
-    _shimmerAnim = Tween<double>(begin: -1.5, end: 2.5).animate(
-      CurvedAnimation(
-        parent: _shimmerController,
-        curve: Curves.easeInOut,
-      ),
+    _photoPan = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.06, -0.04),
+    ).animate(
+      CurvedAnimation(parent: _photoController, curve: Curves.easeInOut),
     );
-
-    _particleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-    _particleOpacity = Tween<double>(begin: 0.05, end: 0.2).animate(
-      CurvedAnimation(
-        parent: _particleController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
-
-    _scaleController.forward();
-    _fadeController.forward();
   }
 
   @override
   void dispose() {
-    _scaleController.dispose();
-    _rotateController.dispose();
-    _shimmerController.dispose();
-    _particleController.dispose();
-    _fadeController.dispose();
+    _photoController.dispose();
+    _textController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
@@ -103,109 +78,267 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     ref.listen<SplashState>(splashViewModelProvider, (prev, next) {
       if (!_navigated && !next.isLoading) {
         _navigated = true;
-        context.go('/home');
+        final user = ref.read(currentUserProvider);
+        if (user != null) {
+          context.go(user.isScorer ? '/scorer/dashboard' : '/home');
+        } else {
+          context.go('/role-selection');
+        }
       }
     });
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gradient = isDark
-        ? AppColors.splashGradientDark
-        : AppColors.splashGradientLight;
-
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(gradient: gradient),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              ..._buildParticles(),
-              Center(
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: ScaleTransition(
-                    scale: _scaleAnim,
-                    child: RotationTransition(
-                      turns: _rotateAnim,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(40),
-                            child: Image.asset(
-                              'assets/images/splash.png',
-                              width: 340,
-                              height: 600,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          AnimatedBuilder(
-                            animation: _shimmerAnim,
-                            builder: (_, __) => Container(
-                              width: 340,
-                              height: 600,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(40),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withOpacity(0.0),
-                                    Colors.white.withOpacity(0.0),
-                                    Colors.white.withOpacity(0.25),
-                                    Colors.white.withOpacity(0.0),
-                                    Colors.white.withOpacity(0.0),
-                                  ],
-                                  stops: [
-                                    _shimmerAnim.value - 0.3,
-                                    _shimmerAnim.value - 0.15,
-                                    _shimmerAnim.value,
-                                    _shimmerAnim.value + 0.15,
-                                    _shimmerAnim.value + 0.3,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildAnimatedPhoto(),
+          _buildScrim(),
+          _buildCenterContent(),
+          _buildProgressBar(),
+        ],
+      ),
+    );
+  }
+
+  // ── The single animated photo ──────────────────────────────────────────
+  Widget _buildAnimatedPhoto() {
+    return AnimatedBuilder(
+      animation: _photoController,
+      builder: (context, _) {
+        return FractionalTranslation(
+          translation: _photoPan.value,
+          child: Transform.scale(
+            scale: _photoZoom.value,
+            child: Image.asset(
+              _photoAsset,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => _photoFallback(),
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _photoFallback() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A7A3E), Color(0xFF0D2818)],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.sports_cricket, color: Colors.white, size: 96),
+      ),
+    );
+  }
+
+  // ── Dark gradient scrim for legibility ─────────────────────────────────
+  Widget _buildScrim() {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0.0, 0.5, 1.0],
+          colors: [
+            Color(0x66000000),
+            Color(0x33000000),
+            Color(0xCC0A0A0A),
+          ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildParticles() {
-    final positions = <Offset>[
-      const Offset(20, 60),
-      const Offset(350, 40),
-      const Offset(40, 400),
-      const Offset(340, 360),
-      const Offset(140, 140),
-      const Offset(280, 520),
-    ];
-    return List.generate(6, (i) {
-      final size = 30.0 + (i * 12);
-      return Positioned(
-        left: positions[i].dx,
-        top: positions[i].dy,
-        child: AnimatedBuilder(
-          animation: _particleOpacity,
-          builder: (_, __) => Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.floodlightGold
-                  .withOpacity(_particleOpacity.value * (i.isEven ? 1 : 0.6)),
+  // ── Center: wordmark + tagline over the photo ──────────────────────────
+  Widget _buildCenterContent() {
+    return SafeArea(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildWordmark(),
+          const SizedBox(height: 12),
+          _buildTagline(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordmark() {
+    return AnimatedBuilder(
+      animation: _textController,
+      builder: (context, child) {
+        return ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, AppColors.floodlightGoldLight],
+          ).createShader(bounds),
+          blendMode: BlendMode.srcIn,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < _wordmark.length; i++)
+                _AnimatedLetter(
+                  controller: _textController,
+                  index: i,
+                  letter: _wordmark[i],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTagline() {
+    return AnimatedBuilder(
+      animation: _textController,
+      builder: (context, _) {
+        final t = ((_textController.value - 0.55) / 0.45).clamp(0.0, 1.0);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, 14 * (1 - t)),
+            child: Text(
+              'LIVE CRICKET · EVERY BALL',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.85),
+                letterSpacing: 3.5,
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  // ── Bottom loading bar ─────────────────────────────────────────────────
+  Widget _buildProgressBar() {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 56),
+          child: AnimatedBuilder(
+            animation: _progressController,
+            builder: (context, _) {
+              return Container(
+                width: 140,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: _progressController.value,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppColors.pitchGreenLight,
+                          AppColors.floodlightGoldLight,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.floodlightGold.withOpacity(0.7),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-      );
-    });
+      ),
+    );
+  }
+}
+
+// ── Letter-by-letter wordmark reveal ─────────────────────────────────────
+class _AnimatedLetter extends StatefulWidget {
+  final String letter;
+  final Animation<double> controller;
+  final int index;
+
+  const _AnimatedLetter({
+    required this.letter,
+    required this.controller,
+    required this.index,
+  });
+
+  @override
+  State<_AnimatedLetter> createState() => _AnimatedLetterState();
+}
+
+class _AnimatedLetterState extends State<_AnimatedLetter> {
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = _buildAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedLetter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.index != widget.index) {
+      _anim = _buildAnimation();
+    }
+  }
+
+  Animation<double> _buildAnimation() {
+    final start = widget.index * 0.07;
+    return CurvedAnimation(
+      parent: widget.controller,
+      curve: Interval(
+        start,
+        math.min(start + 0.75, 1.0),
+        curve: Curves.easeOutBack,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final v = _anim.value;
+        return Opacity(
+          opacity: v.clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, 30 * (1 - v)),
+            child: Transform.rotate(
+              angle: (1 - v) * 0.25,
+              child: Text(
+                widget.letter,
+                style: GoogleFonts.poppins(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

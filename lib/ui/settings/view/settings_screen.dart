@@ -125,6 +125,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               );
               if (confirmed == true) {
+                debugPrint('[DEBUG] Settings screen direct FirebaseAuth.signOut() CALLED. Stack: ${StackTrace.current}');
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) context.go('/signup');
               }

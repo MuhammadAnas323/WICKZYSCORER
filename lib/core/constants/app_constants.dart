@@ -1,12 +1,12 @@
 // lib/core/constants/app_constants.dart
-// Core application constants used throughout SPORTYAPP.
+// Core application constants used throughout CRIXORA.
 
-/// Application-wide constants for SPORTYAPP.
+/// Application-wide constants for CRIXORA.
 class AppConstants {
   AppConstants._();
 
   // App info
-  static const String appName = 'SPORTYAPP';
+  static const String appName = 'CRIXORA';
   static const String appTagline = 'Live Cricket. Every Ball.';
   static const String appVersion = '1.0.0';
 

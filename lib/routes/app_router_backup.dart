@@ -1,5 +1,5 @@
 // lib/routes/app_router.dart
-// go_router configuration for SPORTYAPP.
+// go_router configuration for CRIXORA.
 // ShellRoute manages the 5-tab bottom navigation.
 // All routes are named and deep-link ready.
 

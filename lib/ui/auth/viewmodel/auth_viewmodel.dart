@@ -60,6 +60,7 @@ class AuthViewModel extends StateNotifier<bool> {
   }
 
   Future<void> signOut() async {
+    debugPrint('[DEBUG] AuthViewModel.signOut() CALLED. Stack: ${StackTrace.current}');
     try {
       await FirebaseAuth.instance.signOut();
     } catch (_) {}

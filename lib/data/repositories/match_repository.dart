@@ -26,6 +26,11 @@ abstract class MatchRepository {
   });
   Stream<List<MatchModel>> watchUpcomingMatches();
   Stream<List<MatchModel>> watchCompletedMatches();
+
+  Future<void> updateMatchStatus(String matchId, String status);
+  Future<void> startMatch(String matchId, Map<String, dynamic> liveState);
+  Future<void> saveScorecard(String matchId, Map<String, dynamic> scorecard);
+  Future<void> saveResult(String matchId, Map<String, dynamic> result);
 }
 
 class FirestoreMatchRepository implements MatchRepository {
@@ -33,10 +38,12 @@ class FirestoreMatchRepository implements MatchRepository {
 
   FirestoreMatchRepository(this._firestore);
 
+  CollectionReference get _matches => _firestore.collection('matches');
+
   Future<List<MatchModel>> _safeGet(Query query) async {
     try {
       final snap = await query.get();
-      return snap.docs.map((d) => matchModelFromJson(d.data() as Map<String, dynamic>)).toList();
+      return snap.docs.map((d) => matchModelFromJson(d.data() as Map<String, dynamic>? ?? {})).toList();
     } on FirebaseException {
       return [];
     }
@@ -44,59 +51,49 @@ class FirestoreMatchRepository implements MatchRepository {
 
   @override
   Future<List<MatchModel>> getLiveMatches() async {
-    return _safeGet(
-      _firestore.collection('matches').where('status', isEqualTo: 'live'),
-    );
+    return _safeGet(_matches.where('status', isEqualTo: 'live'));
   }
 
   @override
   Future<List<MatchModel>> getUpcomingMatches() async {
     return _safeGet(
-      _firestore
-          .collection('matches')
-          .where('status', isEqualTo: 'upcoming')
-          .orderBy('scheduledAt', descending: false),
+      _matches.where('status', isEqualTo: 'upcoming').orderBy('scheduledAt', descending: false),
     );
   }
 
   @override
   Future<List<MatchModel>> getCompletedMatches() async {
     return _safeGet(
-      _firestore
-          .collection('matches')
-          .where('status', isEqualTo: 'completed')
-          .orderBy('scheduledAt', descending: true),
+      _matches.where('status', isEqualTo: 'completed').orderBy('scheduledAt', descending: true),
     );
   }
 
   @override
   Stream<List<MatchModel>> watchUpcomingMatches() {
-    return _firestore
-        .collection('matches')
+    return _matches
         .where('status', isEqualTo: 'upcoming')
         .orderBy('scheduledAt', descending: false)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => matchModelFromJson(d.data())).toList())
+        .map((snap) => snap.docs.map((d) => matchModelFromJson(d.data() as Map<String, dynamic>? ?? {})).toList())
         .handleError((_) => <MatchModel>[]);
   }
 
   @override
   Stream<List<MatchModel>> watchCompletedMatches() {
-    return _firestore
-        .collection('matches')
+    return _matches
         .where('status', isEqualTo: 'completed')
         .orderBy('scheduledAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => matchModelFromJson(d.data())).toList())
+        .map((snap) => snap.docs.map((d) => matchModelFromJson(d.data() as Map<String, dynamic>? ?? {})).toList())
         .handleError((_) => <MatchModel>[]);
   }
 
   @override
   Future<MatchModel?> getMatchById(String id) async {
     try {
-      final doc = await _firestore.collection('matches').doc(id).get();
+      final doc = await _matches.doc(id).get();
       if (!doc.exists || doc.data() == null) return null;
-      return matchModelFromJson(doc.data()!);
+      return matchModelFromJson(doc.data()! as Map<String, dynamic>);
     } on FirebaseException {
       return null;
     }
@@ -105,10 +102,10 @@ class FirestoreMatchRepository implements MatchRepository {
   @override
   Future<List<MatchModel>> searchMatches(String query) async {
     try {
-      final snap = await _firestore.collection('matches').get();
+      final snap = await _matches.get();
       final q = query.toLowerCase();
       return snap.docs
-          .map((d) => matchModelFromJson(d.data()))
+          .map((d) => matchModelFromJson(d.data() as Map<String, dynamic>? ?? {}))
           .where((m) =>
               m.title.toLowerCase().contains(q) ||
               m.seriesName.toLowerCase().contains(q))
@@ -134,7 +131,7 @@ class FirestoreMatchRepository implements MatchRepository {
     String? tossWinner,
     String? tossDecision,
   }) async {
-    final matchId = _firestore.collection('matches').doc().id;
+    final matchId = _matches.doc().id;
     final match = MatchModel(
       id: matchId,
       title: title,
@@ -154,10 +151,54 @@ class FirestoreMatchRepository implements MatchRepository {
       thumbnailUrl: '',
     );
     try {
-      await _firestore.collection('matches').doc(matchId).set(match.toJson());
+      await _matches.doc(matchId).set(match.toJson());
     } on FirebaseException {
       // silently fail
     }
     return match;
+  }
+
+  @override
+  Future<void> updateMatchStatus(String matchId, String status) async {
+    try {
+      await _matches.doc(matchId).update({'status': status});
+    } on FirebaseException {
+      // silently fail
+    }
+  }
+
+  @override
+  Future<void> startMatch(String matchId, Map<String, dynamic> liveState) async {
+    try {
+      await _matches.doc(matchId).update({
+        'status': 'live',
+        'isLive': true,
+        ...liveState,
+      });
+    } on FirebaseException {
+      // silently fail
+    }
+  }
+
+  @override
+  Future<void> saveScorecard(String matchId, Map<String, dynamic> scorecard) async {
+    try {
+      await _matches.doc(matchId).update({'scorecards': scorecard});
+    } on FirebaseException {
+      // silently fail
+    }
+  }
+
+  @override
+  Future<void> saveResult(String matchId, Map<String, dynamic> result) async {
+    try {
+      await _matches.doc(matchId).update({
+        'result': result,
+        'status': 'completed',
+        'isLive': false,
+      });
+    } on FirebaseException {
+      // silently fail
+    }
   }
 }

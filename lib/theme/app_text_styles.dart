@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Typography scale for SPORTYAPP.
+/// Typography scale for CRIXORA.
 /// Headings use Poppins (bold, sporty feel).
 /// Body / captions use Inter (clean, readable).
 class AppTextStyles {

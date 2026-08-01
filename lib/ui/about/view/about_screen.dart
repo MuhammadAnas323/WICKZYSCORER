@@ -31,7 +31,7 @@ class AboutScreen extends ConsumerWidget {
                   child: const Icon(Icons.sports_cricket, color: Colors.white, size: 44),
                 ),
                 const SizedBox(height: 16),
-                Text('SPORTYAPP', style: AppTextStyles.headlineLarge(cs.onSurface)
+                Text('CRIXORA', style: AppTextStyles.headlineLarge(cs.onSurface)
                   .copyWith(letterSpacing: 2)),
                 const SizedBox(height: 4),
                 Text('Version 1.0.0', style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
@@ -43,7 +43,7 @@ class AboutScreen extends ConsumerWidget {
             style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 12),
           Text(
-            'SPORTYAPP brings you live cricket scores, ball-by-ball commentary, match fixtures, player profiles, tournament standings, and the ability to broadcast your own matches live — all in one beautifully designed app.\n\nBuilt for cricket fans. By cricket fans. 🏑',
+            'CRIXORA brings you live cricket scores, ball-by-ball commentary, match fixtures, player profiles, tournament standings, and the ability to broadcast your own matches live — all in one beautifully designed app.\n\nBuilt for cricket fans. By cricket fans. 🏑',
             style: AppTextStyles.bodyMedium(cs.onSurfaceVariant).copyWith(height: 1.7),
           ),
           const SizedBox(height: 32),

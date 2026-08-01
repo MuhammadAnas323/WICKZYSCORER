@@ -1,19 +1,13 @@
-import 'dart:async';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
-import 'package:sportyapp/data/services/realtime_database_service.dart';
 import 'package:sportyapp/data/repositories/live_match_repository.dart';
-
-final realtimeDatabaseServiceProvider = Provider<IRealtimeDatabaseService>((ref) {
-  final service = RealtimeDatabaseService(FirebaseDatabase.instance);
-  ref.onDispose(() => service.dispose());
-  return service;
-});
+import 'repository_providers.dart';
 
 final liveMatchRepositoryProvider = Provider<LiveMatchRepository>((ref) {
-  final rtdb = ref.watch(realtimeDatabaseServiceProvider);
-  return RealtimeLiveMatchRepository(rtdb);
+  final rtdb = ref.watch(realtimeDatabaseProvider);
+  final repo = RealtimeLiveMatchRepository(rtdb);
+  ref.onDispose(() => repo.dispose());
+  return repo;
 });
 
 final liveMatchDataProvider = StreamProvider.family<LiveMatchData, String>(
@@ -23,18 +17,14 @@ final liveMatchDataProvider = StreamProvider.family<LiveMatchData, String>(
   },
 );
 
-final liveMatchStatusProvider = StreamProvider.family<String, String>(
-  (ref, matchId) {
-    final rtdb = ref.watch(realtimeDatabaseServiceProvider);
-    return rtdb.watchLiveMatchRaw(matchId).map((event) {
-      if (event.snapshot.value == null) return 'unknown';
-      final data = event.snapshot.value as Map<dynamic, dynamic>;
-      return data['status'] as String? ?? 'unknown';
-    });
-  },
-);
-
 final activeLiveMatchIdsProvider = FutureProvider<List<String>>((ref) {
   final repo = ref.watch(liveMatchRepositoryProvider);
   return repo.getAllLiveMatchIds();
+});
+
+final allLiveMatchesProvider = StreamProvider<Map<String, LiveMatchData>>((ref) {
+  final rtdb = ref.watch(realtimeDatabaseProvider);
+  return rtdb.watchAllLiveMatches().map((raw) {
+    return raw.map((matchId, data) => MapEntry(matchId, LiveMatchData.fromJson(data)));
+  });
 });

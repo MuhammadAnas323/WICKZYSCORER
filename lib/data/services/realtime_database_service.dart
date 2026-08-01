@@ -1,94 +1,52 @@
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:sportyapp/data/models/live_match_data.dart';
 
-abstract class IRealtimeDatabaseService {
-  Future<void> createLiveMatchNode(String matchId);
-  Future<void> updateLiveMatchData(String matchId, Map<String, dynamic> data);
-  Future<void> removeLiveMatch(String matchId);
-  Future<LiveMatchData?> getLiveMatchData(String matchId);
-  Stream<LiveMatchData> watchLiveMatch(String matchId);
-  Stream<DatabaseEvent> watchLiveMatchRaw(String matchId);
-  Future<List<String>> getAllLiveMatchIds();
-}
+class RealtimeDatabaseService {
+  final FirebaseDatabase _db;
 
-class RealtimeDatabaseService implements IRealtimeDatabaseService {
-  final FirebaseDatabase _database;
+  RealtimeDatabaseService(this._db);
 
-  final Map<String, StreamSubscription<DatabaseEvent>> _subscriptions = {};
+  DatabaseReference get _liveMatchesRef => _db.ref('liveMatches');
 
-  RealtimeDatabaseService(this._database);
-
-  DatabaseReference get _liveMatchesRef => _database.ref('live_matches');
-
-  @override
-  Future<void> createLiveMatchNode(String matchId) async {
-    await _liveMatchesRef.child(matchId).set({
-      'runs': 0,
-      'wickets': 0,
-      'overs': 0.0,
-      'currentRunRate': 0.0,
-      'target': null,
-      'striker': '',
-      'nonStriker': '',
-      'bowler': '',
-      'lastBall': '',
-      'status': 'live',
-      'stream': null,
-      'commentary': 'Match started',
-      'viewers': 0,
-    });
+  Future<void> createLiveMatch(String matchId, Map<String, dynamic> data) async {
+    await _liveMatchesRef.child(matchId).set(data);
   }
 
-  @override
-  Future<void> updateLiveMatchData(
-      String matchId, Map<String, dynamic> data) async {
+  Future<void> updateLiveMatch(String matchId, Map<String, dynamic> data) async {
     await _liveMatchesRef.child(matchId).update(data);
   }
 
-  @override
-  Future<void> removeLiveMatch(String matchId) async {
+  Future<void> deleteLiveMatch(String matchId) async {
     await _liveMatchesRef.child(matchId).remove();
-    _subscriptions[matchId]?.cancel();
-    _subscriptions.remove(matchId);
   }
 
-  @override
-  Future<LiveMatchData?> getLiveMatchData(String matchId) async {
-    final snapshot = await _liveMatchesRef.child(matchId).get();
-    if (!snapshot.exists || snapshot.value == null) return null;
-    return LiveMatchData.fromJson(
-        snapshot.value as Map<dynamic, dynamic>);
+  Future<Map<String, dynamic>?> getLiveMatch(String matchId) async {
+    final snap = await _liveMatchesRef.child(matchId).get();
+    if (!snap.exists || snap.value == null) return null;
+    return Map<String, dynamic>.from(snap.value as Map);
   }
 
-  @override
-  Stream<LiveMatchData> watchLiveMatch(String matchId) {
+  Future<Map<String, Map<String, dynamic>>> getAllLiveMatches() async {
+    final snap = await _liveMatchesRef.get();
+    if (!snap.exists || snap.value == null) return {};
+    final map = snap.value as Map<dynamic, dynamic>;
+    return map.map((key, value) => MapEntry(key.toString(), Map<String, dynamic>.from(value as Map)));
+  }
+
+  Stream<Map<String, dynamic>?> watchLiveMatch(String matchId) {
     return _liveMatchesRef.child(matchId).onValue.map((event) {
-      if (event.snapshot.value == null) {
-        throw Exception('Live match data not found');
-      }
-      return LiveMatchData.fromJson(
-          event.snapshot.value as Map<dynamic, dynamic>);
+      if (!event.snapshot.exists || event.snapshot.value == null) return null;
+      return Map<String, dynamic>.from(event.snapshot.value as Map);
     });
   }
 
-  @override
-  Stream<DatabaseEvent> watchLiveMatchRaw(String matchId) {
-    return _liveMatchesRef.child(matchId).onValue;
+  Stream<Map<String, Map<String, dynamic>>> watchAllLiveMatches() {
+    return _liveMatchesRef.onValue.map((event) {
+      if (!event.snapshot.exists || event.snapshot.value == null) return <String, Map<String, dynamic>>{};
+      final map = event.snapshot.value as Map<dynamic, dynamic>;
+      return map.map((key, value) => MapEntry(key.toString(), Map<String, dynamic>.from(value as Map)));
+    });
   }
 
-  @override
-  Future<List<String>> getAllLiveMatchIds() async {
-    final snapshot = await _liveMatchesRef.get();
-    if (!snapshot.exists || snapshot.value == null) return [];
-    final map = snapshot.value as Map<dynamic, dynamic>;
-    return map.keys.cast<String>().toList();
-  }
-
-  void dispose() {
-    for (final sub in _subscriptions.values) {
-      sub.cancel();
-    }
-    _subscriptions.clear();
-  }
+  Stream<DatabaseEvent> get rawOnValue => _liveMatchesRef.onValue;
 }

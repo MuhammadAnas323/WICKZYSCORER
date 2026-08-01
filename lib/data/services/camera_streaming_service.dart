@@ -145,6 +145,7 @@ class CameraStreamingService implements StreamingService {
       peakViewers: 0,
       totalComments: 0,
       replaySaved: saved,
+      endedAt: DateTime.now(),
     );
   }
 

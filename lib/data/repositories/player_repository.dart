@@ -1,11 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/player_model.dart';
+import '../models/scorer/scorer_player.dart' as scorer;
 
 abstract class PlayerRepository {
   Future<List<PlayerModel>> getAllPlayers();
   Future<PlayerModel?> getPlayerById(String id);
   Future<List<PlayerModel>> getPlayersByTeam(String teamId);
   Future<List<PlayerModel>> searchPlayers(String query);
+
+  Future<void> createPlayer(scorer.ScorerPlayer player);
+  Future<void> updatePlayer(scorer.ScorerPlayer player);
+  Future<void> deletePlayer(String id);
+  Future<List<scorer.ScorerPlayer>> getScorerPlayersByTeam(String teamId);
 }
 
 class FirestorePlayerRepository implements PlayerRepository {
@@ -47,6 +53,48 @@ class FirestorePlayerRepository implements PlayerRepository {
         .toList();
   }
 
+  @override
+  Future<List<scorer.ScorerPlayer>> getScorerPlayersByTeam(String teamId) async {
+    final snap = await _firestore
+        .collection('players')
+        .where('teamId', isEqualTo: teamId)
+        .get();
+    return snap.docs.map((doc) => _scorerPlayerFromDoc(doc)).toList();
+  }
+
+  @override
+  Future<void> createPlayer(scorer.ScorerPlayer player) async {
+    await _firestore.collection('players').doc(player.id).set({
+      'id': player.id,
+      'name': player.name,
+      'teamId': player.teamId,
+      'tournamentId': player.tournamentId,
+      'role': player.role.name,
+      'battingStyle': player.battingStyle.name,
+      'bowlingStyle': player.bowlingStyle.name,
+      'jerseyNumber': player.jerseyNumber,
+      'photoUrl': player.photoUrl,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> updatePlayer(scorer.ScorerPlayer player) async {
+    await _firestore.collection('players').doc(player.id).update({
+      'name': player.name,
+      'role': player.role.name,
+      'battingStyle': player.battingStyle.name,
+      'bowlingStyle': player.bowlingStyle.name,
+      'jerseyNumber': player.jerseyNumber,
+      'photoUrl': player.photoUrl,
+    });
+  }
+
+  @override
+  Future<void> deletePlayer(String id) async {
+    await _firestore.collection('players').doc(id).delete();
+  }
+
   PlayerModel _playerFromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
     final dobStr = data['dateOfBirth'] as String?;
@@ -77,6 +125,30 @@ class FirestorePlayerRepository implements PlayerRepository {
         matches: 0, innings: 0, overs: 0, wickets: 0, runs: 0,
         average: 0, economy: 0, strikeRate: 0, fiveWickets: 0, bestBowling: '',
       ),
+    );
+  }
+
+  scorer.ScorerPlayer _scorerPlayerFromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return scorer.ScorerPlayer(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      teamId: data['teamId'] as String? ?? '',
+      tournamentId: data['tournamentId'] as String? ?? '',
+      role: scorer.PlayerRole.values.firstWhere(
+        (r) => r.name == data['role'],
+        orElse: () => scorer.PlayerRole.batsman,
+      ),
+      battingStyle: scorer.BattingStyle.values.firstWhere(
+        (b) => b.name == data['battingStyle'],
+        orElse: () => scorer.BattingStyle.rightHand,
+      ),
+      bowlingStyle: scorer.BowlingStyle.values.firstWhere(
+        (b) => b.name == data['bowlingStyle'],
+        orElse: () => scorer.BowlingStyle.none,
+      ),
+      jerseyNumber: data['jerseyNumber'] as int?,
+      photoUrl: data['photoUrl'] as String?,
     );
   }
 }
