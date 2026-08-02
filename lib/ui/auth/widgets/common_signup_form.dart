@@ -15,8 +15,6 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
   
   final nameController = TextEditingController();
   final emailController = TextEditingController();
-  final phoneController = TextEditingController();
-  final addressController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   final orgController = TextEditingController();
@@ -41,8 +39,6 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
   void dispose() {
     nameController.dispose();
     emailController.dispose();
-    phoneController.dispose();
-    addressController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     orgController.dispose();
@@ -131,18 +127,6 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
             controller: emailController,
             label: 'Email',
             icon: Icons.email_outlined,
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-          ),
-          _buildField(
-            controller: phoneController,
-            label: 'Phone',
-            icon: Icons.phone_outlined,
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-          ),
-          _buildField(
-            controller: addressController,
-            label: 'Address',
-            icon: Icons.location_on_outlined,
             validator: (val) => val == null || val.isEmpty ? 'Required' : null,
           ),
           if (widget.isScorer)

@@ -73,8 +73,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? favoriteTournamentId,
   }) async {
     _isAuthenticating = true;
@@ -83,8 +81,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
         name: name,
         email: email,
         password: password,
-        phone: phone,
-        address: address,
         favoriteTournamentId: favoriteTournamentId,
       );
       state = user;
@@ -98,8 +94,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? organization,
   }) async {
     _isAuthenticating = true;
@@ -108,8 +102,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
         name: name,
         email: email,
         password: password,
-        phone: phone,
-        address: address,
         organization: organization,
       );
       state = user;

@@ -24,10 +24,12 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   late TextEditingController _entryFeeController;
   late TextEditingController _winnerPrizeController;
   late TextEditingController _runnerUpPrizeController;
+  late TextEditingController _securityCodeController;
   MatchFormat _selectedFormat = MatchFormat.t20;
   bool _nrrTiebreaker = true;
   int _numTeams = 4;
   List<String> _existingTeamIds = [];
+  String? _existingSecurityCode;
 
   @override
   void initState() {
@@ -38,6 +40,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _entryFeeController = TextEditingController();
     _winnerPrizeController = TextEditingController();
     _runnerUpPrizeController = TextEditingController();
+    _securityCodeController = TextEditingController();
 
     if (widget.tournamentId != null) {
       _loadExisting();
@@ -58,6 +61,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         _nrrTiebreaker = tournament.pointsRules.nrrAsTiebreaker;
         _numTeams = tournament.numTeams;
         _existingTeamIds = tournament.teamIds;
+        _existingSecurityCode = tournament.securityCode;
       });
     }
   }
@@ -70,6 +74,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _entryFeeController.dispose();
     _winnerPrizeController.dispose();
     _runnerUpPrizeController.dispose();
+    _securityCodeController.dispose();
     super.dispose();
   }
 
@@ -78,6 +83,25 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
 
     final repo = ref.read(scorerRepositoryProvider);
     final id = widget.tournamentId ?? 't_${DateTime.now().millisecondsSinceEpoch}';
+
+    final enteredCode = _securityCodeController.text.trim();
+
+    // Editing: the user must enter the original security code to proceed.
+    if (widget.tournamentId != null) {
+      if (enteredCode.isEmpty || enteredCode != (_existingSecurityCode ?? '')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Incorrect security code. Cannot edit this tournament.')),
+        );
+        return;
+      }
+    }
+
+    if (widget.tournamentId == null && enteredCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set a security code for this tournament.')),
+      );
+      return;
+    }
 
     final tournament = ScorerTournament(
       id: id,
@@ -94,6 +118,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
       entryFee: double.tryParse(_entryFeeController.text),
       winnerPrize: double.tryParse(_winnerPrizeController.text),
       runnerUpPrize: double.tryParse(_runnerUpPrizeController.text),
+      securityCode: enteredCode,
     );
 
     await repo.saveTournament(tournament);
@@ -194,6 +219,26 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                     fillColor: AppColors.darkSurface,
                     border: OutlineInputBorder(),
                   ),
+                ),
+                const Gap(16),
+
+                TextFormField(
+                  controller: _securityCodeController,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Security Code',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    hintText: isEdit
+                        ? 'Enter the security code to edit'
+                        : 'Set a code to protect this tournament',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.pitchGreenLight),
+                    filled: true,
+                    fillColor: AppColors.darkSurface,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (val) => (val == null || val.trim().isEmpty) ? 'Security code required' : null,
                 ),
                 const Gap(24),
 

@@ -36,16 +36,14 @@ class MockAuthService implements AuthService {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? organization,
   }) async {
     _user = AppUser(
       id: 'scorer_123',
       name: name,
       email: email,
-      phone: phone,
-      address: address,
+      phone: '',
+      address: '',
       role: AppUserRole.scorer,
       organization: organization,
       createdAt: DateTime.now(),
@@ -58,16 +56,14 @@ class MockAuthService implements AuthService {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? favoriteTournamentId,
   }) async {
     _user = AppUser(
       id: 'spectator_123',
       name: name,
       email: email,
-      phone: phone,
-      address: address,
+      phone: '',
+      address: '',
       role: AppUserRole.spectator,
       favoriteTournamentId: favoriteTournamentId,
       createdAt: DateTime.now(),
@@ -102,8 +98,6 @@ void main() {
         name: 'Scorer User',
         email: 'scorer@test.com',
         password: 'password',
-        phone: '123456',
-        address: 'Test Addr',
       );
 
       expect(notifier.debugState?.role, equals(AppUserRole.scorer));
@@ -118,8 +112,6 @@ void main() {
         name: 'Scorer User',
         email: 'scorer@test.com',
         password: 'password',
-        phone: '123456',
-        address: 'Test Addr',
       );
 
       final isScorer = notifier.debugState?.isScorer ?? false;
@@ -138,8 +130,6 @@ void main() {
         name: 'Spectator User',
         email: 'spectator@test.com',
         password: 'password',
-        phone: '654321',
-        address: 'Test Addr 2',
       );
 
       expect(notifier.debugState?.role, equals(AppUserRole.spectator));
@@ -159,8 +149,6 @@ void main() {
         name: 'Spectator User',
         email: 'spectator@test.com',
         password: 'password',
-        phone: '654321',
-        address: 'Test Addr 2',
       );
 
       expect(notifier.debugState?.isSpectator, isTrue);

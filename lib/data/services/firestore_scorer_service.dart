@@ -1,47 +1,153 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
+import 'package:sportyapp/data/models/scorer/scorer_player.dart';
+import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
+import 'package:sportyapp/data/models/scorer/scorer_schedule_serializers.dart';
+import 'package:sportyapp/data/models/scorer/scorer_serializers.dart';
+import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/services/realtime_database_service.dart';
 
+/// Cloud mirror of all scorer-created data.
+///
+/// This service is the durable store that lets tournaments, teams, players,
+/// matches and schedules be created, deleted and updated easily, and shared
+/// across the scorer and spectator portions.
 class FirestoreScorerService {
   final FirebaseFirestore _firestore;
   final RealtimeDatabaseService _rtdb;
 
   FirestoreScorerService(this._firestore, this._rtdb);
 
+  CollectionReference get _tournaments => _firestore.collection('tournaments');
+  CollectionReference get _teams => _firestore.collection('teams');
+  CollectionReference get _players => _firestore.collection('players');
   CollectionReference get _matches => _firestore.collection('matches');
+  CollectionReference get _schedules => _firestore.collection('scorer_schedules');
 
-  Future<void> createMatchDoc(ScorerMatch match) async {
-    await _matches.doc(match.id).set({
-      'id': match.id,
-      'tournamentId': match.tournamentId,
-      'team1Id': match.team1Id,
-      'team2Id': match.team2Id,
-      'venue': match.venue,
-      'dateTime': match.dateTime.toIso8601String(),
-      'format': match.format.name,
-      'overs': match.overs,
-      'status': 'upcoming',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+  // ── Hydrate (read everything once) ──────────────────────────────────────
+
+  /// Reads the full scorer data set back out of Firestore.
+  Future<ScorerDataSnapshot> hydrate() async {
+    final tournamentDocs = await _tournaments.get();
+    final teamDocs = await _teams.get();
+    final playerDocs = await _players.get();
+    final matchDocs = await _matches.get();
+    final scheduleDocs = await _schedules.get();
+
+    final tournaments = tournamentDocs.docs
+        .map((d) => scorerTournamentFromJson(d.data() as Map<String, dynamic>))
+        .toList();
+    final teams = teamDocs.docs
+        .map((d) => scorerTeamFromJson(d.data() as Map<String, dynamic>))
+        .toList();
+    final players = playerDocs.docs
+        .map((d) => scorerPlayerFromJson(d.data() as Map<String, dynamic>))
+        .toList();
+    final matches = matchDocs.docs
+        .map((d) => scorerMatchFromJson(d.data() as Map<String, dynamic>))
+        .toList();
+    final schedules = <String, List<ScheduleStage>>{};
+    for (final d in scheduleDocs.docs) {
+      final data = d.data() as Map<String, dynamic>;
+      try {
+        final stages = ((data['stages'] as List? ?? []))
+            .map((e) => scheduleStageFromJson(e as Map<String, dynamic>))
+            .toList();
+        schedules[d.id] = stages;
+      } catch (_) {}
+    }
+    return ScorerDataSnapshot(
+      tournaments: tournaments,
+      teams: teams,
+      players: players,
+      matches: matches,
+      schedules: schedules,
+    );
   }
+
+  /// Writes the entire scorer state to Firestore in one batch.
+  Future<void> syncAll(ScorerDataSnapshot snapshot) async {
+    final batch = _firestore.batch();
+    for (final t in snapshot.tournaments) {
+      batch.set(_tournaments.doc(t.id), scorerTournamentToJson(t));
+    }
+    for (final t in snapshot.teams) {
+      batch.set(_teams.doc(t.id), scorerTeamToJson(t));
+    }
+    for (final p in snapshot.players) {
+      batch.set(_players.doc(p.id), scorerPlayerToJson(p));
+    }
+    for (final m in snapshot.matches) {
+      batch.set(_matches.doc(m.id), scorerMatchToJson(m));
+    }
+    for (final e in snapshot.schedules.entries) {
+      batch.set(_schedules.doc(e.key), {
+        'stages': e.value.map(scheduleStageToJson).toList(),
+      });
+    }
+    await batch.commit();
+  }
+
+  // ── Point deletes (cascade-friendly) ───────────────────────────────────
+
+  Future<void> deleteTournament(String tournamentId) async {
+    final batch = _firestore.batch();
+    final teamDocs = await _teams.where('tournamentId', isEqualTo: tournamentId).get();
+    for (final team in teamDocs.docs) {
+      final playerDocs = await _players.where('teamId', isEqualTo: team.id).get();
+      for (final p in playerDocs.docs) {
+        batch.delete(_players.doc(p.id));
+      }
+      batch.delete(_teams.doc(team.id));
+    }
+    final matchDocs = await _matches.where('tournamentId', isEqualTo: tournamentId).get();
+    for (final m in matchDocs.docs) {
+      batch.delete(_matches.doc(m.id));
+    }
+    batch.delete(_tournaments.doc(tournamentId));
+    batch.delete(_schedules.doc(tournamentId));
+    await batch.commit();
+  }
+
+  Future<void> deleteTeam(String teamId) async {
+    final batch = _firestore.batch();
+    final playerDocs = await _players.where('teamId', isEqualTo: teamId).get();
+    for (final p in playerDocs.docs) {
+      batch.delete(_players.doc(p.id));
+    }
+    batch.delete(_teams.doc(teamId));
+    await batch.commit();
+  }
+
+  Future<void> deletePlayer(String playerId) async {
+    await _players.doc(playerId).delete();
+  }
+
+  Future<void> deleteMatch(String matchId) async {
+    await _matches.doc(matchId).delete();
+  }
+
+  /// Deletes every scorer document from all collections. Used by the
+  /// "Clear all data" developer utility.
+  Future<void> clearAll() async {
+    final batch = _firestore.batch();
+    for (final ref in [
+      _tournaments, _teams, _players, _matches, _schedules,
+    ]) {
+      final snap = await ref.get();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+    }
+    await batch.commit();
+  }
+
+  // ── Live scoring helpers (Realtime Database broadcast) ─────────────────
 
   Future<void> startMatch(ScorerMatch match) async {
     final inn1Batting = match.innings1?.battingTeamId;
     final inn1Bowling = match.innings1?.bowlingTeamId;
-
-    await _matches.doc(match.id).update({
-      'status': 'live',
-      'tossWinnerId': match.tossWinnerId,
-      'tossDecision': match.tossDecision?.name,
-      'playingXI1': match.playingXI1,
-      'playingXI2': match.playingXI2,
-      'openingStrikerId': match.openingStrikerId,
-      'openingNonStrikerId': match.openingNonStrikerId,
-      'openingBowlerId': match.openingBowlerId,
-    });
-
     await _rtdb.createLiveMatch(match.id, {
       'status': 'live',
       'currentInnings': 1,
@@ -50,25 +156,6 @@ class FirestoreScorerService {
       'score': {'runs': 0, 'wickets': 0, 'overs': 0, 'balls': 0},
       'target': null,
       'requiredRunRate': null,
-      'striker': {
-        'playerId': match.openingStrikerId ?? '',
-        'name': '',
-        'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0,
-      },
-      'nonStriker': {
-        'playerId': match.openingNonStrikerId ?? '',
-        'name': '',
-        'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0,
-      },
-      'currentBowler': {
-        'playerId': match.openingBowlerId ?? '',
-        'name': '',
-        'legalBalls': 0, 'maidens': 0, 'runs': 0,
-        'wickets': 0, 'wides': 0, 'noBalls': 0,
-      },
-      'thisOverBalls': [],
-      'ballHistory': [],
-      'lastUpdated': ServerValue.timestamp,
     });
   }
 
@@ -76,83 +163,41 @@ class FirestoreScorerService {
     await _rtdb.updateLiveMatch(matchId, updates);
   }
 
-  Future<void> endMatch({
-    required String matchId,
-    required String winnerTeamId,
-    required String resultSummary,
-    required String? manOfTheMatch,
-    required Map<String, dynamic> scorecards,
-  }) async {
-    await _matches.doc(matchId).update({
-      'status': 'completed',
-      'result': {
-        'winnerTeamId': winnerTeamId,
-        'summary': resultSummary,
-        'manOfTheMatch': manOfTheMatch,
-      },
-      'scorecards': scorecards,
-    });
+  Future<void> endMatch(String matchId) async {
     await _rtdb.deleteLiveMatch(matchId);
   }
 
-  Future<List<ScorerMatch>> getScorerMatches() async {
-    final snap = await _matches.get();
-    return snap.docs
-        .map((doc) => _scorerMatchFromDoc(doc))
-        .toList();
+  // ── Per-document helpers ────────────────────────────────────────────────
+
+  Future<void> saveMatchDoc(ScorerMatch match) async {
+    await _matches.doc(match.id).set(scorerMatchToJson(match));
   }
 
-  Future<ScorerMatch?> getScorerMatch(String id) async {
-    final doc = await _matches.doc(id).get();
-    if (!doc.exists) return null;
-    return _scorerMatchFromDoc(doc);
+  Future<void> endMatchDoc(
+    String matchId,
+    Map<String, dynamic> result,
+  ) async {
+    await _matches.doc(matchId).update({'result': result});
   }
 
-  ScorerMatch _scorerMatchFromDoc(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    final result = data['result'] as Map<String, dynamic>?;
-    return ScorerMatch(
-      id: doc.id,
-      tournamentId: data['tournamentId'] as String? ?? '',
-      team1Id: data['team1Id'] as String? ?? '',
-      team2Id: data['team2Id'] as String? ?? '',
-      venue: data['venue'] as String? ?? '',
-      dateTime: data['dateTime'] != null
-          ? DateTime.parse(data['dateTime'] as String)
-          : DateTime.now(),
-      format: MatchFormat.values.firstWhere(
-        (f) => f.name == data['format'],
-        orElse: () => MatchFormat.t20,
-      ),
-      overs: data['overs'] as int? ?? 20,
-      status: _statusFromString(data['status'] as String? ?? 'scheduled'),
-      tossWinnerId: data['tossWinnerId'] as String?,
-      tossDecision: data['tossDecision'] != null
-          ? TossDecision.values.firstWhere((d) => d.name == data['tossDecision'])
-          : null,
-      playingXI1: (data['playingXI1'] as List<dynamic>?)?.cast<String>() ?? [],
-      playingXI2: (data['playingXI2'] as List<dynamic>?)?.cast<String>() ?? [],
-      openingStrikerId: data['openingStrikerId'] as String?,
-      openingNonStrikerId: data['openingNonStrikerId'] as String?,
-      openingBowlerId: data['openingBowlerId'] as String?,
-      innings1: null,
-      innings2: null,
-      currentInnings: 1,
-      winnerTeamId: result?['winnerTeamId'] as String?,
-      resultSummary: result?['summary'] as String?,
-    );
-  }
+}
 
-  MatchStatus _statusFromString(String s) {
-    switch (s) {
-      case 'live':
-        return MatchStatus.live;
-      case 'completed':
-        return MatchStatus.completed;
-      case 'upcoming':
-        return MatchStatus.scheduled;
-      default:
-        return MatchStatus.scheduled;
-    }
-  }
+/// Immutable snapshot of the full scorer data pulled from Firestore.
+class ScorerDataSnapshot {
+  final List<ScorerTournament> tournaments;
+  final List<ScorerTeam> teams;
+  final List<ScorerPlayer> players;
+  final List<ScorerMatch> matches;
+  final Map<String, List<ScheduleStage>> schedules;
+
+  const ScorerDataSnapshot({
+    this.tournaments = const [],
+    this.teams = const [],
+    this.players = const [],
+    this.matches = const [],
+    this.schedules = const {},
+  });
+
+  bool get isEmpty =>
+      tournaments.isEmpty && teams.isEmpty && players.isEmpty && matches.isEmpty;
 }

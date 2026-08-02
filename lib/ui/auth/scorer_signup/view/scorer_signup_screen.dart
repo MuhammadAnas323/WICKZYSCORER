@@ -60,12 +60,27 @@ class _ScorerSignupScreenState extends ConsumerState<ScorerSignupScreen> {
                           name: _formKey.currentState!.nameController.text,
                           email: _formKey.currentState!.emailController.text,
                           password: _formKey.currentState!.passwordController.text,
-                          phone: _formKey.currentState!.phoneController.text,
-                          address: _formKey.currentState!.addressController.text,
                           organization: _formKey.currentState!.orgController.text,
                         );
                   }
                 },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Already have an account? ',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  GestureDetector(
+                    onTap: () => context.go('/signin'),
+                    child: const Text('Sign In',
+                        style: TextStyle(
+                          color: AppColors.pitchGreenLight,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        )),
+                  ),
+                ],
               ),
             ],
           ),

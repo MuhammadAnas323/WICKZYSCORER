@@ -72,6 +72,54 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
     }
   }
 
+  Future<void> _deleteTournament() async {
+    final codeController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.darkSurface,
+        title: const Text('Delete Tournament', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: codeController,
+          obscureText: true,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'Enter security code to delete',
+            labelStyle: TextStyle(color: Colors.white70),
+            filled: true,
+            fillColor: Color(0xFF2A2A2A),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final entered = codeController.text.trim();
+    final t = _tournament;
+    if (entered.isEmpty || t?.securityCode == null || entered != t!.securityCode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect security code. Tournament not deleted.')),
+      );
+      return;
+    }
+
+    await ref.read(scorerRepositoryProvider).deleteTournament(widget.tournamentId);
+    ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
+    if (mounted) context.go('/scorer/tournaments');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -107,7 +155,12 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
               _loadData();
             },
           ),
-          const Gap(8),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: 'Delete Tournament',
+            onPressed: _deleteTournament,
+          ),
+          const Gap(4),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -214,25 +267,53 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                   ],
                 ),
               ),
+              const Gap(16),
+
+              // Match Schedule Card
+              GestureDetector(
+                onTap: () async {
+                  await context.push('/scorer/tournaments/${t.id}/schedule');
+                  _loadData();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.pitchGreen.withOpacity(0.18), AppColors.darkSurface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_outlined, color: AppColors.pitchGreenLight, size: 26),
+                      const Gap(12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('Match Schedule',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                            Gap(2),
+                            Text('Stages, fixtures & auto-advancement',
+                                style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: Colors.white38),
+                    ],
+                  ),
+                ),
+              ),
               const Gap(24),
 
-              // Teams Header & Fix Match Button
+              // Teams Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Participating Teams (${_teams.length})', style: AppTextStyles.titleLarge(Colors.white)),
-                  if (_teams.length >= 2)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.liveRed,
-                        foregroundColor: Colors.white,
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () => context.push('/scorer/match-setup'),
-                      icon: const Icon(Icons.sports_score_rounded, size: 16),
-                      label: const Text('Fix Match', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
                 ],
               ),
               const Gap(12),
@@ -283,7 +364,12 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                   separatorBuilder: (_, __) => const Gap(10),
                   itemBuilder: (ctx, i) {
                     final team = _teams[i];
-                    return Container(
+                    return GestureDetector(
+                      onTap: () async {
+                        await context.push('/scorer/teams/${team.id}/players');
+                        _loadData();
+                      },
+                      child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: AppColors.darkSurface,
@@ -344,7 +430,7 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
-                            tooltip: 'Manage Squad',
+                            tooltip: 'Team Details',
                             onPressed: () async {
                               await context.push('/scorer/teams/${team.id}/edit');
                               _loadData();
@@ -357,6 +443,7 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                           ),
                         ],
                       ),
+                    ),
                     );
                   },
                 ),

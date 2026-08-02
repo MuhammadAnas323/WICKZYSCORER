@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
+import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
@@ -23,10 +25,7 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     final match = state.matches.where((m) => m.id == matchId).firstOrNull;
 
     if (state.isLoading) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const MatchListSkeleton(),
-      );
+      return Scaffold(appBar: AppBar(), body: const MatchListSkeleton());
     }
 
     if (match == null) {
@@ -55,100 +54,31 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Scoreboard hero
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: AppColors.heroCardGradient,
-                borderRadius: BorderRadius.circular(AppConstants.radiusLG),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLive) ...[
-                        const LiveBadge(),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        _formatLabel(match),
-                        style: AppTextStyles.labelMedium(Colors.white70),
-                      ),
-                    ],
-                  ),
-                  const Gap(20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _heroTeam(
-                          short: state.teamShort(match.team1Id),
-                          name: state.teamName(match.team1Id),
-                          score: _scoreLine(match.innings1),
-                          isBatting:
-                              isLive && match.battingTeamId == match.team1Id,
-                          isRight: false,
-                        ),
-                      ),
-                      Text('vs',
-                          style: AppTextStyles.bodyMedium(Colors.white54)),
-                      Expanded(
-                        child: _heroTeam(
-                          short: state.teamShort(match.team2Id),
-                          name: state.teamName(match.team2Id),
-                          score: _scoreLine(match.innings2),
-                          isBatting:
-                              isLive && match.battingTeamId == match.team2Id,
-                          isRight: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on,
-                            color: Colors.white70, size: 14),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            match.venue,
-                            style: AppTextStyles.bodySmall(Colors.white70),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _heroCard(state, match, isLive),
             const Gap(16),
-
-            // Match info
             _infoCard(context, match, state, tournament?.name),
             const Gap(16),
 
-            // Innings breakdown
             if (match.innings1 != null || match.innings2 != null) ...[
-              Text('Scorecard', style: AppTextStyles.titleLarge(cs.onSurface)),
+              Text('Full Scorecard', style: AppTextStyles.titleLarge(cs.onSurface)),
               const Gap(8),
-              if (match.innings1 != null)
-                _inningsCard(context, state, match.innings1!, '1st Innings'),
-              if (match.innings2 != null)
-                _inningsCard(context, state, match.innings2!, '2nd Innings'),
-              const Gap(16),
+              if (match.innings1 != null) ...[
+                _inningsSection(context, state, match.innings1!, '1st Innings'),
+                const Gap(16),
+              ],
+              if (match.innings2 != null) ...[
+                _inningsSection(context, state, match.innings2!, '2nd Innings'),
+                const Gap(16),
+              ],
             ],
 
-            // Result
+            Text('Squads', style: AppTextStyles.titleLarge(cs.onSurface)),
+            const Gap(8),
+            _squadCard(context, state, match, match.team1Id),
+            const Gap(12),
+            _squadCard(context, state, match, match.team2Id),
+            const Gap(16),
+
             if (match.status == MatchStatus.completed &&
                 match.resultSummary != null)
               Container(
@@ -156,8 +86,7 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.success.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-                  border: Border.all(
-                      color: AppColors.success.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -181,6 +110,134 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     );
   }
 
+  // ── Hero scoreboard ────────────────────────────────────────────────────
+
+  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppColors.heroCardGradient,
+        borderRadius: BorderRadius.circular(AppConstants.radiusLG),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLive) ...[
+                const LiveBadge(),
+                const SizedBox(width: 8),
+              ],
+              Text(_formatLabel(match), style: AppTextStyles.labelMedium(Colors.white70)),
+            ],
+          ),
+          const Gap(20),
+          Row(
+            children: [
+              Expanded(
+                child: _heroTeam(
+                  short: st.teamShort(match.team1Id),
+                  name: st.teamName(match.team1Id),
+                  score: _scoreLine(match.innings1),
+                  sub: isLive && match.battingTeamId == match.team1Id
+                      ? 'RR ${_runRateLabel(match.innings1)}'
+                      : null,
+                  isBatting: isLive && match.battingTeamId == match.team1Id,
+                  isRight: false,
+                ),
+              ),
+              Text('vs', style: AppTextStyles.bodyMedium(Colors.white54)),
+              Expanded(
+                child: _heroTeam(
+                  short: st.teamShort(match.team2Id),
+                  name: st.teamName(match.team2Id),
+                  score: _scoreLine(match.innings2),
+                  sub: isLive && match.battingTeamId == match.team2Id
+                      ? 'RR ${_runRateLabel(match.innings2)}'
+                      : null,
+                  isBatting: isLive && match.battingTeamId == match.team2Id,
+                  isRight: true,
+                ),
+              ),
+            ],
+          ),
+          const Gap(16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.location_on, color: Colors.white70, size: 14),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    match.venue,
+                    style: AppTextStyles.bodySmall(Colors.white70),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroTeam({
+    required String short,
+    required String name,
+    required String score,
+    String? sub,
+    required bool isBatting,
+    required bool isRight,
+  }) {
+    return Column(
+      crossAxisAlignment: isRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isRight) ...[_badge(short), const SizedBox(width: 10)],
+            Flexible(
+              child: Text(
+                isBatting ? '$name ▸' : name,
+                style: AppTextStyles.titleMedium(Colors.white),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isRight) ...[const SizedBox(width: 10), _badge(short)],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          score,
+          style: AppTextStyles.scoreMedium(isBatting ? AppColors.floodlightGold : Colors.white),
+        ),
+        if (sub != null)
+          Text(sub, style: AppTextStyles.labelSmall(Colors.white54)),
+      ],
+    );
+  }
+
+  Widget _badge(String short) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+      alignment: Alignment.center,
+      child: Text(
+        short.length > 3 ? short.substring(0, 3).toUpperCase() : short.toUpperCase(),
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+
   String _formatLabel(ScorerMatch match) {
     switch (match.format) {
       case MatchFormat.t20:
@@ -199,85 +256,14 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     return '${inn.totalRuns}/${inn.wickets} (${inn.overs.toStringAsFixed(1)} ov)';
   }
 
-  Widget _heroTeam({
-    required String short,
-    required String name,
-    required String score,
-    required bool isBatting,
-    required bool isRight,
-  }) {
-    return Column(
-      crossAxisAlignment:
-          isRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment:
-              isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!isRight) ...[
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white24,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  short.length > 3
-                      ? short.substring(0, 3).toUpperCase()
-                      : short.toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            Flexible(
-              child: Text(
-                isBatting ? '$name ▸' : name,
-                style: AppTextStyles.titleMedium(Colors.white),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (isRight) ...[
-              const SizedBox(width: 10),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white24,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  short.length > 3
-                      ? short.substring(0, 3).toUpperCase()
-                      : short.toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          score,
-          style: AppTextStyles.scoreMedium(
-              isBatting ? AppColors.floodlightGold : Colors.white),
-        ),
-      ],
-    );
+  String _runRateLabel(Innings? inn) {
+    if (inn == null || inn.legalBallsDelivered == 0) return '—';
+    return (inn.totalRuns * 6 / inn.legalBallsDelivered).toStringAsFixed(2);
   }
 
-  Widget _infoCard(BuildContext context, ScorerMatch match,
-      SpectatorHomeState state, String? tournamentName) {
+  // ── Info card ──────────────────────────────────────────────────────────
+
+  Widget _infoCard(BuildContext context, ScorerMatch match, SpectatorHomeState st, String? tournamentName) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -287,37 +273,185 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _infoRow(cs, Icons.emoji_events_rounded,
-              'Tournament', tournamentName ?? 'Custom Match'),
+          _infoRow(cs, Icons.emoji_events_rounded, 'Tournament', tournamentName ?? 'Custom Match'),
           _infoRow(cs, Icons.calendar_today_rounded, 'Scheduled',
               '${match.dateTime.day}/${match.dateTime.month}/${match.dateTime.year}'),
-          _infoRow(cs, Icons.access_time_rounded, 'Status',
-              match.status.name.toUpperCase()),
+          _infoRow(cs, Icons.access_time_rounded, 'Status', match.status.name.toUpperCase()),
           if (match.tossWinnerId != null)
-            _infoRow(cs, Icons.adjust_rounded, 'Toss',
-                '${state.teamName(match.tossWinnerId!)} won the toss'),
+            _infoRow(cs, Icons.adjust_rounded, 'Toss', '${st.teamName(match.tossWinnerId!)} won the toss'),
         ],
       ),
     );
   }
 
-  Widget _infoRow(
-      ColorScheme cs, IconData icon, String label, String value) {
+  Widget _infoRow(ColorScheme cs, IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Icon(icon, color: AppColors.pitchGreenLight, size: 18),
           const Gap(10),
-          Text(label,
-              style: AppTextStyles.labelMedium(cs.onSurfaceVariant)),
+          Text(label, style: AppTextStyles.labelMedium(cs.onSurfaceVariant)),
           const Spacer(),
           Flexible(
+            child: Text(value,
+                style: AppTextStyles.bodyMedium(cs.onSurface).copyWith(fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Full scorecard ─────────────────────────────────────────────────────
+
+  Widget _inningsSection(BuildContext context, SpectatorHomeState st, Innings inn, String title) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: cs.outline.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Row(
+              children: [
+                Text(title, style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
+                const Spacer(),
+                Text('${st.teamShort(inn.battingTeamId)} ${inn.totalRuns}/${inn.wickets}',
+                    style: AppTextStyles.titleMedium(cs.onSurface).copyWith(fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Text('Overs ${inn.overs.toStringAsFixed(1)} • Run rate ${_runRateLabel(inn)}',
+                style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
+          ),
+          const Gap(8),
+          _battingCard(st, inn),
+          const Divider(color: Colors.white12, height: 12),
+          _bowlingCard(st, inn),
+          const Divider(color: Colors.white12, height: 12),
+          _commentaryCard(st, inn),
+        ],
+      ),
+    );
+  }
+
+  Widget _battingCard(SpectatorHomeState st, Innings inn) {
+    final acc = <String, _BatAccum>{};
+    for (final ball in inn.balls) {
+      if (ball.batsmanId.isEmpty) continue;
+      final a = acc.putIfAbsent(ball.batsmanId, () => _BatAccum());
+      if (ball.isLegalBall) {
+        a.balls++;
+        a.runs += ball.runs;
+        if (ball.isBoundary && ball.runs == 4) a.fours++;
+        if (ball.isSix) a.sixes++;
+      }
+    }
+    final entries = acc.entries.toList()
+      ..sort((x, y) => y.value.runs.compareTo(x.value.runs));
+    final rows = entries.map((e) {
+      final a = e.value;
+      return <String>[
+        st.playerName(e.key),
+        '${a.runs}',
+        '${a.balls}',
+        '${a.fours}',
+        '${a.sixes}',
+        a.balls > 0 ? (a.runs * 100 / a.balls).toStringAsFixed(2) : '—',
+      ];
+    }).toList();
+    return _tableCard(
+      title: 'Batting',
+      headers: const ['Batter', 'R', 'B', '4s', '6s', 'SR'],
+      widths: [3, 1, 1, 1, 1, 1.2],
+      rows: rows,
+    );
+  }
+
+  Widget _bowlingCard(SpectatorHomeState st, Innings inn) {
+    final acc = <String, _BowlAccum>{};
+    for (final ball in inn.balls) {
+      final b = acc.putIfAbsent(ball.bowlerId, () => _BowlAccum());
+      b.runs += ball.totalRuns;
+      if (ball.isWicket) b.wickets++;
+      if (ball.isLegalBall) b.legalBalls++;
+    }
+    final rows = acc.entries.map((e) {
+      final a = e.value;
+      final balls = a.legalBalls;
+      final overs = balls ~/ 6 + (balls % 6) / 10;
+      final economy = balls > 0 ? (a.runs * 6) / balls : 0.0;
+      return <String>[
+        st.playerName(e.key),
+        overs.toStringAsFixed(1),
+        '${a.maidens}',
+        '${a.runs}',
+        '${a.wickets}',
+        economy.toStringAsFixed(2),
+      ];
+    }).toList();
+    return _tableCard(
+      title: 'Bowling',
+      headers: const ['Bowler', 'O', 'M', 'R', 'W', 'Econ'],
+      widths: [1, 1, 1, 1, 1, 1.2],
+      rows: rows,
+    );
+  }
+
+  Widget _commentaryCard(SpectatorHomeState st, Innings inn) {
+    final balls = inn.balls.reversed.toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Over by Over',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          const Gap(8),
+          if (balls.isEmpty)
+            const Text('No deliveries yet.', style: TextStyle(color: Colors.white38, fontSize: 12))
+          else
+            ...balls.map((b) => _commentaryRow(st, b)),
+        ],
+      ),
+    );
+  }
+
+  Widget _commentaryRow(SpectatorHomeState st, BallEvent b) {
+    final color = b.isWicket
+        ? Colors.redAccent
+        : b.isSix
+            ? Colors.amber
+            : b.isBoundary
+                ? Colors.green
+                : AppColors.charcoal200;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text('${b.overNumber}.${b.ballInOver}',
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              value,
-              style: AppTextStyles.bodyMedium(cs.onSurface)
-                  .copyWith(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
+              '${st.playerName(b.batsmanId)} — ${_ballText(b)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ),
         ],
@@ -325,40 +459,137 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _inningsCard(BuildContext context, SpectatorHomeState state,
-      Innings inn, String title) {
-    final cs = Theme.of(context).colorScheme;
+  String _ballText(BallEvent b) {
+    if (b.isWicket) return 'Wicket!';
+    if (b.extrasType == ExtrasType.wide) return '${b.extrasRuns} wide';
+    if (b.extrasType == ExtrasType.noBall) return '${b.extrasRuns} no ball';
+    if (b.extrasType == ExtrasType.bye) return '${b.extrasRuns} bye';
+    if (b.extrasType == ExtrasType.legBye) return '${b.extrasRuns} leg bye';
+    if (b.isSix) return 'SIX!';
+    if (b.isBoundary) return 'FOUR';
+    return '${b.runs} run${b.runs == 1 ? '' : 's'}';
+  }
+
+  Widget _tableCard({
+    required String title,
+    required List<String> headers,
+    required List<double> widths,
+    required List<List<String>> rows,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title.toUpperCase(),
+              style: const TextStyle(
+                  color: AppColors.pitchGreenLight, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          Row(children: [
+            for (var i = 0; i < headers.length; i++)
+              Expanded(
+                flex: widths[i].round(),
+                child: Text(headers[i],
+                    style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
+          ]),
+          const Divider(color: Colors.white12, height: 8),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                for (var i = 0; i < row.length; i++)
+                  Expanded(
+                    flex: widths[i].round(),
+                    child: Text(row[i],
+                        style: TextStyle(
+                          color: i == 0 ? Colors.white : Colors.white70,
+                          fontSize: 11,
+                          fontWeight: i == 0 ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Squads ─────────────────────────────────────────────────────────────
+
+  Widget _squadCard(BuildContext context, SpectatorHomeState st, ScorerMatch match, String teamId) {
+    final cs = Theme.of(context).colorScheme;
+    final xi = teamId == match.team1Id ? match.playingXI1 : match.playingXI2;
+    final teamPlayers = st.playersForTeam(teamId);
+
+    return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: cs.outline.withOpacity(0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(title,
-                  style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
-              const Spacer(),
-              Text(
-                '${state.teamShort(inn.battingTeamId)} '
-                '${inn.totalRuns}/${inn.wickets}',
-                style: AppTextStyles.titleMedium(cs.onSurface)
-                    .copyWith(fontWeight: FontWeight.w700),
-              ),
+              const Icon(Icons.groups_rounded, color: AppColors.pitchGreenLight, size: 18),
+              const Gap(8),
+              Text('${st.teamName(teamId)} — Playing XI',
+                  style: AppTextStyles.titleSmall(cs.onSurface).copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
-          const Gap(6),
-          Text(
-            'Overs: ${inn.overs.toStringAsFixed(1)} • '
-            'Balls: ${inn.legalBallsDelivered}',
-            style: AppTextStyles.bodySmall(cs.onSurfaceVariant),
-          ),
+          const Gap(10),
+          for (final id in xi) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8, height: 8,
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.pitchGreenLight),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(st.playerName(id), style: const TextStyle(color: Colors.white70, fontSize: 13))),
+                  Text(_roleLabel(teamPlayers.where((p) => p.id == id).firstOrNull),
+                      style: const TextStyle(color: Colors.grey, fontSize: 9)),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  String _roleLabel(ScorerPlayer? p) {
+    if (p == null) return '';
+    switch (p.role) {
+      case PlayerRole.batsman:
+        return 'BAT';
+      case PlayerRole.bowler:
+        return 'BOWL';
+      case PlayerRole.allRounder:
+        return 'AR';
+      case PlayerRole.wicketKeeper:
+        return 'WK';
+    }
+  }
+}
+
+// Small accumulation helpers.
+class _BatAccum {
+  int runs = 0;
+  int balls = 0;
+  int fours = 0;
+  int sixes = 0;
+}
+
+class _BowlAccum {
+  int legalBalls = 0;
+  int runs = 0;
+  int wickets = 0;
+  int maidens = 0;
 }

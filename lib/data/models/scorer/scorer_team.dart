@@ -19,7 +19,10 @@ class ScorerTeam {
     this.isEntryFeePaid = false,
     this.ownerName,
     this.whatsappNumber,
+    this.isEliminated = false,
   });
+
+  final bool isEliminated;
 
   String get shortName => shortCode;
   List<String> get playersIds => playerIds;
@@ -34,6 +37,7 @@ class ScorerTeam {
     bool? isEntryFeePaid,
     String? ownerName,
     String? whatsappNumber,
+    bool? isEliminated,
   }) {
     return ScorerTeam(
       id: id ?? this.id,
@@ -45,6 +49,7 @@ class ScorerTeam {
       isEntryFeePaid: isEntryFeePaid ?? this.isEntryFeePaid,
       ownerName: ownerName ?? this.ownerName,
       whatsappNumber: whatsappNumber ?? this.whatsappNumber,
+      isEliminated: isEliminated ?? this.isEliminated,
     );
   }
 }

@@ -181,6 +181,7 @@ Map<String, dynamic> scorerTournamentToJson(ScorerTournament t) => {
       'entryFee': t.entryFee,
       'winnerPrize': t.winnerPrize,
       'runnerUpPrize': t.runnerUpPrize,
+      'securityCode': t.securityCode,
     };
 
 ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
@@ -207,6 +208,7 @@ ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
     entryFee: (json['entryFee'] as num?)?.toDouble(),
     winnerPrize: (json['winnerPrize'] as num?)?.toDouble(),
     runnerUpPrize: (json['runnerUpPrize'] as num?)?.toDouble(),
+    securityCode: json['securityCode'],
   );
 }
 
@@ -222,6 +224,7 @@ Map<String, dynamic> scorerTeamToJson(ScorerTeam t) => {
       'isEntryFeePaid': t.isEntryFeePaid,
       'ownerName': t.ownerName,
       'whatsappNumber': t.whatsappNumber,
+      'isEliminated': t.isEliminated,
     };
 
 ScorerTeam scorerTeamFromJson(Map<String, dynamic> json) => ScorerTeam(
@@ -234,6 +237,7 @@ ScorerTeam scorerTeamFromJson(Map<String, dynamic> json) => ScorerTeam(
       isEntryFeePaid: json['isEntryFeePaid'] ?? false,
       ownerName: json['ownerName'],
       whatsappNumber: json['whatsappNumber'],
+      isEliminated: json['isEliminated'] ?? false,
     );
 
 // ─── ScorerPlayer ──────────────────────────────────────────────────────────

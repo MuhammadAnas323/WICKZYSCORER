@@ -16,8 +16,6 @@ class SpectatorSignupScreen extends ConsumerStatefulWidget {
 
 class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
   final _formKey = GlobalKey<CommonSignupFormState>();
-  String? _selectedTournament;
-  final _tournaments = ['KPL 2024', 'National T20', 'PSL 2024'];
 
   @override
   Widget build(BuildContext context) {
@@ -52,22 +50,6 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
               Text('Follow your favorite tournaments', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
               const SizedBox(height: 32),
               CommonSignupForm(key: _formKey, isScorer: false),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedTournament,
-                dropdownColor: AppColors.darkSurface,
-                style: AppTextStyles.bodyMedium(Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Favorite Tournament (Optional)',
-                  labelStyle: AppTextStyles.bodyMedium(AppColors.charcoal200),
-                  filled: true,
-                  fillColor: AppColors.darkSurfaceVariant,
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.charcoal600)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.pitchGreen)),
-                ),
-                items: _tournaments.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                onChanged: (val) => setState(() => _selectedTournament = val),
-              ),
               const SizedBox(height: 40),
               AppPrimaryButton(
                 label: 'Create Account',
@@ -78,12 +60,26 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
                           name: _formKey.currentState!.nameController.text,
                           email: _formKey.currentState!.emailController.text,
                           password: _formKey.currentState!.passwordController.text,
-                          phone: _formKey.currentState!.phoneController.text,
-                          address: _formKey.currentState!.addressController.text,
-                          favoriteTournamentId: _selectedTournament,
                         );
                   }
                 },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Already have an account? ',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  GestureDetector(
+                    onTap: () => context.go('/signin'),
+                    child: const Text('Sign In',
+                        style: TextStyle(
+                          color: AppColors.pitchGreenLight,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        )),
+                  ),
+                ],
               ),
             ],
           ),

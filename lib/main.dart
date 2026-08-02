@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/routes/app_router.dart';
+import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/theme/app_theme.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 
@@ -41,6 +42,19 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // One-time cleanup: remove any leftover "Gulistan" tournament so the user
+  // can't see it in either the scorer or spectator portion. Uses a throwaway
+  // container so it can run before the app's own provider scope starts.
+  final cleanupContainer = ProviderContainer();
+  try {
+    await cleanupContainer
+        .read(scorerRepositoryProvider)
+        .purgeTournamentsByName('gulistan');
+  } catch (_) {
+    // Best-effort cleanup; never block startup on it.
+  }
+  cleanupContainer.dispose();
 
   runApp(
     const ProviderScope(

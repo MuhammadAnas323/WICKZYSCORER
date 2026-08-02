@@ -25,8 +25,6 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? favoriteTournamentId,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -35,8 +33,6 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
         name: name,
         email: email,
         password: password,
-        phone: phone,
-        address: address,
         favoriteTournamentId: favoriteTournamentId,
       );
       state = state.copyWith(isLoading: false, success: true);

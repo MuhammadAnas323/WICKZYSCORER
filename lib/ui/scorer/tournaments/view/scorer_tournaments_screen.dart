@@ -86,34 +86,39 @@ class ScorerTournamentsScreen extends ConsumerWidget {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 120),
-            child: Column(
-              children: [
-                const Icon(Icons.emoji_events_outlined, size: 72, color: AppColors.charcoal400),
-                const Gap(16),
-                const Text(
-                  'No tournaments yet',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.emoji_events_outlined, size: 72, color: AppColors.charcoal400),
+                    const Gap(16),
+                    const Text(
+                      'No tournaments yet',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Gap(6),
+                    const Text(
+                      'Create your first tournament and start scoring.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const Gap(24),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.pitchGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Create Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => context.push('/scorer/tournaments/create'),
+                    ),
+                  ],
                 ),
-                const Gap(6),
-                const Text(
-                  'Create your first tournament and start scoring.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                const Gap(24),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.pitchGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Create Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: () => context.push('/scorer/tournaments/create'),
-                ),
-              ],
+              ),
             ),
           ),
         );

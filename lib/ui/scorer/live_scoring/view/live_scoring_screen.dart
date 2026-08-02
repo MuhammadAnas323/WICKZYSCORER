@@ -158,6 +158,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               : '${(target - 1) - inn2Runs} runs';
           liveRepo.endMatch(winnerTeamId: winnerId, summary: '$winnerId won by $margin');
           liveRepo.setActiveMatch(null);
+          // Auto-advance the tournament schedule (if one exists for this match).
+          final loserId = winnerId == match.team2Id ? match.team1Id : match.team2Id;
+          ref.read(scorerRepositoryProvider).applyScheduleResult(
+            tournamentId: match.tournamentId,
+            winnerTeamId: winnerId,
+            loserTeamId: loserId,
+            matchTeam1Id: match.team1Id,
+            matchTeam2Id: match.team2Id,
+          );
           context.go('/scorer/dashboard');
         },
       ),

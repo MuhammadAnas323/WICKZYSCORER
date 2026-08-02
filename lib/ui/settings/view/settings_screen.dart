@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -127,7 +128,50 @@ class SettingsScreen extends ConsumerWidget {
               if (confirmed == true) {
                 debugPrint('[DEBUG] Settings screen direct FirebaseAuth.signOut() CALLED. Stack: ${StackTrace.current}');
                 await FirebaseAuth.instance.signOut();
-                if (context.mounted) context.go('/signup');
+                if (context.mounted) context.go('/signin');
+              }
+            },
+          ),
+          const Divider(),
+          const _SectionHeader('Developer'),
+          ListTile(
+            leading: const Icon(Icons.delete_sweep_rounded, color: Colors.deepOrange),
+            title: const Text('Clear All Scorer Data', style: TextStyle(color: Colors.deepOrange)),
+            subtitle: const Text('Deletes every tournament, team, player, match and schedule from this device and Firestore.'),
+            onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Clear All Data?'),
+                  content: const Text(
+                    'This permanently removes ALL tournaments, teams, players, '
+                    'matches and schedules from Firestore and this device. '
+                    'This cannot be undone.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepOrange,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Clear All'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                final repo = ref.read(scorerRepositoryProvider);
+                await repo.clearAll();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('All scorer data cleared.')),
+                  );
+                }
               }
             },
           ),

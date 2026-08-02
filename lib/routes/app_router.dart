@@ -2,6 +2,7 @@
 // go_router configuration for CRIXORA.
 // Spectator shell: 4-tab bottom navigation (Home, Live, Events, Profile).
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +16,7 @@ import 'package:sportyapp/ui/auth/spectator_signup/view/spectator_signup_screen.
 import 'package:sportyapp/ui/auth/scorer_signup/view/scorer_signup_screen.dart';
 import 'package:sportyapp/ui/auth/forgot_password/view/forgot_password_screen.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/ui/home/view/home_screen.dart';
 import 'package:sportyapp/ui/live_matches/view/live_matches_screen.dart';
 import 'package:sportyapp/ui/live_matches/view/live_video_player_screen.dart';
@@ -52,22 +54,32 @@ import 'package:sportyapp/ui/scorer/tournaments/view/tournament_management_scree
 import 'package:sportyapp/ui/scorer/tournaments/view/tournament_detail_view_screen.dart';
 import 'package:sportyapp/ui/scorer/tournaments/view/scorer_tournaments_screen.dart';
 import 'package:sportyapp/ui/scorer/teams/view/team_setup_screen.dart';
+import 'package:sportyapp/ui/scorer/teams/view/team_players_view_screen.dart';
 import 'package:sportyapp/ui/scorer/match_setup/view/match_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/live_scoring/view/live_scoring_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/start_scoring_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/schedule_match_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/toss_screen.dart';
+import 'package:sportyapp/ui/scorer/create_match/view/create_local_match_screen.dart';
+import 'package:sportyapp/ui/scorer/all_matches/view/all_matches_screen.dart';
+import 'package:sportyapp/ui/scorer/schedule/view/schedule_builder_screen.dart';
+import 'package:sportyapp/ui/scorer/schedule/view/schedule_view_screen.dart';
 
 /// The app's GoRouter instance.
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Keep the watch so the provider rebuilds when auth state changes,
-  // but read the live value inside redirect so old router instances
-  // never see stale captured data.
-  ref.watch(currentUserProvider);
+  // The router instance is created ONCE. A plain Provider that returns a new
+  // GoRouter every time auth changes would reset to [initialLocation]
+  // (`/splash`) on every login/sign-out/role-switch. Instead we ping a
+  // `refreshListenable` so go_router re-runs the redirect while keeping the
+  // same instance and current location.
+  final authHeartbeat = ValueNotifier(0);
+  ref.onDispose(authHeartbeat.dispose);
+  ref.listen<AppUser?>(currentUserProvider, (_, __) => authHeartbeat.value++);
 
   return GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: false,
+    refreshListenable: authHeartbeat,
     redirect: (context, state) {
       final currentUser = ref.read(currentUserProvider);
       final location = state.uri.toString();
@@ -324,6 +336,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             TournamentManagementScreen(tournamentId: state.pathParameters['id']),
       ),
       GoRoute(
+        path: '/scorer/tournaments/:id/schedule',
+        name: 'scorer-tournament-schedule',
+        builder: (context, state) => ScheduleViewScreen(
+          tournamentId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/scorer/tournaments/:id/schedule-builder',
+        name: 'scorer-tournament-schedule-builder',
+        builder: (context, state) => ScheduleBuilderScreen(
+          tournamentId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
         path: '/scorer/teams',
         name: 'scorer-teams',
         builder: (context, state) => TeamSetupScreen(
@@ -335,6 +361,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'scorer-team-edit',
         builder: (context, state) => TeamSetupScreen(
           teamId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: '/scorer/teams/:id/players',
+        name: 'scorer-team-players',
+        builder: (context, state) => TeamPlayersViewScreen(
+          teamId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
@@ -422,6 +455,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/scorer/tournaments',
                 name: 'scorer-tournaments',
                 builder: (context, state) => const ScorerTournamentsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/scorer/all-matches',
+                name: 'scorer-all-matches',
+                builder: (context, state) => const AllMatchesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/scorer/create-match',
+                name: 'scorer-create-match',
+                builder: (context, state) => const CreateLocalMatchScreen(),
               ),
             ],
           ),

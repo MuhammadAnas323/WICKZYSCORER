@@ -25,8 +25,6 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? organization,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -35,8 +33,6 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
         name: name,
         email: email,
         password: password,
-        phone: phone,
-        address: address,
         organization: organization,
       );
       state = state.copyWith(isLoading: false, success: true);

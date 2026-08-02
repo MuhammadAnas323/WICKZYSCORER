@@ -9,16 +9,12 @@ abstract class AuthService {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? favoriteTournamentId,
   });
   Future<AppUser> signUpScorer({
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? organization,
   });
   Future<AppUser> signIn(String email, String password);
@@ -59,8 +55,6 @@ class FirebaseAuthService implements AuthService {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? favoriteTournamentId,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
@@ -73,8 +67,8 @@ class FirebaseAuthService implements AuthService {
       id: uid,
       name: name,
       email: email,
-      phone: phone,
-      address: address,
+      phone: '',
+      address: '',
       role: AppUserRole.spectator,
       favoriteTournamentId: favoriteTournamentId,
       createdAt: DateTime.now(),
@@ -90,8 +84,6 @@ class FirebaseAuthService implements AuthService {
     required String name,
     required String email,
     required String password,
-    required String phone,
-    required String address,
     String? organization,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
@@ -104,8 +96,8 @@ class FirebaseAuthService implements AuthService {
       id: uid,
       name: name,
       email: email,
-      phone: phone,
-      address: address,
+      phone: '',
+      address: '',
       role: AppUserRole.scorer,
       organization: organization,
       createdAt: DateTime.now(),

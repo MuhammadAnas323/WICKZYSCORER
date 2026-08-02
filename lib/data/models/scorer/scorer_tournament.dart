@@ -32,6 +32,7 @@ class ScorerTournament {
   final double? entryFee;
   final double? winnerPrize;
   final double? runnerUpPrize;
+  final String? securityCode;
 
   const ScorerTournament({
     required this.id,
@@ -49,6 +50,7 @@ class ScorerTournament {
     this.entryFee,
     this.winnerPrize,
     this.runnerUpPrize,
+    this.securityCode,
   });
 
   int get numberOfTeams => numTeams;
@@ -71,6 +73,7 @@ class ScorerTournament {
     double? entryFee,
     double? winnerPrize,
     double? runnerUpPrize,
+    String? securityCode,
   }) {
     return ScorerTournament(
       id: id ?? this.id,
@@ -88,6 +91,7 @@ class ScorerTournament {
       entryFee: entryFee ?? this.entryFee,
       winnerPrize: winnerPrize ?? this.winnerPrize,
       runnerUpPrize: runnerUpPrize ?? this.runnerUpPrize,
+      securityCode: securityCode ?? this.securityCode,
     );
   }
 }
