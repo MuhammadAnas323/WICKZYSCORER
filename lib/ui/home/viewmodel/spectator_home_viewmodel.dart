@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 /// Data state for the spectator side of CRIXORA.
@@ -16,6 +19,7 @@ class SpectatorHomeState {
   final List<ScorerTeam> teams;
   final List<ScorerPlayer> players;
   final List<ScorerMatch> matches;
+  final Map<String, LiveMatchData> liveMatchData;
 
   const SpectatorHomeState({
     this.isLoading = true,
@@ -24,11 +28,14 @@ class SpectatorHomeState {
     this.teams = const [],
     this.players = const [],
     this.matches = const [],
+    this.liveMatchData = const {},
   });
 
   List<ScorerMatch> get liveMatches => matches
       .where((m) =>
-          m.status == MatchStatus.inProgress || m.status == MatchStatus.live)
+          m.status == MatchStatus.inProgress ||
+          m.status == MatchStatus.live ||
+          liveMatchData.containsKey(m.id))
       .toList();
 
   List<ScorerMatch> get upcomingMatches => matches
@@ -74,6 +81,8 @@ class SpectatorHomeState {
     return playerId.replaceAll('player_', '').replaceAll('p_', '');
   }
 
+  LiveMatchData? liveDataFor(String matchId) => liveMatchData[matchId];
+
   SpectatorHomeState copyWith({
     bool? isLoading,
     String? error,
@@ -81,6 +90,7 @@ class SpectatorHomeState {
     List<ScorerTeam>? teams,
     List<ScorerPlayer>? players,
     List<ScorerMatch>? matches,
+    Map<String, LiveMatchData>? liveMatchData,
   }) {
     return SpectatorHomeState(
       isLoading: isLoading ?? this.isLoading,
@@ -89,15 +99,29 @@ class SpectatorHomeState {
       teams: teams ?? this.teams,
       players: players ?? this.players,
       matches: matches ?? this.matches,
+      liveMatchData: liveMatchData ?? this.liveMatchData,
     );
   }
 }
 
 class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   final Ref ref;
+  StreamSubscription? _liveSubscription;
 
   SpectatorHomeViewModel(this.ref) : super(const SpectatorHomeState()) {
+    _listenToLiveMatches();
     load();
+  }
+
+  void _listenToLiveMatches() {
+    _liveSubscription?.cancel();
+    _liveSubscription =
+        ref.read(realtimeDatabaseProvider).watchAllLiveMatches().listen((raw) {
+      if (!mounted) return;
+      final liveMatchData = raw.map(
+          (matchId, data) => MapEntry(matchId, LiveMatchData.fromJson(data)));
+      state = state.copyWith(liveMatchData: liveMatchData);
+    });
   }
 
   Future<void> load() async {
@@ -114,6 +138,7 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
         teams: teams,
         players: players,
         matches: matches,
+        liveMatchData: state.liveMatchData,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Failed to load data.');
@@ -121,6 +146,12 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   }
 
   Future<void> refresh() => load();
+
+  @override
+  void dispose() {
+    _liveSubscription?.cancel();
+    super.dispose();
+  }
 }
 
 final spectatorHomeViewModelProvider =

@@ -31,7 +31,8 @@ class ScheduleBuilderScreen extends ConsumerStatefulWidget {
   const ScheduleBuilderScreen({super.key, required this.tournamentId});
 
   @override
-  ConsumerState<ScheduleBuilderScreen> createState() => _ScheduleBuilderScreenState();
+  ConsumerState<ScheduleBuilderScreen> createState() =>
+      _ScheduleBuilderScreenState();
 }
 
 class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
@@ -70,7 +71,9 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
         fixtures: s.fixtures.map((f) => f.copyWith(order: fxOrder++)).toList(),
       );
     }).toList();
-    await ref.read(scorerRepositoryProvider).saveSchedule(widget.tournamentId, normalized);
+    await ref
+        .read(scorerRepositoryProvider)
+        .saveSchedule(widget.tournamentId, normalized);
   }
 
   Future<void> _save() async {
@@ -92,7 +95,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.darkSurface,
-        title: const Text('New Stage', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('New Stage',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -105,7 +109,10 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.white54))),
           ElevatedButton(
             onPressed: () {
               final name = controller.text.trim();
@@ -137,19 +144,26 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.darkSurface,
-        title: const Text('Rename Stage', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Rename Stage',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(labelText: 'Stage name', labelStyle: TextStyle(color: Colors.white70)),
+          decoration: const InputDecoration(
+              labelText: 'Stage name',
+              labelStyle: TextStyle(color: Colors.white70)),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.white54))),
           ElevatedButton(
             onPressed: () {
               final name = controller.text.trim();
               setState(() {
-                _stages[index] = _stages[index].copyWith(name: name.isEmpty ? stage.name : name);
+                _stages[index] = _stages[index]
+                    .copyWith(name: name.isEmpty ? stage.name : name);
               });
               Navigator.pop(ctx);
             },
@@ -251,7 +265,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
   void _removeFixture(int stageIdx, int fxIdx) {
     setState(() {
       final stage = _stages[stageIdx];
-      _stages[stageIdx] = stage.copyWith(fixtures: List.from(stage.fixtures)..removeAt(fxIdx));
+      _stages[stageIdx] =
+          stage.copyWith(fixtures: List.from(stage.fixtures)..removeAt(fxIdx));
     });
     _persist();
   }
@@ -285,18 +300,27 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text('Who won?',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15)),
             ),
             ListTile(
-              leading: const Icon(Icons.emoji_events, color: AppColors.pitchGreenLight),
-              title: Text('$aName won', style: const TextStyle(color: Colors.white)),
-              subtitle: const Text('Advance to next level', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              leading: const Icon(Icons.emoji_events,
+                  color: AppColors.pitchGreenLight),
+              title: Text('$aName won',
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: const Text('Advance to next level',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               onTap: () => Navigator.pop(ctx, 0),
             ),
             ListTile(
-              leading: const Icon(Icons.emoji_events, color: AppColors.pitchGreenLight),
-              title: Text('$bName won', style: const TextStyle(color: Colors.white)),
-              subtitle: const Text('Advance to next level', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              leading: const Icon(Icons.emoji_events,
+                  color: AppColors.pitchGreenLight),
+              title: Text('$bName won',
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: const Text('Advance to next level',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               onTap: () => Navigator.pop(ctx, 1),
             ),
           ],
@@ -323,30 +347,48 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
               child: Column(
                 children: [
                   const Text('Match Result',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
                   const SizedBox(height: 6),
-                  Text('$winnerName won', style: const TextStyle(color: AppColors.pitchGreenLight, fontSize: 13, fontWeight: FontWeight.bold)),
-                  Text('Where does $loserName go?', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text('$winnerName won',
+                      style: const TextStyle(
+                          color: AppColors.pitchGreenLight,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold)),
+                  Text('Where does $loserName go?',
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
                 ],
               ),
             ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
-              leading: const Icon(Icons.trending_up, color: AppColors.pitchGreenLight),
-              title: const Text('Next stage', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Keep playing in the next level', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              leading: const Icon(Icons.trending_up,
+                  color: AppColors.pitchGreenLight),
+              title: const Text('Next stage',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Keep playing in the next level',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               onTap: () => Navigator.pop(ctx, _LoserFate.nextStage),
             ),
             ListTile(
-              leading: const Icon(Icons.replay, color: AppColors.pitchGreenLight),
-              title: const Text('Next match', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Plays again in this stage', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              leading:
+                  const Icon(Icons.replay, color: AppColors.pitchGreenLight),
+              title: const Text('Next match',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Plays again in this stage',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               onTap: () => Navigator.pop(ctx, _LoserFate.nextMatch),
             ),
             ListTile(
-              leading: const Icon(Icons.highlight_off_outlined, color: Colors.redAccent),
-              title: const Text('Eliminate', style: TextStyle(color: Colors.redAccent)),
-              subtitle: const Text('Removed, cannot play more games', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              leading: const Icon(Icons.highlight_off_outlined,
+                  color: Colors.redAccent),
+              title: const Text('Eliminate',
+                  style: TextStyle(color: Colors.redAccent)),
+              subtitle: const Text('Removed, cannot play more games',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               onTap: () => Navigator.pop(ctx, _LoserFate.eliminate),
             ),
           ],
@@ -364,10 +406,15 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     if (fate == _LoserFate.eliminate) {
       final loserTeam = _teams.where((t) => t.id == loserId).firstOrNull;
       if (loserTeam != null && !loserTeam.isEliminated) {
-        await ref.read(scorerRepositoryProvider).saveTeam(loserTeam.copyWith(isEliminated: true));
+        await ref
+            .read(scorerRepositoryProvider)
+            .saveTeam(loserTeam.copyWith(isEliminated: true));
         if (mounted) {
           setState(() {
-            _teams = _teams.map((t) => t.id == loserId ? t.copyWith(isEliminated: true) : t).toList();
+            _teams = _teams
+                .map(
+                    (t) => t.id == loserId ? t.copyWith(isEliminated: true) : t)
+                .toList();
           });
         }
       }
@@ -375,8 +422,9 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     await _persist();
   }
 
-  String _teamName(String? id) =>
-      id == null ? '' : (_teams.where((t) => t.id == id).firstOrNull?.name ?? id);
+  String _teamName(String? id) => id == null
+      ? ''
+      : (_teams.where((t) => t.id == id).firstOrNull?.name ?? id);
 
   List<ScorerTeam> get _activeTeams =>
       _teams.where((t) => !t.isEliminated).toList();
@@ -398,13 +446,16 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
   }
 
   bool _isEliminated(String? id) =>
-      id != null && (_teams.where((t) => t.id == id).firstOrNull?.isEliminated ?? false);
+      id != null &&
+      (_teams.where((t) => t.id == id).firstOrNull?.isEliminated ?? false);
 
   /// Winner of a completed fixture is the participating team that is still active.
   String? _winnerOf(ScheduleFixture fx) {
     if (fx.status != FixtureStatus.completed) return null;
-    if (fx.resolvedTeamAId != null && !_isEliminated(fx.resolvedTeamAId)) return fx.resolvedTeamAId;
-    if (fx.resolvedTeamBId != null && !_isEliminated(fx.resolvedTeamBId)) return fx.resolvedTeamBId;
+    if (fx.resolvedTeamAId != null && !_isEliminated(fx.resolvedTeamAId))
+      return fx.resolvedTeamAId;
+    if (fx.resolvedTeamBId != null && !_isEliminated(fx.resolvedTeamBId))
+      return fx.resolvedTeamBId;
     return null;
   }
 
@@ -425,10 +476,13 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: Colors.white),
-        title: Text('Manual Schedule', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text('Manual Schedule',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check_rounded, color: AppColors.pitchGreenLight, size: 26),
+            icon: const Icon(Icons.check_rounded,
+                color: AppColors.pitchGreenLight, size: 26),
             tooltip: 'Save',
             onPressed: _save,
           ),
@@ -436,7 +490,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.pitchGreen))
           : RefreshIndicator(
               color: AppColors.pitchGreen,
               onRefresh: _load,
@@ -453,11 +508,13 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.pitchGreenLight,
-                      side: BorderSide(color: AppColors.pitchGreen.withValues(alpha: 0.5)),
+                      side: BorderSide(
+                          color: AppColors.pitchGreen.withValues(alpha: 0.5)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     icon: const Icon(Icons.add),
-                    label: const Text('Add Stage', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text('Add Stage',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: _addStage,
                   ),
                   const SizedBox(height: 20),
@@ -479,17 +536,24 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Build your schedule manually',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           const Gap(4),
-          Text('Add stages (e.g. Group, Quarter Final, Semi Final, Final) and then add matches '
+          Text(
+              'Add stages (e.g. Group, Quarter Final, Semi Final, Final) and then add matches '
               'between teams in this tournament, choosing time and venue for each.',
               style: const TextStyle(color: Colors.white54, fontSize: 12)),
           const Gap(8),
           Row(children: [
-            const Icon(Icons.group_outlined, color: AppColors.pitchGreenLight, size: 16),
+            const Icon(Icons.group_outlined,
+                color: AppColors.pitchGreenLight, size: 16),
             const Gap(4),
-            Text('${_teams.length} teams in this tournament',
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Flexible(
+              child: Text('${_teams.length} teams in this tournament',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ),
           ]),
         ],
       ),
@@ -500,7 +564,9 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+          color: AppColors.darkSurface,
+          borderRadius: BorderRadius.circular(16)),
       child: const Text(
         'No teams in this tournament yet. Add teams first, then build the schedule.',
         textAlign: TextAlign.center,
@@ -520,17 +586,50 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
       ),
       child: Column(
         children: [
-          ListTile(
-            leading: Icon(_stageIcon(stage), color: AppColors.pitchGreenLight),
-            title: Text(stage.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: Text('${stage.fixtures.length} match(es)', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white54, size: 18), onPressed: () => _moveStage(index, -1)),
-                IconButton(icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 18), onPressed: () => _moveStage(index, 1)),
-                IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 16), onPressed: () => _renameStage(index)),
-                IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 16), onPressed: () => _removeStage(index)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Icon(_stageIcon(stage),
+                      color: AppColors.pitchGreenLight, size: 22),
+                ),
+                const Gap(10),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          stage.name,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
+                          softWrap: true,
+                          maxLines: 3,
+                          overflow: TextOverflow.visible,
+                        ),
+                        const Gap(2),
+                        Text('${stage.fixtures.length} match(es)',
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ),
+                _stageActionIcon(
+                    Icons.keyboard_arrow_up, () => _moveStage(index, -1)),
+                _stageActionIcon(
+                    Icons.keyboard_arrow_down, () => _moveStage(index, 1)),
+                _stageActionIcon(
+                    Icons.edit_outlined, () => _renameStage(index)),
+                _stageActionIcon(
+                    Icons.delete_outline, () => _removeStage(index),
+                    color: Colors.redAccent),
               ],
             ),
           ),
@@ -549,10 +648,13 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
               final f = entry.key;
               final fx = entry.value;
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFF181818), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF181818),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Row(
                     children: [
                       Expanded(
@@ -573,14 +675,22 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                             ),
                             const Gap(4),
                             Row(children: [
-                              const Icon(Icons.schedule, color: Colors.white38, size: 12),
+                              const Icon(Icons.schedule,
+                                  color: Colors.white38, size: 12),
                               const Gap(4),
-                              Text(_fmtTime(fx.scheduledDateTime), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                              Text(_fmtTime(fx.scheduledDateTime),
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 11)),
                               if ((fx.venue ?? '').isNotEmpty) ...[
                                 const Gap(10),
-                                const Icon(Icons.location_on, color: Colors.white38, size: 12),
+                                const Icon(Icons.location_on,
+                                    color: Colors.white38, size: 12),
                                 const Gap(4),
-                                Flexible(child: Text(fx.venue!, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11))),
+                                Flexible(
+                                    child: Text(fx.venue!,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            color: Colors.grey, fontSize: 11))),
                               ],
                             ]),
                             if (_isEliminated(fx.resolvedTeamAId))
@@ -592,15 +702,27 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                       ),
                       IconButton(
                         icon: Icon(
-                          fx.status == FixtureStatus.completed ? Icons.replay : Icons.emoji_events_outlined,
-                          color: fx.status == FixtureStatus.completed ? AppColors.charcoal200 : AppColors.floodlightGold,
+                          fx.status == FixtureStatus.completed
+                              ? Icons.replay
+                              : Icons.emoji_events_outlined,
+                          color: fx.status == FixtureStatus.completed
+                              ? AppColors.charcoal200
+                              : AppColors.floodlightGold,
                           size: 20,
                         ),
-                        tooltip: fx.status == FixtureStatus.completed ? 'Reset result' : 'Declare winner',
+                        tooltip: fx.status == FixtureStatus.completed
+                            ? 'Reset result'
+                            : 'Declare winner',
                         onPressed: () => _declareResult(index, f),
                       ),
-                      IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white38, size: 16), onPressed: () => _editFixture(index, f)),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 16), onPressed: () => _removeFixture(index, f)),
+                      IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.white38, size: 16),
+                          onPressed: () => _editFixture(index, f)),
+                      IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.redAccent, size: 16),
+                          onPressed: () => _removeFixture(index, f)),
                     ],
                   ),
                 ),
@@ -611,7 +733,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
             child: TextButton.icon(
               onPressed: () => _addFixture(index),
               icon: const Icon(Icons.add, size: 16),
-              label: Text('Add match to ${stage.name}'),
+              label: Text('Add match to ${stage.name}',
+                  maxLines: 2, overflow: TextOverflow.ellipsis, softWrap: true),
             ),
           ),
         ],
@@ -629,7 +752,10 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text('$name — Eliminated',
-            style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+            style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -641,6 +767,16 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     if (lower.contains('quarter')) return Icons.looks_4;
     if (lower.contains('group')) return Icons.groups_outlined;
     return Icons.more_horiz;
+  }
+
+  Widget _stageActionIcon(IconData icon, VoidCallback onPressed,
+      {Color color = Colors.white54}) {
+    return IconButton(
+      icon: Icon(icon, color: color, size: 18),
+      onPressed: onPressed,
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      padding: EdgeInsets.zero,
+    );
   }
 }
 
@@ -707,8 +843,11 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
     if (pickedTime == null) return;
     setState(() {
       _scheduled = DateTime(
-        pickedDate.year, pickedDate.month, pickedDate.day,
-        pickedTime.hour, pickedTime.minute,
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
       );
     });
   }
@@ -725,11 +864,13 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
     final a = _teamA;
     final b = _teamB;
     if (a == null || b == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select both teams')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Select both teams')));
       return;
     }
     if (a == b) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select two different teams')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select two different teams')));
       return;
     }
     Navigator.of(context).pop(MatchDraft(
@@ -743,7 +884,8 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
@@ -755,26 +897,35 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(widget.title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
               const Gap(4),
-              const Text('Pick two teams from this tournament.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              const Text('Pick two teams from this tournament.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
               const Gap(16),
-              _teamDropdown('Team A', _teamA, (id) => setState(() => _teamA = id)),
+              _teamDropdown(
+                  'Team A', _teamA, (id) => setState(() => _teamA = id)),
               const Gap(12),
-              _teamDropdown('Team B', _teamB, (id) => setState(() => _teamB = id)),
+              _teamDropdown(
+                  'Team B', _teamB, (id) => setState(() => _teamB = id)),
               const Gap(12),
               InkWell(
                 onTap: _pickDateTime,
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: 'Date & time',
-                    prefixIcon: const Icon(Icons.schedule, color: AppColors.pitchGreenLight, size: 20),
+                    prefixIcon: const Icon(Icons.schedule,
+                        color: AppColors.pitchGreenLight, size: 20),
                     filled: true,
                     fillColor: const Color(0xFF2A2A2A),
                     border: const OutlineInputBorder(),
                   ),
                   child: Text(_fmtTime(_scheduled),
-                      style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 14)),
                 ),
               ),
               const Gap(12),
@@ -792,8 +943,11 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
               const Gap(20),
               ElevatedButton(
                 onPressed: _save,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.pitchGreen, foregroundColor: Colors.white),
-                child: const Text('Save Match', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.pitchGreen,
+                    foregroundColor: Colors.white),
+                child: const Text('Save Match',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -802,7 +956,8 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
     );
   }
 
-  Widget _teamDropdown(String label, String? value, ValueChanged<String?> onChanged) {
+  Widget _teamDropdown(
+      String label, String? value, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
       initialValue: value,
       dropdownColor: const Color(0xFF2A2A2A),
@@ -814,9 +969,11 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
         fillColor: const Color(0xFF2A2A2A),
         border: const OutlineInputBorder(),
       ),
-      items: widget.teams.map((t) => DropdownMenuItem(
-          value: t.id,
-          child: Text(t.name, overflow: TextOverflow.ellipsis))).toList(),
+      items: widget.teams
+          .map((t) => DropdownMenuItem(
+              value: t.id,
+              child: Text(t.name, overflow: TextOverflow.ellipsis)))
+          .toList(),
       onChanged: onChanged,
       hint: const Text('Select team', style: TextStyle(color: Colors.white38)),
     );

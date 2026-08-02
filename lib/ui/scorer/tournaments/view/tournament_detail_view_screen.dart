@@ -14,10 +14,12 @@ class TournamentDetailViewScreen extends ConsumerStatefulWidget {
   const TournamentDetailViewScreen({super.key, required this.tournamentId});
 
   @override
-  ConsumerState<TournamentDetailViewScreen> createState() => _TournamentDetailViewScreenState();
+  ConsumerState<TournamentDetailViewScreen> createState() =>
+      _TournamentDetailViewScreenState();
 }
 
-class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailViewScreen> {
+class _TournamentDetailViewScreenState
+    extends ConsumerState<TournamentDetailViewScreen> {
   ScorerTournament? _tournament;
   List<ScorerTeam> _teams = [];
   bool _isLoading = true;
@@ -51,12 +53,19 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.darkSurface,
-        title: const Text('Remove Team?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('Remove "${team.name}" from this tournament?', style: const TextStyle(color: Colors.white70)),
+        title: const Text('Remove Team?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('Remove "${team.name}" from this tournament?',
+            style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.white54))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove'),
           ),
@@ -79,7 +88,8 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.darkSurface,
-        title: const Text('Delete Tournament', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Delete Tournament',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: codeController,
           obscureText: true,
@@ -94,9 +104,14 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.white54))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -108,14 +123,19 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
 
     final entered = codeController.text.trim();
     final t = _tournament;
-    if (entered.isEmpty || t?.securityCode == null || entered != t!.securityCode) {
+    if (entered.isEmpty ||
+        t?.securityCode == null ||
+        entered != t!.securityCode) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect security code. Tournament not deleted.')),
+        const SnackBar(
+            content: Text('Incorrect security code. Tournament not deleted.')),
       );
       return;
     }
 
-    await ref.read(scorerRepositoryProvider).deleteTournament(widget.tournamentId);
+    await ref
+        .read(scorerRepositoryProvider)
+        .deleteTournament(widget.tournamentId);
     ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
     if (mounted) context.go('/scorer/tournaments');
   }
@@ -125,8 +145,12 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
     if (_isLoading) {
       return Scaffold(
         backgroundColor: AppColors.darkBackground,
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, leading: const BackButton(color: Colors.white)),
-        body: const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen)),
+        appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: const BackButton(color: Colors.white)),
+        body: const Center(
+            child: CircularProgressIndicator(color: AppColors.pitchGreen)),
       );
     }
 
@@ -134,8 +158,13 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
     if (t == null) {
       return Scaffold(
         backgroundColor: AppColors.darkBackground,
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, leading: const BackButton(color: Colors.white)),
-        body: const Center(child: Text('Tournament not found', style: TextStyle(color: Colors.white70))),
+        appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: const BackButton(color: Colors.white)),
+        body: const Center(
+            child: Text('Tournament not found',
+                style: TextStyle(color: Colors.white70))),
       );
     }
 
@@ -145,10 +174,13 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: Colors.white),
-        title: Text(t.name, style: AppTextStyles.headlineSmall(Colors.white), overflow: TextOverflow.ellipsis),
+        title: Text(t.name,
+            style: AppTextStyles.headlineSmall(Colors.white),
+            overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_rounded, color: AppColors.pitchGreenLight),
+            icon: const Icon(Icons.edit_rounded,
+                color: AppColors.pitchGreenLight),
             tooltip: 'Edit Tournament',
             onPressed: () async {
               await context.push('/scorer/tournaments/${t.id}/edit');
@@ -167,7 +199,8 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
         backgroundColor: AppColors.pitchGreen,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add, fontWeight: FontWeight.bold),
-        label: const Text('Add Team', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text('Add Team',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         onPressed: () async {
           await context.push('/scorer/teams?tournamentId=${t.id}');
           _loadData();
@@ -186,35 +219,47 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.pitchGreen.withOpacity(0.25), AppColors.darkSurface],
+                    colors: [
+                      AppColors.pitchGreen.withOpacity(0.25),
+                      AppColors.darkSurface
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
+                  border:
+                      Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.emoji_events, color: AppColors.floodlightGold, size: 28),
+                        const Icon(Icons.emoji_events,
+                            color: AppColors.floodlightGold, size: 28),
                         const Gap(10),
                         Expanded(
                           child: Text(
                             t.name,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.pitchGreen.withOpacity(0.3),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             t.format.name.toUpperCase(),
-                            style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 11),
+                            style: const TextStyle(
+                                color: AppColors.pitchGreenLight,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11),
                           ),
                         ),
                       ],
@@ -222,13 +267,19 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                     const Gap(10),
                     Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.white54, size: 16),
+                        const Icon(Icons.location_on,
+                            color: Colors.white54, size: 16),
                         const Gap(4),
-                        Text(t.venue, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text(t.venue,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 13)),
                         const Gap(16),
-                        const Icon(Icons.sports_cricket, color: Colors.white54, size: 16),
+                        const Icon(Icons.sports_cricket,
+                            color: Colors.white54, size: 16),
                         const Gap(4),
-                        Text('${t.customOvers} Overs', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text('${t.customOvers} Overs',
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                   ],
@@ -242,26 +293,47 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                 decoration: BoxDecoration(
                   color: AppColors.darkSurface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.floodlightGold.withOpacity(0.3)),
+                  border: Border.all(
+                      color: AppColors.floodlightGold.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.monetization_on_outlined, color: AppColors.floodlightGold, size: 20),
+                        Icon(Icons.monetization_on_outlined,
+                            color: AppColors.floodlightGold, size: 20),
                         Gap(8),
-                        Text('Financials & Cash Prizes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Financials & Cash Prizes',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15)),
                       ],
                     ),
                     const Gap(12),
                     Row(
                       children: [
-                        _prizeTile('Entry Fee', t.entryFee != null ? '\$${t.entryFee!.toStringAsFixed(0)}' : 'Free', Colors.blueAccent),
+                        _prizeTile(
+                            'Entry Fee',
+                            t.entryFee != null
+                                ? '\$${t.entryFee!.toStringAsFixed(0)}'
+                                : 'Free',
+                            Colors.blueAccent),
                         const Gap(8),
-                        _prizeTile('Winner Prize 🏆', t.winnerPrize != null ? '\$${t.winnerPrize!.toStringAsFixed(0)}' : 'TBD', AppColors.floodlightGold),
+                        _prizeTile(
+                            'Winner Prize 🏆',
+                            t.winnerPrize != null
+                                ? '\$${t.winnerPrize!.toStringAsFixed(0)}'
+                                : 'TBD',
+                            AppColors.floodlightGold),
                         const Gap(8),
-                        _prizeTile('Runner-Up 🥈', t.runnerUpPrize != null ? '\$${t.runnerUpPrize!.toStringAsFixed(0)}' : 'TBD', Colors.white70),
+                        _prizeTile(
+                            'Runner-Up 🥈',
+                            t.runnerUpPrize != null
+                                ? '\$${t.runnerUpPrize!.toStringAsFixed(0)}'
+                                : 'TBD',
+                            Colors.white70),
                       ],
                     ),
                   ],
@@ -279,26 +351,35 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [AppColors.pitchGreen.withOpacity(0.18), AppColors.darkSurface],
+                      colors: [
+                        AppColors.pitchGreen.withOpacity(0.18),
+                        AppColors.darkSurface
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
+                    border: Border.all(
+                        color: AppColors.pitchGreen.withOpacity(0.4)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_month_outlined, color: AppColors.pitchGreenLight, size: 26),
+                      const Icon(Icons.calendar_month_outlined,
+                          color: AppColors.pitchGreenLight, size: 26),
                       const Gap(12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text('Match Schedule',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
                             Gap(2),
                             Text('Stages, fixtures & auto-advancement',
-                                style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                style: TextStyle(
+                                    color: Colors.grey, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -313,7 +394,8 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Participating Teams (${_teams.length})', style: AppTextStyles.titleLarge(Colors.white)),
+                  Text('Participating Teams (${_teams.length})',
+                      style: AppTextStyles.titleLarge(Colors.white)),
                 ],
               ),
               const Gap(12),
@@ -329,11 +411,15 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.groups_outlined, size: 48, color: Colors.grey),
+                      const Icon(Icons.groups_outlined,
+                          size: 48, color: Colors.grey),
                       const Gap(12),
                       const Text(
                         'No teams added yet',
-                        style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
                       ),
                       const Gap(4),
                       const Text(
@@ -347,7 +433,8 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () async {
-                          await context.push('/scorer/teams?tournamentId=${t.id}');
+                          await context
+                              .push('/scorer/teams?tournamentId=${t.id}');
                           _loadData();
                         },
                         icon: const Icon(Icons.add, size: 18),
@@ -369,81 +456,102 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
                         await context.push('/scorer/teams/${team.id}/players');
                         _loadData();
                       },
+                      onLongPress: () => _deleteTeam(team),
                       child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
-                            child: Text(
-                              team.shortCode.isNotEmpty ? team.shortCode : 'T',
-                              style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                          ),
-                          const Gap(12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(team.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                                Text('${team.playerIds.length} Squad Players', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                          // Payment Toggle Chip
-                          GestureDetector(
-                            onTap: () => _togglePayment(team),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: team.isEntryFeePaid ? AppColors.pitchGreen.withOpacity(0.2) : Colors.red.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: team.isEntryFeePaid ? AppColors.pitchGreenLight : Colors.redAccent,
-                                ),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.darkSurface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor:
+                                  AppColors.pitchGreen.withOpacity(0.2),
+                              child: Text(
+                                team.shortCode.isNotEmpty
+                                    ? team.shortCode
+                                    : 'T',
+                                style: const TextStyle(
+                                    color: AppColors.pitchGreenLight,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            ),
+                            const Gap(12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    team.isEntryFeePaid ? Icons.check_circle : Icons.pending,
-                                    color: team.isEntryFeePaid ? AppColors.pitchGreenLight : Colors.redAccent,
-                                    size: 14,
-                                  ),
-                                  const Gap(4),
-                                  Text(
-                                    team.isEntryFeePaid ? 'Paid' : 'Unpaid',
-                                    style: TextStyle(
-                                      color: team.isEntryFeePaid ? AppColors.pitchGreenLight : Colors.redAccent,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
+                                  Text(team.name,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15)),
+                                  Text('${team.playerIds.length} Squad Players',
+                                      style: const TextStyle(
+                                          color: Colors.grey, fontSize: 11)),
                                 ],
                               ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
-                            tooltip: 'Team Details',
-                            onPressed: () async {
-                              await context.push('/scorer/teams/${team.id}/edit');
-                              _loadData();
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                            tooltip: 'Remove Team',
-                            onPressed: () => _deleteTeam(team),
-                          ),
-                        ],
+                            // Payment Toggle Chip
+                            GestureDetector(
+                              onTap: () => _togglePayment(team),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: team.isEntryFeePaid
+                                      ? AppColors.pitchGreen.withOpacity(0.2)
+                                      : Colors.red.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: team.isEntryFeePaid
+                                        ? AppColors.pitchGreenLight
+                                        : Colors.redAccent,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      team.isEntryFeePaid
+                                          ? Icons.check_circle
+                                          : Icons.pending,
+                                      color: team.isEntryFeePaid
+                                          ? AppColors.pitchGreenLight
+                                          : Colors.redAccent,
+                                      size: 14,
+                                    ),
+                                    const Gap(4),
+                                    Text(
+                                      team.isEntryFeePaid ? 'Paid' : 'Unpaid',
+                                      style: TextStyle(
+                                        color: team.isEntryFeePaid
+                                            ? AppColors.pitchGreenLight
+                                            : Colors.redAccent,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined,
+                                  color: Colors.white54, size: 20),
+                              tooltip: 'Team Details',
+                              onPressed: () async {
+                                await context
+                                    .push('/scorer/teams/${team.id}/edit');
+                                _loadData();
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     );
                   },
                 ),
@@ -466,9 +574,13 @@ class _TournamentDetailViewScreenState extends ConsumerState<TournamentDetailVie
         ),
         child: Column(
           children: [
-            Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(value,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.bold, fontSize: 15)),
             const Gap(2),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10), textAlign: TextAlign.center),
+            Text(label,
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                textAlign: TextAlign.center),
           ],
         ),
       ),

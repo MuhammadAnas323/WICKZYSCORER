@@ -76,23 +76,39 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
       tournamentId: _resolvedTournamentId ?? '',
       playerIds: _players.map((p) => p.id).toList(),
       isEntryFeePaid: _isPaid,
-      ownerName: _ownerNameController.text.trim().isEmpty ? null : _ownerNameController.text.trim(),
-      whatsappNumber: _whatsappController.text.trim().isEmpty ? null : _whatsappController.text.trim(),
+      ownerName: _ownerNameController.text.trim().isEmpty
+          ? null
+          : _ownerNameController.text.trim(),
+      whatsappNumber: _whatsappController.text.trim().isEmpty
+          ? null
+          : _whatsappController.text.trim(),
     );
 
     await repo.saveTeam(team);
     for (final player in _players) {
-      await repo.savePlayer(player.copyWith(teamId: id, tournamentId: _resolvedTournamentId ?? ''));
+      await repo.savePlayer(player.copyWith(
+          teamId: id, tournamentId: _resolvedTournamentId ?? ''));
     }
 
-    ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
+    if (!mounted) return;
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Team saved!'), backgroundColor: AppColors.pitchGreen),
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Team saved!'), backgroundColor: AppColors.pitchGreen),
+    );
+
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else if ((_resolvedTournamentId ?? '').isNotEmpty) {
+      context.go('/scorer/tournaments/$_resolvedTournamentId');
+    } else {
       context.pop();
     }
+
+    // Refresh dashboards after leaving this screen; never blocks navigation.
+    try {
+      ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
+    } catch (_) {}
   }
 
   void _addPlayer() {
@@ -127,7 +143,11 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
         actions: [
           TextButton(
             onPressed: _saveTeam,
-            child: const Text('Save', style: TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 16)),
+            child: const Text('Save',
+                style: TextStyle(
+                    color: AppColors.pitchGreenLight,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
           ),
           const Gap(8),
         ],
@@ -136,10 +156,12 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
         onPressed: _addPlayer,
         backgroundColor: AppColors.pitchGreen,
         icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Add Player', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text('Add Player',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.pitchGreen))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Form(
@@ -158,12 +180,14 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Team Name',
                               labelStyle: TextStyle(color: Colors.white70),
-                              prefixIcon: Icon(Icons.groups_rounded, color: AppColors.pitchGreenLight),
+                              prefixIcon: Icon(Icons.groups_rounded,
+                                  color: AppColors.pitchGreenLight),
                               filled: true,
                               fillColor: AppColors.darkSurface,
                               border: OutlineInputBorder(),
                             ),
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
                           ),
                         ),
                         const Gap(12),
@@ -182,7 +206,8 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                               fillColor: AppColors.darkSurface,
                               border: OutlineInputBorder(),
                             ),
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
                           ),
                         ),
                       ],
@@ -194,7 +219,8 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Owner Name (Optional)',
                         labelStyle: TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(Icons.person_outline, color: AppColors.pitchGreenLight),
+                        prefixIcon: Icon(Icons.person_outline,
+                            color: AppColors.pitchGreenLight),
                         filled: true,
                         fillColor: AppColors.darkSurface,
                         border: OutlineInputBorder(),
@@ -206,9 +232,11 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                       keyboardType: TextInputType.phone,
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
-                        labelText: 'WhatsApp Number (Optional, e.g. +923001234567)',
+                        labelText:
+                            'WhatsApp Number (Optional, e.g. +923001234567)',
                         labelStyle: TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(Icons.phone_android, color: AppColors.pitchGreenLight),
+                        prefixIcon: Icon(Icons.phone_android,
+                            color: AppColors.pitchGreenLight),
                         filled: true,
                         fillColor: AppColors.darkSurface,
                         border: OutlineInputBorder(),
@@ -217,22 +245,35 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                     const Gap(14),
                     // Entry Fee Payment Status Switch
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: AppColors.darkSurface,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _isPaid ? AppColors.pitchGreenLight.withOpacity(0.4) : Colors.redAccent.withOpacity(0.4)),
+                        border: Border.all(
+                            color: _isPaid
+                                ? AppColors.pitchGreenLight.withOpacity(0.4)
+                                : Colors.redAccent.withOpacity(0.4)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              Icon(_isPaid ? Icons.check_circle : Icons.pending, color: _isPaid ? AppColors.pitchGreenLight : Colors.redAccent, size: 20),
+                              Icon(_isPaid ? Icons.check_circle : Icons.pending,
+                                  color: _isPaid
+                                      ? AppColors.pitchGreenLight
+                                      : Colors.redAccent,
+                                  size: 20),
                               const Gap(8),
                               Text(
                                 'Tournament Entry Fee: ${_isPaid ? "PAID" : "UNPAID"}',
-                                style: TextStyle(color: _isPaid ? AppColors.pitchGreenLight : Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                    color: _isPaid
+                                        ? AppColors.pitchGreenLight
+                                        : Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
                               ),
                             ],
                           ),
@@ -250,17 +291,24 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Squad (${_players.length} Players)', style: AppTextStyles.titleLarge(Colors.white)),
+                        Text('Squad (${_players.length} Players)',
+                            style: AppTextStyles.titleLarge(Colors.white)),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.pitchGreen.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(100),
-                            border: Border.all(color: AppColors.pitchGreenLight.withOpacity(0.5)),
+                            border: Border.all(
+                                color:
+                                    AppColors.pitchGreenLight.withOpacity(0.5)),
                           ),
                           child: const Text(
                             'Optional Squad Size',
-                            style: TextStyle(color: AppColors.pitchGreenLight, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: AppColors.pitchGreenLight,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -277,16 +325,21 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                         ),
                         child: const Column(
                           children: [
-                            Icon(Icons.person_add_outlined, size: 48, color: Colors.grey),
+                            Icon(Icons.person_add_outlined,
+                                size: 48, color: Colors.grey),
                             Gap(12),
                             Text(
                               'No players added yet',
-                              style: TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold),
                             ),
                             Gap(4),
                             Text(
                               'Tap "Add Player" to build your squad',
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 12),
                             ),
                           ],
                         ),
@@ -332,23 +385,35 @@ class _PlayerTile extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onEdit;
 
-  const _PlayerTile({required this.player, required this.index, required this.onRemove, required this.onEdit});
+  const _PlayerTile(
+      {required this.player,
+      required this.index,
+      required this.onRemove,
+      required this.onEdit});
 
   Color _roleColor(PlayerRole role) {
     switch (role) {
-      case PlayerRole.batsman: return Colors.blueAccent;
-      case PlayerRole.bowler: return Colors.redAccent;
-      case PlayerRole.allRounder: return AppColors.pitchGreenLight;
-      case PlayerRole.wicketKeeper: return Colors.orangeAccent;
+      case PlayerRole.batsman:
+        return Colors.blueAccent;
+      case PlayerRole.bowler:
+        return Colors.redAccent;
+      case PlayerRole.allRounder:
+        return AppColors.pitchGreenLight;
+      case PlayerRole.wicketKeeper:
+        return Colors.orangeAccent;
     }
   }
 
   String _roleLabel(PlayerRole role) {
     switch (role) {
-      case PlayerRole.batsman: return 'BAT';
-      case PlayerRole.bowler: return 'BOWL';
-      case PlayerRole.allRounder: return 'AR';
-      case PlayerRole.wicketKeeper: return 'WK';
+      case PlayerRole.batsman:
+        return 'BAT';
+      case PlayerRole.bowler:
+        return 'BOWL';
+      case PlayerRole.allRounder:
+        return 'AR';
+      case PlayerRole.wicketKeeper:
+        return 'WK';
     }
   }
 
@@ -377,7 +442,8 @@ class _PlayerTile extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               '${player.jerseyNumber ?? index}',
-              style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 12),
+              style: TextStyle(
+                  color: roleColor, fontWeight: FontWeight.bold, fontSize: 12),
             ),
           ),
           const Gap(12),
@@ -385,7 +451,11 @@ class _PlayerTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(player.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(player.name,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14)),
                 Text(
                   '${player.battingStyle.name.toUpperCase()} • ${player.bowlingStyle.name.toUpperCase()}',
                   style: const TextStyle(color: Colors.grey, fontSize: 11),
@@ -399,10 +469,20 @@ class _PlayerTile extends StatelessWidget {
               color: roleColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(_roleLabel(player.role), style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 10)),
+            child: Text(_roleLabel(player.role),
+                style: TextStyle(
+                    color: roleColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10)),
           ),
-          IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 18), onPressed: onEdit),
-          IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18), onPressed: onRemove),
+          IconButton(
+              icon: const Icon(Icons.edit_outlined,
+                  color: Colors.white54, size: 18),
+              onPressed: onEdit),
+          IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  color: Colors.redAccent, size: 18),
+              onPressed: onRemove),
         ],
       ),
     );
@@ -461,7 +541,8 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text(
         isEdit ? 'Edit Player' : 'Add Player',
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -503,8 +584,12 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
                 fillColor: Color(0xFF2A2A2A),
                 border: OutlineInputBorder(),
               ),
-              items: PlayerRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.name))).toList(),
-              onChanged: (val) { if (val != null) setState(() => _role = val); },
+              items: PlayerRole.values
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r.name)))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _role = val);
+              },
             ),
             const Gap(12),
             DropdownButtonFormField<BattingStyle>(
@@ -518,8 +603,12 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
                 fillColor: Color(0xFF2A2A2A),
                 border: OutlineInputBorder(),
               ),
-              items: BattingStyle.values.map((b) => DropdownMenuItem(value: b, child: Text(b.name))).toList(),
-              onChanged: (val) { if (val != null) setState(() => _battingStyle = val); },
+              items: BattingStyle.values
+                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _battingStyle = val);
+              },
             ),
             const Gap(12),
             DropdownButtonFormField<BowlingStyle>(
@@ -533,8 +622,12 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
                 fillColor: Color(0xFF2A2A2A),
                 border: OutlineInputBorder(),
               ),
-              items: BowlingStyle.values.map((b) => DropdownMenuItem(value: b, child: Text(b.name))).toList(),
-              onChanged: (val) { if (val != null) setState(() => _bowlingStyle = val); },
+              items: BowlingStyle.values
+                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _bowlingStyle = val);
+              },
             ),
           ],
         ),
@@ -548,7 +641,8 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.pitchGreen,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: () {
             if (_nameController.text.trim().isEmpty) return;
@@ -567,7 +661,8 @@ class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
             widget.onAdd(player);
             Navigator.pop(context);
           },
-          child: Text(isEdit ? 'Update' : 'Add', style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(isEdit ? 'Update' : 'Add',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );

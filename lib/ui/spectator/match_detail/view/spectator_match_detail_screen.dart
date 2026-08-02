@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
@@ -35,7 +36,9 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
       );
     }
 
-    final isLive = match.status == MatchStatus.inProgress ||
+    final liveData = state.liveDataFor(match.id);
+    final isLive = liveData != null ||
+        match.status == MatchStatus.inProgress ||
         match.status == MatchStatus.live;
     final tournament = state.tournamentById(match.tournamentId);
 
@@ -54,13 +57,13 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _heroCard(state, match, isLive),
+            _heroCard(state, match, isLive, liveData),
             const Gap(16),
             _infoCard(context, match, state, tournament?.name),
             const Gap(16),
-
             if (match.innings1 != null || match.innings2 != null) ...[
-              Text('Full Scorecard', style: AppTextStyles.titleLarge(cs.onSurface)),
+              Text('Full Scorecard',
+                  style: AppTextStyles.titleLarge(cs.onSurface)),
               const Gap(8),
               if (match.innings1 != null) ...[
                 _inningsSection(context, state, match.innings1!, '1st Innings'),
@@ -71,14 +74,12 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                 const Gap(16),
               ],
             ],
-
             Text('Squads', style: AppTextStyles.titleLarge(cs.onSurface)),
             const Gap(8),
             _squadCard(context, state, match, match.team1Id),
             const Gap(12),
             _squadCard(context, state, match, match.team2Id),
             const Gap(16),
-
             if (match.status == MatchStatus.completed &&
                 match.resultSummary != null)
               Container(
@@ -112,7 +113,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
 
   // ── Hero scoreboard ────────────────────────────────────────────────────
 
-  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive) {
+  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive,
+      LiveMatchData? liveData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -128,7 +130,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                 const LiveBadge(),
                 const SizedBox(width: 8),
               ],
-              Text(_formatLabel(match), style: AppTextStyles.labelMedium(Colors.white70)),
+              Text(_formatLabel(match),
+                  style: AppTextStyles.labelMedium(Colors.white70)),
             ],
           ),
           const Gap(20),
@@ -138,10 +141,14 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                 child: _heroTeam(
                   short: st.teamShort(match.team1Id),
                   name: st.teamName(match.team1Id),
-                  score: _scoreLine(match.innings1),
-                  sub: isLive && match.battingTeamId == match.team1Id
-                      ? 'RR ${_runRateLabel(match.innings1)}'
-                      : null,
+                  score: liveData != null
+                      ? '${liveData.score.runs}/${liveData.score.wickets} (${liveData.score.oversLabel})'
+                      : _scoreLine(match.innings1),
+                  sub: isLive && liveData != null
+                      ? 'RR ${liveData.currentRunRate.toStringAsFixed(2)}'
+                      : (isLive && match.battingTeamId == match.team1Id
+                          ? 'RR ${_runRateLabel(match.innings1)}'
+                          : null),
                   isBatting: isLive && match.battingTeamId == match.team1Id,
                   isRight: false,
                 ),
@@ -151,10 +158,14 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                 child: _heroTeam(
                   short: st.teamShort(match.team2Id),
                   name: st.teamName(match.team2Id),
-                  score: _scoreLine(match.innings2),
-                  sub: isLive && match.battingTeamId == match.team2Id
-                      ? 'RR ${_runRateLabel(match.innings2)}'
-                      : null,
+                  score: liveData != null
+                      ? '${liveData.score.runs}/${liveData.score.wickets} (${liveData.score.oversLabel})'
+                      : _scoreLine(match.innings2),
+                  sub: isLive && liveData != null
+                      ? 'RR ${liveData.currentRunRate.toStringAsFixed(2)}'
+                      : (isLive && match.battingTeamId == match.team2Id
+                          ? 'RR ${_runRateLabel(match.innings2)}'
+                          : null),
                   isBatting: isLive && match.battingTeamId == match.team2Id,
                   isRight: true,
                 ),
@@ -197,11 +208,13 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     required bool isRight,
   }) {
     return Column(
-      crossAxisAlignment: isRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment:
+          isRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment:
+              isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isRight) ...[_badge(short), const SizedBox(width: 10)],
             Flexible(
@@ -217,7 +230,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         Text(
           score,
-          style: AppTextStyles.scoreMedium(isBatting ? AppColors.floodlightGold : Colors.white),
+          style: AppTextStyles.scoreMedium(
+              isBatting ? AppColors.floodlightGold : Colors.white),
         ),
         if (sub != null)
           Text(sub, style: AppTextStyles.labelSmall(Colors.white54)),
@@ -229,11 +243,15 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
     return Container(
       width: 40,
       height: 40,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+      decoration:
+          const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
       alignment: Alignment.center,
       child: Text(
-        short.length > 3 ? short.substring(0, 3).toUpperCase() : short.toUpperCase(),
-        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+        short.length > 3
+            ? short.substring(0, 3).toUpperCase()
+            : short.toUpperCase(),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -263,7 +281,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
 
   // ── Info card ──────────────────────────────────────────────────────────
 
-  Widget _infoCard(BuildContext context, ScorerMatch match, SpectatorHomeState st, String? tournamentName) {
+  Widget _infoCard(BuildContext context, ScorerMatch match,
+      SpectatorHomeState st, String? tournamentName) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -273,12 +292,15 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _infoRow(cs, Icons.emoji_events_rounded, 'Tournament', tournamentName ?? 'Custom Match'),
+          _infoRow(cs, Icons.emoji_events_rounded, 'Tournament',
+              tournamentName ?? 'Custom Match'),
           _infoRow(cs, Icons.calendar_today_rounded, 'Scheduled',
               '${match.dateTime.day}/${match.dateTime.month}/${match.dateTime.year}'),
-          _infoRow(cs, Icons.access_time_rounded, 'Status', match.status.name.toUpperCase()),
+          _infoRow(cs, Icons.access_time_rounded, 'Status',
+              match.status.name.toUpperCase()),
           if (match.tossWinnerId != null)
-            _infoRow(cs, Icons.adjust_rounded, 'Toss', '${st.teamName(match.tossWinnerId!)} won the toss'),
+            _infoRow(cs, Icons.adjust_rounded, 'Toss',
+                '${st.teamName(match.tossWinnerId!)} won the toss'),
         ],
       ),
     );
@@ -295,7 +317,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
           const Spacer(),
           Flexible(
             child: Text(value,
-                style: AppTextStyles.bodyMedium(cs.onSurface).copyWith(fontWeight: FontWeight.w600),
+                style: AppTextStyles.bodyMedium(cs.onSurface)
+                    .copyWith(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -305,7 +328,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
 
   // ── Full scorecard ─────────────────────────────────────────────────────
 
-  Widget _inningsSection(BuildContext context, SpectatorHomeState st, Innings inn, String title) {
+  Widget _inningsSection(
+      BuildContext context, SpectatorHomeState st, Innings inn, String title) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -320,16 +344,20 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
             child: Row(
               children: [
-                Text(title, style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
+                Text(title,
+                    style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
                 const Spacer(),
-                Text('${st.teamShort(inn.battingTeamId)} ${inn.totalRuns}/${inn.wickets}',
-                    style: AppTextStyles.titleMedium(cs.onSurface).copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                    '${st.teamShort(inn.battingTeamId)} ${inn.totalRuns}/${inn.wickets}',
+                    style: AppTextStyles.titleMedium(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text('Overs ${inn.overs.toStringAsFixed(1)} • Run rate ${_runRateLabel(inn)}',
+            child: Text(
+                'Overs ${inn.overs.toStringAsFixed(1)} • Run rate ${_runRateLabel(inn)}',
                 style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
           ),
           const Gap(8),
@@ -414,10 +442,14 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Over by Over',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
           const Gap(8),
           if (balls.isEmpty)
-            const Text('No deliveries yet.', style: TextStyle(color: Colors.white38, fontSize: 12))
+            const Text('No deliveries yet.',
+                style: TextStyle(color: Colors.white38, fontSize: 12))
           else
             ...balls.map((b) => _commentaryRow(st, b)),
         ],
@@ -445,7 +477,10 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text('${b.overNumber}.${b.ballInOver}',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -483,14 +518,20 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         children: [
           Text(title.toUpperCase(),
               style: const TextStyle(
-                  color: AppColors.pitchGreenLight, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  color: AppColors.pitchGreenLight,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1)),
           const SizedBox(height: 6),
           Row(children: [
             for (var i = 0; i < headers.length; i++)
               Expanded(
                 flex: widths[i].round(),
                 child: Text(headers[i],
-                    style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600)),
               ),
           ]),
           const Divider(color: Colors.white12, height: 8),
@@ -505,7 +546,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
                         style: TextStyle(
                           color: i == 0 ? Colors.white : Colors.white70,
                           fontSize: 11,
-                          fontWeight: i == 0 ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight:
+                              i == 0 ? FontWeight.w600 : FontWeight.normal,
                         ),
                         overflow: TextOverflow.ellipsis),
                   ),
@@ -518,7 +560,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
 
   // ── Squads ─────────────────────────────────────────────────────────────
 
-  Widget _squadCard(BuildContext context, SpectatorHomeState st, ScorerMatch match, String teamId) {
+  Widget _squadCard(BuildContext context, SpectatorHomeState st,
+      ScorerMatch match, String teamId) {
     final cs = Theme.of(context).colorScheme;
     final xi = teamId == match.team1Id ? match.playingXI1 : match.playingXI2;
     final teamPlayers = st.playersForTeam(teamId);
@@ -535,10 +578,12 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.groups_rounded, color: AppColors.pitchGreenLight, size: 18),
+              const Icon(Icons.groups_rounded,
+                  color: AppColors.pitchGreenLight, size: 18),
               const Gap(8),
               Text('${st.teamName(teamId)} — Playing XI',
-                  style: AppTextStyles.titleSmall(cs.onSurface).copyWith(fontWeight: FontWeight.bold)),
+                  style: AppTextStyles.titleSmall(cs.onSurface)
+                      .copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
           const Gap(10),
@@ -548,12 +593,20 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 8, height: 8,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.pitchGreenLight),
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.pitchGreenLight),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(st.playerName(id), style: const TextStyle(color: Colors.white70, fontSize: 13))),
-                  Text(_roleLabel(teamPlayers.where((p) => p.id == id).firstOrNull),
+                  Expanded(
+                      child: Text(st.playerName(id),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13))),
+                  Text(
+                      _roleLabel(
+                          teamPlayers.where((p) => p.id == id).firstOrNull),
                       style: const TextStyle(color: Colors.grey, fontSize: 9)),
                 ],
               ),
