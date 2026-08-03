@@ -48,6 +48,8 @@ class Innings {
     return balls.where((ball) => ball.overNumber == currentOver).toList();
   }
 
+  static const Object _unset = Object();
+
   Innings copyWith({
     String? id,
     String? battingTeamId,
@@ -57,9 +59,9 @@ class Innings {
     List<String>? battingOrder,
     List<String>? bowlingOrder,
     bool? isComplete,
-    String? strikerId,
-    String? nonStrikerId,
-    String? currentBowlerId,
+    Object? strikerId = _unset,
+    Object? nonStrikerId = _unset,
+    Object? currentBowlerId = _unset,
   }) {
     return Innings(
       id: id ?? this.id,
@@ -70,9 +72,9 @@ class Innings {
       battingOrder: battingOrder ?? this.battingOrder,
       bowlingOrder: bowlingOrder ?? this.bowlingOrder,
       isComplete: isComplete ?? this.isComplete,
-      strikerId: strikerId ?? this.strikerId,
-      nonStrikerId: nonStrikerId ?? this.nonStrikerId,
-      currentBowlerId: currentBowlerId ?? this.currentBowlerId,
+      strikerId: strikerId == _unset ? this.strikerId : strikerId as String?,
+      nonStrikerId: nonStrikerId == _unset ? this.nonStrikerId : nonStrikerId as String?,
+      currentBowlerId: currentBowlerId == _unset ? this.currentBowlerId : currentBowlerId as String?,
     );
   }
 }

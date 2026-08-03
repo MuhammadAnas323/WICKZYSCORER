@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +14,7 @@ import 'package:sportyapp/data/repositories/fixture_repository.dart';
 import 'package:sportyapp/data/repositories/notification_repository.dart';
 import 'package:sportyapp/data/services/realtime_database_service.dart';
 import 'package:sportyapp/data/services/firestore_scorer_service.dart';
+import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
@@ -26,6 +29,22 @@ final firestoreScorerServiceProvider = Provider<FirestoreScorerService>((ref) {
     ref.watch(firestoreProvider),
     ref.watch(realtimeDatabaseProvider),
   );
+});
+
+/// Emits a new value every time the scorer repository data changes (a match,
+/// team, player or tournament is saved or deleted). Screens that cache loaded
+/// lists (Matches tab, Home) listen to this and reload themselves.
+final scorerDataVersionProvider = StreamProvider<int>((ref) {
+  final repo = ref.watch(scorerRepositoryProvider);
+  final controller = StreamController<int>.broadcast();
+  void emit() => controller.add(repo.dataVersion.value);
+  emit();
+  repo.dataVersion.addListener(emit);
+  ref.onDispose(() {
+    repo.dataVersion.removeListener(emit);
+    controller.close();
+  });
+  return controller.stream;
 });
 
 final matchRepositoryProvider = Provider<MatchRepository>((ref) {

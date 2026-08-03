@@ -3,6 +3,7 @@ import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
+import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 class ScorerDashboardState {
@@ -96,6 +97,9 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
 
   ScorerDashboardViewModel(this.ref) : super(const ScorerDashboardState()) {
     loadDashboard();
+    // Reload whenever scorer data changes elsewhere in the app (e.g. a match
+    // was created from the Matches tab).
+    ref.listen(scorerDataVersionProvider, (_, __) => loadDashboard());
   }
 
   Future<void> loadDashboard() async {

@@ -9,6 +9,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/data/providers/repository_providers.dart';
 
 class AllMatchesScreen extends ConsumerStatefulWidget {
   const AllMatchesScreen({super.key});
@@ -30,6 +31,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   void initState() {
     super.initState();
     _load();
+    ref.listenManual(scorerDataVersionProvider, (_, __) => _load());
   }
 
   @override
@@ -222,7 +224,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                                                 .push('/scorer/live-scoring');
                                           } else {
                                             context.push(
-                                                '/scorer/toss?matchId=${match.id}');
+                                                '/scorer/matches/${match.id}/squad');
                                           }
                                         },
                                       )),

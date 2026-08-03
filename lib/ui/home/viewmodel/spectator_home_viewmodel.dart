@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
@@ -111,6 +112,12 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   SpectatorHomeViewModel(this.ref) : super(const SpectatorHomeState()) {
     _listenToLiveMatches();
     load();
+    // Reload whenever the signed-in user changes (e.g. a scorer signed out and
+    // a spectator signed in on the same device) so the spectator always sees the
+    // latest tournaments/teams/players/matches from the shared repository.
+    ref.listen(currentUserProvider, (_, next) {
+      if (next != null) load();
+    });
   }
 
   void _listenToLiveMatches() {

@@ -66,27 +66,69 @@ class FirestoreScorerService {
     );
   }
 
-  /// Writes the entire scorer state to Firestore in one batch.
+  /// Writes the entire scorer state to Firestore.
+  ///
+  /// Firestore batches are capped at 500 writes per commit, so the snapshot is
+  /// committed in chunks of at most 400 writes. This keeps large data sets
+  /// (many tournaments/teams/players/matches) from failing the whole upload.
   Future<void> syncAll(ScorerDataSnapshot snapshot) async {
-    final batch = _firestore.batch();
+    final writes = <(DocumentReference, Map<String, dynamic>)>[];
     for (final t in snapshot.tournaments) {
-      batch.set(_tournaments.doc(t.id), scorerTournamentToJson(t));
+      writes.add((_tournaments.doc(t.id), scorerTournamentToJson(t)));
     }
     for (final t in snapshot.teams) {
-      batch.set(_teams.doc(t.id), scorerTeamToJson(t));
+      writes.add((_teams.doc(t.id), scorerTeamToJson(t)));
     }
     for (final p in snapshot.players) {
-      batch.set(_players.doc(p.id), scorerPlayerToJson(p));
+      writes.add((_players.doc(p.id), scorerPlayerToJson(p)));
     }
     for (final m in snapshot.matches) {
-      batch.set(_matches.doc(m.id), scorerMatchToJson(m));
+      writes.add((_matches.doc(m.id), scorerMatchToJson(m)));
     }
     for (final e in snapshot.schedules.entries) {
-      batch.set(_schedules.doc(e.key), {
+      writes.add((_schedules.doc(e.key), {
         'stages': e.value.map(scheduleStageToJson).toList(),
-      });
+      }));
     }
-    await batch.commit();
+
+    const chunkSize = 400;
+    for (var i = 0; i < writes.length; i += chunkSize) {
+      final batch = _firestore.batch();
+      final chunk = writes.skip(i).take(chunkSize);
+      for (final (ref, data) in chunk) {
+        batch.set(ref, data);
+      }
+      await batch.commit();
+    }
+  }
+
+  // ── Granular per-document writes ───────────────────────────────────────
+  //
+  // These let the repository persist a single entity (instead of re-uploading
+  // the entire state on every change). They are used for every save during
+  // normal operation so a large dataset never breaks the write, and so a
+  // single document failure cannot wipe the rest of the sync.
+
+  Future<void> saveTournament(ScorerTournament tournament) async {
+    await _tournaments.doc(tournament.id).set(scorerTournamentToJson(tournament));
+  }
+
+  Future<void> saveTeam(ScorerTeam team) async {
+    await _teams.doc(team.id).set(scorerTeamToJson(team));
+  }
+
+  Future<void> savePlayer(ScorerPlayer player) async {
+    await _players.doc(player.id).set(scorerPlayerToJson(player));
+  }
+
+  Future<void> saveMatch(ScorerMatch match) async {
+    await _matches.doc(match.id).set(scorerMatchToJson(match));
+  }
+
+  Future<void> saveSchedule(String tournamentId, List<ScheduleStage> stages) async {
+    await _schedules.doc(tournamentId).set({
+      'stages': stages.map(scheduleStageToJson).toList(),
+    });
   }
 
   // ── Point deletes (cascade-friendly) ───────────────────────────────────

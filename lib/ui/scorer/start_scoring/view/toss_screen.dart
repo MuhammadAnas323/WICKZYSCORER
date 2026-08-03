@@ -24,8 +24,12 @@ class TossScreen extends ConsumerStatefulWidget {
 
 class _TossScreenState extends ConsumerState<TossScreen> {
   ScorerMatch? _match;
+  String? _team1Name;
+  String? _team2Name;
   List<ScorerPlayer> _team1Players = [];
   List<ScorerPlayer> _team2Players = [];
+  final Set<String> _squad1 = {};
+  final Set<String> _squad2 = {};
   bool _loading = true;
   bool _starting = false;
 
@@ -49,17 +53,32 @@ class _TossScreenState extends ConsumerState<TossScreen> {
       setState(() => _loading = false);
       return;
     }
-    final [p1, p2] = await Future.wait([
-      repo.getPlayersByTeam(match.team1Id),
-      repo.getPlayersByTeam(match.team2Id),
-    ]);
+    final t1 = await repo.getTeam(match.team1Id);
+    final t2 = await repo.getTeam(match.team2Id);
+    final p1 = await repo.getPlayersByTeam(match.team1Id);
+    final p2 = await repo.getPlayersByTeam(match.team2Id);
     if (!mounted) return;
     setState(() {
       _match = match;
+      _team1Name = t1?.name ?? match.team1Id;
+      _team2Name = t2?.name ?? match.team2Id;
       _team1Players = p1;
       _team2Players = p2;
+      // Honour the squad set on the squad setup screen; fall back to every
+      // player on the team when no squad has been chosen yet.
+      _squad1
+        ..clear()
+        ..addAll(match.playingXI1.isNotEmpty ? match.playingXI1 : p1.map((p) => p.id));
+      _squad2
+        ..clear()
+        ..addAll(match.playingXI2.isNotEmpty ? match.playingXI2 : p2.map((p) => p.id));
       _loading = false;
     });
+  }
+
+  Future<void> _manageSquads() async {
+    await context.push('/scorer/matches/${widget.matchId}/squad');
+    if (mounted) _load();
   }
 
   String? get _battingTeamId {
@@ -80,18 +99,33 @@ class _TossScreenState extends ConsumerState<TossScreen> {
   List<ScorerPlayer> _bowlingPlayers() =>
       _bowlingTeamId == _match?.team1Id ? _team1Players : _team2Players;
 
+  List<ScorerPlayer> _squadPlayers(List<ScorerPlayer> players, Set<String> squad) {
+    if (squad.isEmpty) return players;
+    return players.where((p) => squad.contains(p.id)).toList();
+  }
+
   Future<void> _startScoring() async {
     final match = _match;
     if (match == null) return;
     final battingTeamId = _battingTeamId;
     final bowlingTeamId = _bowlingTeamId;
-    if (battingTeamId == null ||
-        bowlingTeamId == null ||
-        _openingStrikerId == null ||
-        _openingNonStrikerId == null ||
-        _openingBowlerId == null) {
+    if (battingTeamId == null || bowlingTeamId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Complete the toss, openers and bowler'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Select the toss winner and their decision'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    final battingPlayers = _squadPlayers(_battingPlayers(), _battingTeamId == match.team1Id ? _squad1 : _squad2);
+    final bowlingPlayers = _squadPlayers(_bowlingPlayers(), _bowlingTeamId == match.team1Id ? _squad1 : _squad2);
+    if (battingPlayers.isEmpty || bowlingPlayers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add players to both squads first'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_openingStrikerId == null || _openingNonStrikerId == null || _openingBowlerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select the opening batsmen and the opening bowler'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -119,8 +153,8 @@ class _TossScreenState extends ConsumerState<TossScreen> {
       openingStrikerId: _openingStrikerId,
       openingNonStrikerId: _openingNonStrikerId,
       openingBowlerId: _openingBowlerId,
-      playingXI1: _team1Players.map((p) => p.id).toList(),
-      playingXI2: _team2Players.map((p) => p.id).toList(),
+      playingXI1: _squad1.isEmpty ? _team1Players.map((p) => p.id).toList() : _squad1.toList(),
+      playingXI2: _squad2.isEmpty ? _team2Players.map((p) => p.id).toList() : _squad2.toList(),
       status: MatchStatus.inProgress,
       innings1: inn1,
       currentInnings: 1,
@@ -165,11 +199,39 @@ class _TossScreenState extends ConsumerState<TossScreen> {
   }
 
   Widget _buildForm() {
+    final match = _match!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.pitchGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.groups_rounded, color: AppColors.pitchGreenLight, size: 22),
+                const Gap(10),
+                Expanded(
+                  child: Text(
+                    '${_teamName(match.team1Id)} • ${_squad1.length} in squad  vs  ${_teamName(match.team2Id)} • ${_squad2.length} in squad',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Gap(8),
+          TextButton.icon(
+            onPressed: _manageSquads,
+            icon: const Icon(Icons.settings_suggest_rounded, color: AppColors.pitchGreenLight, size: 18),
+            label: const Text('Manage Squads / Add Players', style: TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
+          ),
+          const Gap(12),
           _tossPicker(),
           const Gap(28),
           _openingPlayersPicker(),
@@ -273,36 +335,84 @@ class _TossScreenState extends ConsumerState<TossScreen> {
   }
 
   Widget _openingPlayersPicker() {
-    final battingPlayers = _battingPlayers();
-    final bowlingPlayers = _bowlingPlayers();
-    final battingName = _teamName(_battingTeamId);
-    final bowlingName = _teamName(_bowlingTeamId);
+    final match = _match!;
+    final battingTeamId = _battingTeamId;
+    if (battingTeamId == null) {
+      return const Text(
+        'Pick the toss winner to choose the opening batsmen and bowler.',
+        style: TextStyle(color: Colors.white54),
+      );
+    }
+    final battingSquad = _squadPlayers(_battingPlayers(), battingTeamId == match.team1Id ? _squad1 : _squad2);
+    final bowlingSquad = _squadPlayers(_bowlingPlayers(), battingTeamId == match.team1Id ? _squad2 : _squad1);
+    final battingName = _teamName(battingTeamId);
+    final bowlingName = _teamName(battingTeamId == match.team1Id ? match.team2Id : match.team1Id);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('$battingName — Opening Batsmen', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
         const Gap(8),
-        ...battingPlayers.take(11).map((p) => _playerSelectorTile(
-          player: p,
-          isStriker: _openingStrikerId == p.id,
-          isNonStriker: _openingNonStrikerId == p.id,
-          onTapStriker: () => setState(() => _openingStrikerId = p.id),
-          onTapNonStriker: () => setState(() => _openingNonStrikerId = p.id),
-        )),
+        if (battingSquad.isEmpty)
+          _emptySquadHint('$battingName has no players in the squad.')
+        else
+          ...battingSquad.take(11).map((p) => _playerSelectorTile(
+            player: p,
+            isStriker: _openingStrikerId == p.id,
+            isNonStriker: _openingNonStrikerId == p.id,
+            onTapStriker: () => setState(() => _openingStrikerId = p.id),
+            onTapNonStriker: () => setState(() => _openingNonStrikerId = p.id),
+          )),
         const Gap(20),
         Text('$bowlingName — Opening Bowler', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
         const Gap(8),
-        ...bowlingPlayers.where((p) => p.bowlingStyle != BowlingStyle.none).take(6).map((p) => _bowlerSelectorTile(
-          player: p,
-          isSelected: _openingBowlerId == p.id,
-          onTap: () => setState(() => _openingBowlerId = p.id),
-        )),
+        if (bowlingSquad.isEmpty)
+          _emptySquadHint('$bowlingName has no players in the squad.')
+        else
+          ..._bowlerCandidates(bowlingSquad).map((p) => _bowlerSelectorTile(
+            player: p,
+            isSelected: _openingBowlerId == p.id,
+            onTap: () => setState(() => _openingBowlerId = p.id),
+          )),
       ],
     );
   }
 
-  String _teamName(String? id) => id ?? 'Team';
+  List<ScorerPlayer> _bowlerCandidates(List<ScorerPlayer> players) {
+    final bowlers = players.where((p) => p.bowlingStyle != BowlingStyle.none).toList();
+    return bowlers.isEmpty ? players : bowlers;
+  }
+
+  Widget _emptySquadHint(String message) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.person_add_alt_1, color: Colors.white38, size: 20),
+          const Gap(10),
+          Expanded(
+            child: Text(message, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+          ),
+          TextButton(
+            onPressed: _manageSquads,
+            child: const Text('Manage Squad', style: TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _teamName(String? id) {
+    if (id == null) return 'Team';
+    if (id == _match?.team1Id) return _team1Name ?? id;
+    if (id == _match?.team2Id) return _team2Name ?? id;
+    return id;
+  }
 
   Widget _playerSelectorTile({
     required ScorerPlayer player,

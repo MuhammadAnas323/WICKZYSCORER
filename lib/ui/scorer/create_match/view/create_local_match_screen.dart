@@ -136,11 +136,11 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Local match created!'),
+        content: Text('Match created — set up the squads'),
         backgroundColor: AppColors.pitchGreen,
       ),
     );
-    context.go('/scorer/all-matches');
+    context.pushReplacement('/scorer/matches/${match.id}/squad');
   }
 
   Widget _teamField({required String label, required TextEditingController controller}) {
@@ -232,7 +232,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                           Expanded(
                             child: Text(
                               _dateTime == null
-                                  ? 'Set date & time'
+                                  ? 'Set date & time (optional)'
                                   : _dateTime!.toLocal().toString().replaceRange(16, 19, ''),
                               style: TextStyle(
                                 color: _dateTime == null ? Colors.white38 : Colors.white,

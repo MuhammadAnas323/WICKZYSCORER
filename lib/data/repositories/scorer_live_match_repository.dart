@@ -10,13 +10,22 @@ class ScorerLiveMatchRepository {
   ScorerMatch? _activeMatch;
   final _controller = StreamController<ScorerMatch?>.broadcast();
 
+  // Snapshot of the pre-ball innings state so that "Undo" can fully restore
+  // the striker/non-striker/bowler and the batting/bowling order, not just
+  // drop the last ball event.
+  final List<_BallUndo> _undoStack = [];
+
   ScorerLiveMatchRepository(this._ref);
 
   Stream<ScorerMatch?> get stream => _controller.stream;
   ScorerMatch? get activeMatch => _activeMatch;
 
   void setActiveMatch(ScorerMatch? match) {
+    final switched = match?.id != _activeMatch?.id;
     _activeMatch = match;
+    if (switched) {
+      _undoStack.clear();
+    }
     _controller.add(match);
     if (match != null) {
       _ref.read(scorerRepositoryProvider).saveMatch(match);
@@ -28,6 +37,17 @@ class ScorerLiveMatchRepository {
     final match = _activeMatch!;
     final inn = match.currentInningsData;
     if (inn == null) return;
+
+    _undoStack.add(_BallUndo(
+      matchId: match.id,
+      inningsId: inn.id,
+      strikerId: inn.strikerId,
+      nonStrikerId: inn.nonStrikerId,
+      currentBowlerId: inn.currentBowlerId,
+      battingOrder: List<String>.from(inn.battingOrder),
+      bowlingOrder: List<String>.from(inn.bowlingOrder),
+      isComplete: inn.isComplete,
+    ));
 
     final updatedBalls = List<BallEvent>.from(inn.balls)..add(event);
     
@@ -79,11 +99,30 @@ class ScorerLiveMatchRepository {
     if (_activeMatch == null) return;
     final match = _activeMatch!;
     final inn = match.currentInningsData;
-    if (inn == null || inn.balls.isEmpty) return;
+    if (inn == null) return;
+
+    // Find and pop the most recent snapshot for this innings.
+    _BallUndo? snap;
+    for (int i = _undoStack.length - 1; i >= 0; i--) {
+      final s = _undoStack[i];
+      if (s.matchId == match.id && s.inningsId == inn.id) {
+        snap = _undoStack.removeAt(i);
+        break;
+      }
+    }
+    if (snap == null || inn.balls.isEmpty) return;
 
     final updatedBalls = List<BallEvent>.from(inn.balls)..removeLast();
 
-    final updatedInnings = inn.copyWith(balls: updatedBalls);
+    final updatedInnings = inn.copyWith(
+      balls: updatedBalls,
+      strikerId: snap.strikerId,
+      nonStrikerId: snap.nonStrikerId,
+      currentBowlerId: snap.currentBowlerId,
+      battingOrder: snap.battingOrder,
+      bowlingOrder: snap.bowlingOrder,
+      isComplete: snap.isComplete,
+    );
     final updatedMatch = match.copyWith(
       innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
       innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
@@ -155,6 +194,61 @@ class ScorerLiveMatchRepository {
     final updatedMatch = match.copyWith(
       innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
       innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
+    );
+
+    setActiveMatch(updatedMatch);
+  }
+
+  /// Adjusts the number of overs for the match (e.g. mid-innings). Clamped so
+  /// the total can never drop below the overs already bowled.
+  void setOvers(int overs) {
+    if (_activeMatch == null) return;
+    final match = _activeMatch!;
+    final inn = match.currentInningsData;
+    final minOvers = inn == null
+        ? 1
+        : (inn.legalBallsDelivered / 6).ceil();
+    final clamped = overs.clamp(minOvers, 50).toInt();
+    if (clamped == match.overs) return;
+    setActiveMatch(match.copyWith(overs: clamped));
+  }
+
+  /// Substitutes a player: swaps [playerOutId] for [playerInId] in the team's
+  /// playing XI and in any current-innings batting/bowling references.
+  void replacePlayer({
+    required String teamId,
+    required String playerOutId,
+    required String playerInId,
+  }) {
+    if (_activeMatch == null) return;
+    final match = _activeMatch!;
+    final isTeam1 = teamId == match.team1Id;
+    final xi = List<String>.from(isTeam1 ? match.playingXI1 : match.playingXI2);
+    final idx = xi.indexOf(playerOutId);
+    if (idx == -1) return;
+    xi[idx] = playerInId;
+
+    final inn = match.currentInningsData;
+    Innings? updatedInn = inn;
+    if (inn != null) {
+      updatedInn = inn.copyWith(
+        battingOrder: inn.battingOrder
+            .map((id) => id == playerOutId ? playerInId : id)
+            .toList(),
+        bowlingOrder: inn.bowlingOrder
+            .map((id) => id == playerOutId ? playerInId : id)
+            .toList(),
+        strikerId: inn.strikerId == playerOutId ? playerInId : inn.strikerId,
+        nonStrikerId: inn.nonStrikerId == playerOutId ? playerInId : inn.nonStrikerId,
+        currentBowlerId: inn.currentBowlerId == playerOutId ? playerInId : inn.currentBowlerId,
+      );
+    }
+
+    final updatedMatch = match.copyWith(
+      playingXI1: isTeam1 ? xi : match.playingXI1,
+      playingXI2: isTeam1 ? match.playingXI2 : xi,
+      innings1: match.currentInnings == 1 ? updatedInn : match.innings1,
+      innings2: match.currentInnings == 2 ? updatedInn : match.innings2,
     );
 
     setActiveMatch(updatedMatch);
@@ -237,6 +331,28 @@ class ScorerLiveMatchRepository {
   }
 
   void dispose() => _controller.close();
+}
+
+class _BallUndo {
+  final String matchId;
+  final String inningsId;
+  final String? strikerId;
+  final String? nonStrikerId;
+  final String? currentBowlerId;
+  final List<String> battingOrder;
+  final List<String> bowlingOrder;
+  final bool isComplete;
+
+  const _BallUndo({
+    required this.matchId,
+    required this.inningsId,
+    required this.strikerId,
+    required this.nonStrikerId,
+    required this.currentBowlerId,
+    required this.battingOrder,
+    required this.bowlingOrder,
+    required this.isComplete,
+  });
 }
 
 final scorerLiveMatchRepositoryProvider = Provider<ScorerLiveMatchRepository>((ref) {

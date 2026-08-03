@@ -350,7 +350,7 @@ class ScorerDashboardScreen extends ConsumerWidget {
           ref.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
           context.push('/scorer/live-scoring');
         } else {
-          context.push('/scorer/toss?matchId=${match.id}');
+          context.push('/scorer/matches/${match.id}/squad');
         }
       },
       child: Container(
@@ -419,7 +419,7 @@ class ScorerDashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? AppColors.pitchGreen : Colors.white10,
-          borderRadius: BorderRadius.circular(100),
+          borderRadius: BorderRadius.circular(_cardRadius),
         ),
         child: Text(
           label,

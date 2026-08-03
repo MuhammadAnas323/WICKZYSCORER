@@ -21,20 +21,15 @@ class LiveScoringScreen extends ConsumerStatefulWidget {
 class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseCtrl;
-  late AnimationController _ballAnimCtrl;
-  late Animation<double> _ballAnim;
 
   bool _showExtras = false;
+  ExtrasType? _selectedExtrasType;
 
   @override
   void initState() {
     super.initState();
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))
       ..repeat(reverse: true);
-    _ballAnimCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _ballAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _ballAnimCtrl, curve: Curves.elasticOut),
-    );
     // Restore an in-progress draft match (e.g. after app was closed mid-scoring).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(scorerLiveMatchRepositoryProvider).restoreActiveDraft();
@@ -44,17 +39,24 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   @override
   void dispose() {
     _pulseCtrl.dispose();
-    _ballAnimCtrl.dispose();
     super.dispose();
   }
 
-  Future<List<ScorerPlayer>> _getPlayers(ScorerMatch match) async {
+  Future<_MatchData> _loadMatchData(ScorerMatch match) async {
     final repo = ref.read(scorerRepositoryProvider);
     final [p1, p2] = await Future.wait([
       repo.getPlayersByTeam(match.team1Id),
       repo.getPlayersByTeam(match.team2Id),
     ]);
-    return [...p1, ...p2];
+    final [t1, t2] = await Future.wait([
+      repo.getTeam(match.team1Id),
+      repo.getTeam(match.team2Id),
+    ]);
+    return _MatchData(
+      players: [...p1, ...p2],
+      team1Name: t1?.name ?? match.team1Id,
+      team2Name: t2?.name ?? match.team2Id,
+    );
   }
 
   void _recordBall({
@@ -92,7 +94,6 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
 
     liveRepo.recordBall(event);
-    _ballAnimCtrl.forward(from: 0.0);
 
     // Check innings completion
     final updatedMatch = liveRepo.activeMatch;
@@ -114,7 +115,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
 
     setState(() {
       _showExtras = false;
+      _selectedExtrasType = null;
     });
+  }
+
+  void _recordExtras(ExtrasType type, int total) {
+    _recordBall(
+      runs: 0,
+      extras: type,
+      extrasRuns: total,
+      isBoundary: (type == ExtrasType.bye || type == ExtrasType.legBye) && total == 4,
+    );
   }
 
   void _showInningsBreakDialog(ScorerMatch match) {
@@ -279,7 +290,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   @override
   Widget build(BuildContext context) {
     final liveRepo = ref.watch(scorerLiveMatchRepositoryProvider);
-    final match = liveRepo.activeMatch;
+    // Watch the stream so any repo mutation (record ball, undo, swap strike,
+    // bowler change) rebuilds this screen instead of only incidental setState.
+    final match = ref.watch(scorerLiveMatchStreamProvider).value ?? liveRepo.activeMatch;
 
     if (match == null) {
       return Scaffold(
@@ -303,16 +316,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       );
     }
 
-    return FutureBuilder<List<ScorerPlayer>>(
-      future: _getPlayers(match),
+    return FutureBuilder<_MatchData>(
+      future: _loadMatchData(match),
       builder: (context, snapshot) {
-        final allPlayers = snapshot.data ?? [];
-        return _buildScoringUI(match, allPlayers);
+        final data = snapshot.data;
+        return _buildScoringUI(
+          match,
+          data?.players ?? [],
+          team1Name: data?.team1Name ?? match.team1Id,
+          team2Name: data?.team2Name ?? match.team2Id,
+        );
       },
     );
   }
 
-  Widget _buildScoringUI(ScorerMatch match, List<ScorerPlayer> allPlayers) {
+  Widget _buildScoringUI(
+    ScorerMatch match,
+    List<ScorerPlayer> allPlayers, {
+    required String team1Name,
+    required String team2Name,
+  }) {
     final inn = match.currentInningsData;
     final totalRuns = inn?.totalRuns ?? 0;
     final wickets = inn?.wickets ?? 0;
@@ -361,7 +384,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               ),
             ),
             const Gap(8),
-            Text('${match.team1Id} vs ${match.team2Id}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Flexible(
+              child: Text(
+                '$team1Name vs $team2Name',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -389,23 +419,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             child: Column(
               children: [
                 // Score
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$totalRuns/$wickets',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 48, letterSpacing: -1),
-                    ),
-                    const Gap(12),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '(${overs.toStringAsFixed(1)})',
-                        style: const TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$totalRuns/$wickets',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 48, letterSpacing: -1),
                       ),
-                    ),
-                  ],
+                      const Gap(12),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '(${overs.toStringAsFixed(1)})',
+                          style: const TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (target != null)
                   Text(
@@ -414,8 +447,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                   ),
                 const Gap(8),
                 // Current over balls
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  runSpacing: 4,
                   children: [
                     ...currentOverBalls.map((b) => _ballDot(b)),
                     ...List.generate(
@@ -428,11 +462,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 // Batsmen & Bowler info
                 Row(
                   children: [
-                    _batInfoChip(striker, true),
+                    Flexible(child: _batInfoChip(striker, true)),
                     const Gap(8),
-                    _batInfoChip(nonStriker, false),
+                    Flexible(child: _batInfoChip(nonStriker, false)),
                     const Spacer(),
-                    _bowlerInfoChip(bowler, inn),
+                    Flexible(child: _bowlerInfoChip(bowler, inn)),
                   ],
                 ),
               ],
@@ -567,6 +601,41 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                       ),
                     ],
                   ),
+                  const Gap(12),
+                  // Overs & substitution row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _miniControl(
+                          label: '- Over',
+                          icon: Icons.remove_rounded,
+                          color: Colors.white70,
+                          onTap: () => _changeOvers(-1),
+                        ),
+                      ),
+                      const Gap(6),
+                      _oversBadge(match.overs),
+                      const Gap(6),
+                      Expanded(
+                        child: _miniControl(
+                          label: '+ Over',
+                          icon: Icons.add_rounded,
+                          color: Colors.white70,
+                          onTap: () => _changeOvers(1),
+                        ),
+                      ),
+                      const Gap(8),
+                      Expanded(
+                        flex: 2,
+                        child: _miniControl(
+                          label: 'Replace Player',
+                          icon: Icons.swap_vert_rounded,
+                          color: Colors.blueAccent,
+                          onTap: () => _showReplacePlayerSheet(match, allPlayers, team1Name, team2Name),
+                        ),
+                      ),
+                    ],
+                  ),
                   const Gap(24),
                 ],
               ),
@@ -625,9 +694,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           children: [
             if (isStriker)
               const Text('* ', style: TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
-            Text(
-              player.name.split(' ').first,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            Flexible(
+              child: Text(
+                player.name.split(' ').first,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           ],
         ),
@@ -644,8 +717,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(player.name.split(' ').first, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(player.name.split(' ').first,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
         Text('$playerRuns runs • $playerWickets-W • ${(playerBalls ~/ 6)}.${playerBalls % 6} ov',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.grey, fontSize: 10)),
       ],
     );
@@ -699,30 +777,27 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _runButton(int runs, Color bg, Color textColor, {String? label, bool isBoundary = false, bool isSix = false}) {
-    return ScaleTransition(
-      scale: _ballAnim,
-      child: GestureDetector(
-        onTap: () => _recordBall(runs: runs, isBoundary: isBoundary, isSix: isSix),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isBoundary ? Colors.greenAccent.withOpacity(0.5) : Colors.white12),
-            boxShadow: isSix
-                ? [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 12)]
-                : isBoundary
-                    ? [BoxShadow(color: AppColors.pitchGreen.withOpacity(0.3), blurRadius: 12)]
-                    : null,
-          ),
-          child: Center(
-            child: Text(
-              label ?? '$runs',
-              style: TextStyle(
-                color: textColor,
-                fontSize: isBoundary ? 18 : 22,
-                fontWeight: FontWeight.w900,
-              ),
+    return GestureDetector(
+      onTap: () => _recordBall(runs: runs, isBoundary: isBoundary, isSix: isSix),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isBoundary ? Colors.greenAccent.withOpacity(0.5) : Colors.white12),
+          boxShadow: isSix
+              ? [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 12)]
+              : isBoundary
+                  ? [BoxShadow(color: AppColors.pitchGreen.withOpacity(0.3), blurRadius: 12)]
+                  : null,
+        ),
+        child: Center(
+          child: Text(
+            label ?? '$runs',
+            style: TextStyle(
+              color: textColor,
+              fontSize: isBoundary ? 18 : 22,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ),
@@ -731,52 +806,209 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _extrasPicker() {
+    final selected = _selectedExtrasType;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.orange.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.orange.withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Select Extra Type', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-          const Gap(8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ExtrasType.values.where((e) => e != ExtrasType.none).map((extType) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Column(
-                    children: [
-                      Text(extType.name.toUpperCase(), style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
-                      const Gap(4),
-                      Row(
-                        children: [1, 2, 4].map((r) => GestureDetector(
-                          onTap: () => _recordBall(extras: extType, extrasRuns: r, runs: r),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            margin: const EdgeInsets.only(right: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text('$r+', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                          ),
-                        )).toList(),
-                      ),
-                    ],
+          if (selected == null) ...[
+            const Text('Select Extra Type', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+            const Gap(8),
+            Row(
+              children: [
+                Expanded(
+                  child: _extrasTypeButton(ExtrasType.wide, 'Wide'),
+                ),
+                const Gap(6),
+                Expanded(
+                  child: _extrasTypeButton(ExtrasType.noBall, 'No Ball'),
+                ),
+              ],
+            ),
+            const Gap(6),
+            Row(
+              children: [
+                Expanded(
+                  child: _extrasTypeButton(ExtrasType.bye, 'Bye'),
+                ),
+                const Gap(6),
+                Expanded(
+                  child: _extrasTypeButton(ExtrasType.legBye, 'Leg Bye'),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_extrasTitle(selected)} runs',
+                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
-                );
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => setState(() => _selectedExtrasType = null),
+                  child: const Text('Change', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ],
+            ),
+            const Gap(4),
+            Row(
+              children: [1, 2, 3, 4].map((r) {
+                return Expanded(child: _extrasRunButton(selected, r));
               }).toList(),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+
+  String _extrasTitle(ExtrasType type) {
+    switch (type) {
+      case ExtrasType.wide:
+        return 'Wide';
+      case ExtrasType.noBall:
+        return 'No Ball';
+      case ExtrasType.bye:
+        return 'Bye';
+      case ExtrasType.legBye:
+        return 'Leg Bye';
+      case ExtrasType.none:
+        return 'Extra';
+    }
+  }
+
+  Widget _extrasTypeButton(ExtrasType type, String label) {
+    return GestureDetector(
+      onTap: () => setState(() => _selectedExtrasType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.orange.withOpacity(0.4)),
+        ),
+        child: Text(label,
+            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+            textAlign: TextAlign.center),
+      ),
+    );
+  }
+
+  Widget _extrasRunButton(ExtrasType type, int runs) {
+    final isByes = type == ExtrasType.bye || type == ExtrasType.legBye;
+    return GestureDetector(
+      onTap: () => _recordExtras(type, runs),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          children: [
+            Text('$runs',
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+            const Gap(2),
+            Text(
+              isByes ? (runs == 1 ? 'bye' : 'byes') : (runs == 1 ? 'run' : 'runs'),
+              style: const TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _changeOvers(int delta) {
+    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+    final m = liveRepo.activeMatch;
+    if (m == null) return;
+    liveRepo.setOvers(m.overs + delta);
+  }
+
+  Widget _oversBadge(int overs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$overs', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Overs', style: TextStyle(color: Colors.grey, fontSize: 9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniControl({
+    required String label,
+    required IconData icon,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: onTap == null ? Colors.white24 : color, size: 18),
+            const Gap(2),
+            Text(label,
+                style: TextStyle(
+                    color: onTap == null ? Colors.white24 : color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReplacePlayerSheet(
+      ScorerMatch match, List<ScorerPlayer> allPlayers, String team1Name, String team2Name) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ReplacePlayerSheet(
+        match: match,
+        allPlayers: allPlayers,
+        team1Name: team1Name,
+        team2Name: team2Name,
+        onReplace: (teamId, playerOutId, playerInId) {
+          Navigator.pop(ctx);
+          ref.read(scorerLiveMatchRepositoryProvider).replacePlayer(
+            teamId: teamId,
+            playerOutId: playerOutId,
+            playerInId: playerInId,
+          );
+        },
       ),
     );
   }
@@ -797,6 +1029,194 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             const Gap(3),
             Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Match Data ─────────────────────────────────────────────────────────────────
+
+class _MatchData {
+  final List<ScorerPlayer> players;
+  final String team1Name;
+  final String team2Name;
+
+  const _MatchData({
+    required this.players,
+    required this.team1Name,
+    required this.team2Name,
+  });
+}
+
+// ── Replace Player Sheet ──────────────────────────────────────────────────────
+
+class _ReplacePlayerSheet extends ConsumerStatefulWidget {
+  final ScorerMatch match;
+  final List<ScorerPlayer> allPlayers;
+  final String team1Name;
+  final String team2Name;
+  final void Function(String teamId, String playerOutId, String playerInId) onReplace;
+
+  const _ReplacePlayerSheet({
+    required this.match,
+    required this.allPlayers,
+    required this.team1Name,
+    required this.team2Name,
+    required this.onReplace,
+  });
+
+  @override
+  ConsumerState<_ReplacePlayerSheet> createState() => _ReplacePlayerSheetState();
+}
+
+class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
+  int _teamIndex = 0;
+  String? _outId;
+  String? _inId;
+
+  String get _teamId => _teamIndex == 0 ? widget.match.team1Id : widget.match.team2Id;
+
+  List<ScorerPlayer> get _xiPlayers {
+    final ids = _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
+    return widget.allPlayers.where((p) => ids.contains(p.id)).toList();
+  }
+
+  List<ScorerPlayer> get _benchPlayers {
+    final ids = _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
+    return widget.allPlayers
+        .where((p) => p.teamId == _teamId && !ids.contains(p.id))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canConfirm = _outId != null && _inId != null;
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10162B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Replace Player',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+            const Gap(12),
+            Row(
+              children: [
+                Expanded(
+                  child: _teamTab(0, widget.team1Name),
+                ),
+                const Gap(8),
+                Expanded(
+                  child: _teamTab(1, widget.team2Name),
+                ),
+              ],
+            ),
+            const Gap(16),
+            const Text('Player to replace',
+                style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+            const Gap(8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _xiPlayers.map((p) => _playerChip(p, selected: _outId == p.id, onTap: () {
+                setState(() {
+                  _outId = p.id;
+                  if (_inId == p.id) _inId = null;
+                });
+              })).toList(),
+            ),
+            const Gap(16),
+            const Text('Replacement from bench',
+                style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+            const Gap(8),
+            if (_benchPlayers.isEmpty)
+              const Text('No bench players available',
+                  style: TextStyle(color: Colors.white38, fontSize: 12))
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _benchPlayers.map((p) => _playerChip(p, selected: _inId == p.id, onTap: () {
+                  setState(() => _inId = p.id);
+                })).toList(),
+              ),
+            const Gap(20),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton(
+                onPressed: canConfirm
+                    ? () => widget.onReplace(_teamId, _outId!, _inId!)
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  disabledBackgroundColor: Colors.white12,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Confirm Substitution',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _teamTab(int index, String name) {
+    final active = _teamIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _teamIndex = index;
+        _outId = null;
+        _inId = null;
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? Colors.blueAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: active ? Colors.blueAccent : Colors.white12),
+        ),
+        child: Text(
+          name,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.white60,
+            fontSize: 12,
+            fontWeight: active ? FontWeight.bold : FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Widget _playerChip(ScorerPlayer p, {required bool selected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.green.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? Colors.green : Colors.white12),
+        ),
+        child: Text(
+          p.name,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white70,
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w400,
+          ),
         ),
       ),
     );
@@ -907,8 +1327,8 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
               onPressed: () {
                 final dismissal = Dismissal(
                   type: _type,
-                  batsmanId: inn?.strikerId ?? '',
-                  bowlerId: inn?.currentBowlerId ?? '',
+                  batsmanId: inn.strikerId ?? '',
+                  bowlerId: inn.currentBowlerId ?? '',
                   fielderId: _fielderId,
                 );
                 widget.onWicket(dismissal);
@@ -999,7 +1419,7 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
             const Gap(16),
             const Text('Opening Bowler', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const Gap(8),
-            ..._bowlingPlayers.where((p) => p.bowlingStyle != BowlingStyle.none).take(5).map((p) => RadioListTile<String>(
+            ..._bowlerCandidates().map((p) => RadioListTile<String>(
               contentPadding: EdgeInsets.zero,
               value: p.id,
               groupValue: _bowlerId,
@@ -1007,6 +1427,18 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
               activeColor: Colors.redAccent,
               onChanged: (val) => setState(() => _bowlerId = val),
             )),
+            if (_bowlerCandidates().isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('No players available to bowl. Add players to the bowling team first.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
+            if (_strikerId == null || _nonStrikerId == null || _bowlerId == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text('Select a striker, non-striker, and bowler to start.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
           ],
         ),
       ),
@@ -1017,14 +1449,21 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          onPressed: () {
-            if (_strikerId == null || _nonStrikerId == null || _bowlerId == null) return;
-            widget.onContinue(_strikerId!, _nonStrikerId!, _bowlerId!);
-          },
+          onPressed: (_strikerId == null || _nonStrikerId == null || _bowlerId == null)
+              ? null
+              : () => widget.onContinue(_strikerId!, _nonStrikerId!, _bowlerId!),
           child: const Text('Start 2nd Innings', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
+  }
+
+  /// Players who can bowl, falling back to the full bowling squad when nobody
+  /// has a declared bowling style so the innings can always start.
+  List<ScorerPlayer> _bowlerCandidates() {
+    final styled = _bowlingPlayers.where((p) => p.bowlingStyle != BowlingStyle.none).toList();
+    if (styled.isNotEmpty) return styled;
+    return _bowlingPlayers;
   }
 
   Widget _miniPill(String label, bool isActive, Color color, VoidCallback onTap) {

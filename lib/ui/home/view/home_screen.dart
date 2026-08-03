@@ -65,11 +65,12 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildContent(
       BuildContext context, WidgetRef ref, SpectatorHomeState state) {
+    final hasTournaments = state.tournaments.isNotEmpty;
     final hasContent = state.liveMatches.isNotEmpty ||
         state.upcomingMatches.isNotEmpty ||
         state.completedMatches.isNotEmpty;
 
-    if (!hasContent) {
+    if (!hasTournaments && !hasContent) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [

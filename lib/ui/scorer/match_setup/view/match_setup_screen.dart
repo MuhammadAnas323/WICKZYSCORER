@@ -60,15 +60,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   Future<void> _loadTeams() async {
     setState(() => _isLoading = true);
     final repo = ref.read(scorerRepositoryProvider);
-    final teams = await Future.wait([repo.getTournaments()]).then((_) async {
-      final tournaments = await repo.getTournaments();
-      final allTeams = <ScorerTeam>[];
-      for (final t in tournaments) {
-        final teams = await repo.getTeamsByTournament(t.id);
-        allTeams.addAll(teams);
-      }
-      return allTeams;
-    });
+    final teams = await repo.getAllTeams();
+    if (!mounted) return;
     setState(() {
       _allTeams = teams;
       _isLoading = false;

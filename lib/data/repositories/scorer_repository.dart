@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
@@ -21,6 +22,10 @@ class ScorerRepository {
 
   final FirestoreScorerService? _cloud;
 
+  /// Bumped after every scorer mutation so screens (Matches tab, Home) can
+  /// watch it and refresh their lists when data changes elsewhere in the app.
+  final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
+
   Future<void>? _loading;
 
   ScorerRepository([this._cloud]);
@@ -36,29 +41,54 @@ class ScorerRepository {
   Future<void> _ensureLoaded() => _loading ??= _loadFromDisk();
 
   Future<void> _loadFromDisk() async {
-    // Cloud is the source of truth; fall back to the local cache when offline.
-    final cloud = _cloud;
-    if (cloud != null) {
-      try {
-        final snap = await cloud.hydrate();
-        _applySnapshot(snap);
-        await _saveToCache();
-        return;
-      } catch (_) {
-        // Offline or unconfigured Firestore — fall through to local cache.
-      }
-    }
+    // Always read the local cache first so a slow or unavailable network never
+    // leaves the scorer staring at a blank screen.
+    ScorerDataSnapshot? cached;
     try {
       final prefs = await SharedPreferences.getInstance();
-      _applySnapshot(ScorerDataSnapshot(
+      cached = ScorerDataSnapshot(
         tournaments: _readCacheList(prefs, _kTournaments, scorerTournamentFromJson),
         teams: _readCacheList(prefs, _kTeams, scorerTeamFromJson),
         players: _readCacheList(prefs, _kPlayers, scorerPlayerFromJson),
         matches: _readCacheList(prefs, _kMatches, scorerMatchFromJson),
         schedules: _readCacheSchedules(prefs),
-      ));
+      );
     } catch (_) {
       // Ignore corrupted local data and start fresh.
+    }
+
+    final cloud = _cloud;
+    if (cloud != null) {
+      try {
+        final snap = await cloud.hydrate();
+        if (!snap.isEmpty) {
+          // Cloud has data — treat it as the source of truth.
+          _applySnapshot(snap);
+          await _saveToCache();
+          return;
+        }
+        // Cloud came back empty. This normally means local drafts never synced
+        // (e.g. a Firestore write failed earlier). Never clobber local data with
+        // an empty cloud snapshot, otherwise tournaments/teams/players vanish.
+        if (cached != null && !cached.isEmpty) {
+          _applySnapshot(cached);
+          // Best-effort push the local drafts up to the cloud so the next load
+          // finds them there too.
+          try {
+            await cloud.syncAll(cached);
+          } catch (_) {}
+          await _saveToCache();
+          return;
+        }
+        _applySnapshot(snap);
+        return;
+      } catch (_) {
+        // Offline or unconfigured Firestore — fall through to local cache.
+      }
+    }
+
+    if (cached != null) {
+      _applySnapshot(cached);
     }
   }
 
@@ -136,19 +166,19 @@ class ScorerRepository {
     return out;
   }
 
-  Future<void> _saveToDisk() async {
+  void _bumpVersion() => dataVersion.value++;
+
+  /// Persists a single entity to Firestore (best-effort) and always refreshes
+  /// the local cache. Granular writes keep a failure on one document from
+  /// blocking the rest of the data from reaching the cloud.
+  Future<void> _persistToCloud(
+      Future<void> Function(FirestoreScorerService cloud) op) async {
     final cloud = _cloud;
     if (cloud != null) {
       try {
-        await cloud.syncAll(ScorerDataSnapshot(
-          tournaments: List.of(_tournaments),
-          teams: List.of(_teams),
-          players: List.of(_players),
-          matches: List.of(_matches),
-          schedules: Map.of(_schedules),
-        ));
+        await op(cloud);
       } catch (_) {
-        // Cloud write failed — still keep the local cache below.
+        // Cloud write failed — the local cache below still keeps the data safe.
       }
     }
     await _saveToCache();
@@ -187,6 +217,7 @@ class ScorerRepository {
       await _cloud?.clearAll();
     } catch (_) {}
     await _saveToCache();
+    _bumpVersion();
   }
 
   Future<List<ScorerTournament>> getTournaments() async {
@@ -207,7 +238,8 @@ class ScorerRepository {
     } else {
       _tournaments.add(tournament);
     }
-    await _saveToDisk();
+    await _persistToCloud((cloud) => cloud.saveTournament(tournament));
+    _bumpVersion();
   }
 
   /// Deletes a tournament and everything that belongs to it (teams, their
@@ -224,6 +256,7 @@ class ScorerRepository {
       await _cloud?.deleteTournament(tournamentId);
     } catch (_) {}
     await _saveToCache();
+    _bumpVersion();
   }
 
   Future<List<ScorerTeam>> getTeamsByTournament(String tournamentId) async {
@@ -257,7 +290,8 @@ class ScorerRepository {
         ));
       }
     }
-    await _saveToDisk();
+    await _persistToCloud((cloud) => cloud.saveTeam(team));
+    _bumpVersion();
   }
 
   Future<void> toggleTeamPaymentStatus(String teamId) async {
@@ -266,7 +300,8 @@ class ScorerRepository {
     if (index >= 0) {
       _teams[index] = _teams[index].copyWith(
         isEntryFeePaid: !_teams[index].isEntryFeePaid);
-      await _saveToDisk();
+      await _persistToCloud((cloud) => cloud.saveTeam(_teams[index]));
+      _bumpVersion();
     }
   }
 
@@ -274,6 +309,7 @@ class ScorerRepository {
     await _ensureLoaded();
     _teams.removeWhere((t) => t.id == teamId);
     _players.removeWhere((p) => p.teamId == teamId);
+    ScorerTournament? updatedTournament;
     for (int i = 0; i < _tournaments.length; i++) {
       if (_tournaments[i].teamIds.contains(teamId)) {
         final updatedIds = List<String>.from(_tournaments[i].teamIds)..remove(teamId);
@@ -281,12 +317,17 @@ class ScorerRepository {
           teamIds: updatedIds,
           numTeams: updatedIds.length,
         );
+        updatedTournament = _tournaments[i];
       }
     }
     try {
       await _cloud?.deleteTeam(teamId);
+      if (updatedTournament != null) {
+        await _cloud?.saveTournament(updatedTournament);
+      }
     } catch (_) {}
-    await _saveToDisk();
+    await _saveToCache();
+    _bumpVersion();
   }
 
   Future<List<ScorerPlayer>> getPlayersByTeam(String teamId) async {
@@ -317,22 +358,29 @@ class ScorerRepository {
         await saveTeam(team.copyWith(playerIds: [...team.playerIds, player.id]));
       }
     }
-    await _saveToDisk();
+    await _persistToCloud((cloud) => cloud.savePlayer(player));
+    _bumpVersion();
   }
 
   Future<void> deletePlayer(String playerId) async {
     await _ensureLoaded();
     _players.removeWhere((p) => p.id == playerId);
+    ScorerTeam? updatedTeam;
     for (int i = 0; i < _teams.length; i++) {
       if (_teams[i].playerIds.contains(playerId)) {
         final updatedIds = List<String>.from(_teams[i].playerIds)..remove(playerId);
         _teams[i] = _teams[i].copyWith(playerIds: updatedIds);
+        updatedTeam = _teams[i];
       }
     }
     try {
       await _cloud?.deletePlayer(playerId);
+      if (updatedTeam != null) {
+        await _cloud?.saveTeam(updatedTeam);
+      }
     } catch (_) {}
-    await _saveToDisk();
+    await _saveToCache();
+    _bumpVersion();
   }
 
   Future<List<ScorerMatch>> getMatches() async {
@@ -358,7 +406,18 @@ class ScorerRepository {
     } else {
       _matches.add(match);
     }
-    await _saveToDisk();
+    await _persistToCloud((cloud) => cloud.saveMatch(match));
+    _bumpVersion();
+  }
+
+  Future<void> deleteMatch(String matchId) async {
+    await _ensureLoaded();
+    _matches.removeWhere((m) => m.id == matchId);
+    try {
+      await _cloud?.deleteMatch(matchId);
+    } catch (_) {}
+    await _saveToCache();
+    _bumpVersion();
   }
 
   Future<ScorerMatch?> firstInProgressMatch() async {
@@ -396,7 +455,8 @@ class ScorerRepository {
     final sortedStages = List<ScheduleStage>.from(stages)
       ..sort((a, b) => a.order.compareTo(b.order));
     _schedules[tournamentId] = sortedStages;
-    await _saveToDisk();
+    await _persistToCloud((cloud) => cloud.saveSchedule(tournamentId, sortedStages));
+    _bumpVersion();
   }
 
   /// Auto-advancement: called after a match is completed.
@@ -455,7 +515,9 @@ class ScorerRepository {
             ? stages[completedStage].fixtures[completedFixture].id
             : null);
     _schedules[tournamentId] = stages;
-    await _saveToDisk();
+    final resolvedStages = stages;
+    await _persistToCloud((cloud) => cloud.saveSchedule(tournamentId, resolvedStages));
+    _bumpVersion();
   }
 
   List<ScheduleStage> _resolveAll(

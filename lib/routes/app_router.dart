@@ -62,6 +62,8 @@ import 'package:sportyapp/ui/scorer/start_scoring/view/schedule_match_screen.dar
 import 'package:sportyapp/ui/scorer/start_scoring/view/toss_screen.dart';
 import 'package:sportyapp/ui/scorer/create_match/view/create_local_match_screen.dart';
 import 'package:sportyapp/ui/scorer/all_matches/view/all_matches_screen.dart';
+import 'package:sportyapp/ui/scorer/matches/view/scorer_matches_screen.dart';
+import 'package:sportyapp/ui/scorer/squad_setup/view/squad_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_builder_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_view_screen.dart';
 
@@ -373,7 +375,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scorer/matches/create',
         name: 'scorer-match-create',
-        builder: (context, state) => const MatchSetupScreen(),
+        builder: (context, state) => const CreateLocalMatchScreen(),
+      ),
+      GoRoute(
+        path: '/scorer/matches/:id/squad',
+        name: 'scorer-match-squad',
+        builder: (context, state) =>
+            SquadSetupScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/scorer/start-scoring',
@@ -470,9 +478,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/scorer/create-match',
-                name: 'scorer-create-match',
-                builder: (context, state) => const CreateLocalMatchScreen(),
+                path: '/scorer/matches',
+                name: 'scorer-matches',
+                builder: (context, state) => const ScorerMatchesScreen(),
               ),
             ],
           ),
