@@ -8,6 +8,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class TeamPlayersViewScreen extends ConsumerStatefulWidget {
   final String teamId;
@@ -58,17 +59,19 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
   }
 
   Future<void> _deletePlayer(ScorerPlayer player) async {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
-        title: const Text('Remove Player', style: TextStyle(color: Colors.white)),
-        content: Text('Remove ${player.name} from ${_team?.name}?', style: const TextStyle(color: Colors.white70)),
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(l10n.translate('remove_player'), style: TextStyle(color: theme.colorScheme.onSurface)),
+        content: Text('Remove ${player.name} from ${_team?.name}?', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.translate('cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+            child: Text(l10n.translate('delete'), style: const TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -81,34 +84,40 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final textColor = theme.colorScheme.onBackground;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
+    final surfaceColor = theme.colorScheme.surface;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.darkBackground,
-        body: Center(child: CircularProgressIndicator(color: AppColors.pitchGreen)),
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen)),
       );
     }
 
     if (_team == null) {
       return Scaffold(
-        backgroundColor: AppColors.darkBackground,
-        appBar: AppBar(backgroundColor: Colors.transparent, leading: const BackButton(color: Colors.white)),
-        body: const Center(child: Text('Team not found', style: TextStyle(color: Colors.white))),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(backgroundColor: Colors.transparent, leading: BackButton(color: textColor)),
+        body: Center(child: Text(l10n.translate('match_not_found'), style: TextStyle(color: textColor))),
       );
     }
 
     final team = _team!;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
-        title: Text(team.name, style: AppTextStyles.headlineSmall(Colors.white)),
+        leading: BackButton(color: textColor),
+        title: Text(team.name, style: AppTextStyles.headlineSmall(textColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, color: AppColors.pitchGreenLight),
-            tooltip: 'Edit Team Info',
+            tooltip: l10n.translate('edit_tournament').replaceAll('Tournament', 'Team'),
             onPressed: () async {
               await context.push('/scorer/teams/${team.id}/edit');
               _loadData();
@@ -124,7 +133,7 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
         },
         backgroundColor: AppColors.pitchGreen,
         icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Manage Squad', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(l10n.translate('squad'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -135,9 +144,9 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.darkSurface,
+                color: surfaceColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
               ),
               child: Column(
                 children: [
@@ -156,9 +165,9 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(team.name, style: AppTextStyles.titleMedium(Colors.white)),
+                            Text(team.name, style: AppTextStyles.titleMedium(textColor)),
                             const Gap(2),
-                            Text('Code: ${team.shortCode} • ${_players.length} Players', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            Text('${l10n.translate('short_code')}: ${team.shortCode} • ${_players.length} ${l10n.translate('teams')}', style: TextStyle(color: subTextColor, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -171,7 +180,7 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                           border: Border.all(color: team.isEntryFeePaid ? AppColors.pitchGreenLight : Colors.redAccent),
                         ),
                         child: Text(
-                          team.isEntryFeePaid ? 'Fee Paid' : 'Unpaid',
+                          team.isEntryFeePaid ? l10n.translate('paid') : l10n.translate('unpaid'),
                           style: TextStyle(color: team.isEntryFeePaid ? AppColors.pitchGreenLight : Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 11),
                         ),
                       ),
@@ -179,7 +188,7 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                   ),
 
                   if (team.ownerName != null || team.whatsappNumber != null) ...[
-                    const Divider(color: Colors.white12, height: 24),
+                    Divider(color: theme.dividerColor.withOpacity(0.1), height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -189,9 +198,9 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                             if (team.ownerName != null)
                               Row(
                                 children: [
-                                  const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                                  Icon(Icons.person_outline, size: 14, color: subTextColor),
                                   const Gap(6),
-                                  Text('Owner: ${team.ownerName}', style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                                  Text('${l10n.translate('owner_name')}: ${team.ownerName}', style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
                                 ],
                               ),
                             if (team.whatsappNumber != null)
@@ -199,9 +208,9 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.phone_android, size: 14, color: Colors.grey),
+                                    Icon(Icons.phone_android, size: 14, color: subTextColor),
                                     const Gap(6),
-                                    Text(team.whatsappNumber!, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                                    Text(team.whatsappNumber!, style: TextStyle(color: subTextColor, fontSize: 12)),
                                   ],
                                 ),
                               ),
@@ -217,7 +226,7 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                             ),
                             onPressed: () => _openWhatsApp(team.whatsappNumber!),
                             icon: const Icon(Icons.chat_bubble_outline, size: 14),
-                            label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            label: Text(l10n.translate('whatsapp'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           ),
                       ],
                     ),
@@ -230,7 +239,7 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Squad Players (${_players.length})', style: AppTextStyles.titleMedium(Colors.white)),
+                Text('${l10n.translate('squad')} (${_players.length})', style: AppTextStyles.titleMedium(textColor)),
               ],
             ),
             const Gap(10),
@@ -240,10 +249,10 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('No players added to this team yet.', style: TextStyle(color: Colors.grey)),
+                child: Text(l10n.translate('no_players_yet'), style: TextStyle(color: subTextColor)),
               )
             else
               ListView.separated(
@@ -256,18 +265,18 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.darkSurface,
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
                         CircleAvatar(
                           radius: 18,
-                          backgroundColor: Colors.white12,
+                          backgroundColor: theme.dividerColor.withOpacity(0.1),
                           child: Text(
                             player.jerseyNumber != null ? '#${player.jerseyNumber}' : '${i + 1}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: textColor, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ),
                         const Gap(12),
@@ -275,11 +284,11 @@ class _TeamPlayersViewScreenState extends ConsumerState<TeamPlayersViewScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(player.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text(player.name, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14)),
                               const Gap(2),
                               Text(
                                 '${player.role.name.toUpperCase()} • ${player.battingStyle.name} • ${player.bowlingStyle.name}',
-                                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                style: TextStyle(color: subTextColor, fontSize: 11),
                               ),
                             ],
                           ),

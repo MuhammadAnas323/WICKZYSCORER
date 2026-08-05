@@ -146,6 +146,8 @@ class FirestoreScorerService {
     final matchDocs = await _matches.where('tournamentId', isEqualTo: tournamentId).get();
     for (final m in matchDocs.docs) {
       batch.delete(_matches.doc(m.id));
+      // Cascade: drop any live broadcast node for this match too.
+      await _rtdb.deleteLiveMatch(m.id).catchError((_) {});
     }
     batch.delete(_tournaments.doc(tournamentId));
     batch.delete(_schedules.doc(tournamentId));
@@ -166,8 +168,35 @@ class FirestoreScorerService {
     await _players.doc(playerId).delete();
   }
 
+  /// Deletes a match document and cascades into every related subcollection
+  /// (balls, innings, players-in-match) plus the live broadcast node.
+  ///
+  /// The scorer stores balls/innings inside the match document today, so the
+  /// Firestore delete is a single document; the RTDB live node is removed here
+  /// as well so a deleted match can never linger as "live" for spectators.
   Future<void> deleteMatch(String matchId) async {
-    await _matches.doc(matchId).delete();
+    final batch = _firestore.batch();
+    final matchRef = _matches.doc(matchId);
+
+    // If the match ever uses subcollections, wipe them so no orphaned data
+    // survives the parent deletion. Subcollections may not exist yet, so a
+    // failed read (e.g. rules) is treated as "no documents".
+    for (final sub in ['balls', 'innings', 'players']) {
+      try {
+        final snap = await matchRef.collection(sub).get();
+        for (final doc in snap.docs) {
+          batch.delete(doc.reference);
+        }
+      } catch (_) {
+        // No subcollection or read denied — nothing to cascade.
+      }
+    }
+
+    batch.delete(matchRef);
+    await batch.commit();
+
+    // Cascade: drop the live broadcast node too.
+    await _rtdb.deleteLiveMatch(matchId).catchError((_) {});
   }
 
   /// Deletes every scorer document from all collections. Used by the

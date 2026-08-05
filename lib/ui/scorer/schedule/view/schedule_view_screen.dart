@@ -7,6 +7,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
@@ -47,21 +48,23 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
-        title: Text('Schedule', style: AppTextStyles.headlineSmall(Colors.white)),
+        leading: BackButton(color: theme.colorScheme.onSurface),
+        title: Text(l10n.translate('matches'), style: AppTextStyles.headlineSmall(theme.colorScheme.onSurface)),
         actions: [
           TextButton.icon(
             onPressed: () async {
               await context.push('/scorer/tournaments/${widget.tournamentId}/schedule-builder');
               _load();
             },
-            icon: Icon(Icons.edit_outlined, color: AppColors.pitchGreenLight, size: 18),
-            label: const Text('Edit', style: TextStyle(color: AppColors.pitchGreenLight)),
+            icon: const Icon(Icons.edit_outlined, color: AppColors.pitchGreenLight, size: 18),
+            label: Text(l10n.translate('update'), style: const TextStyle(color: AppColors.pitchGreenLight)),
           ),
           const Gap(8),
         ],
@@ -77,21 +80,23 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   }
 
   Widget _empty() {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     return ListView(
       children: [
         const SizedBox(height: 60),
-        const Icon(Icons.calendar_month_outlined, color: Colors.grey, size: 56),
+        Icon(Icons.calendar_month_outlined, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), size: 56),
         const Gap(12),
-        const Text(
-          'No schedule yet',
+        Text(
+          l10n.translate('no_matches'),
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const Gap(4),
-        const Text(
-          'Build a schedule from templates to organise stages & fixtures.',
+        Text(
+          l10n.translate('create_match_squads'),
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey, fontSize: 12),
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 12),
         ),
         const Gap(20),
         Center(
@@ -102,7 +107,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
               _load();
             },
             icon: const Icon(Icons.auto_fix_high),
-            label: const Text('Build Schedule'),
+            label: Text(l10n.translate('manual_schedule')),
           ),
         ),
       ],
@@ -119,12 +124,14 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   }
 
   Widget _stageCard(ScheduleStage stage) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,18 +152,18 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                 const Gap(8),
                 Expanded(
                   child: Text(stage.name,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                      style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
-                Text('${stage.fixtures.length} fixtures',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                Text('${stage.fixtures.length} ${l10n.translate('matches')}',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 11)),
               ],
             ),
           ),
-          const Divider(color: Colors.white10, height: 1),
+          Divider(color: theme.dividerColor, height: 1),
           if (stage.fixtures.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No fixtures', style: TextStyle(color: Colors.white38, fontSize: 12)))
+            Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(l10n.translate('no_data'), style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), fontSize: 12)))
           else
             ...stage.fixtures.map((f) => _fixtureRow(f)),
         ],
@@ -165,12 +172,14 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   }
 
   Widget _fixtureRow(ScheduleFixture fx) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final ready = fx.isReady && fx.resolvedTeamAId != null && fx.resolvedTeamBId != null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: const Color(0xFF181818), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant, borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
             Expanded(
@@ -185,14 +194,14 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                         child: Text(
                           _teamName(fx.resolvedTeamAId),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),
                     ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.only(left: 7),
-                    child: Text('vs', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 7),
+                    child: Text(l10n.translate('vs'), style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), fontSize: 11)),
                   ),
                   Row(
                     children: [
@@ -202,7 +211,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                         child: Text(
                           _teamName(fx.resolvedTeamBId),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),
                     ],
@@ -211,9 +220,9 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 7, top: 4),
                       child: Row(children: [
-                        const Icon(Icons.location_on, color: Colors.white38, size: 12),
+                        Icon(Icons.location_on, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), size: 12),
                         const SizedBox(width: 4),
-                        Text(fx.venue!, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                        Text(fx.venue!, style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 10)),
                       ]),
                     ),
                 ],
@@ -235,7 +244,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                         onPressed: () {},
-                        child: const Text('Start', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: Text(l10n.translate('start_scoring'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ),
@@ -253,22 +262,23 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
       height: 8,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: resolved ? AppColors.pitchGreenLight : Colors.white24,
+        color: resolved ? AppColors.pitchGreenLight : Theme.of(context).dividerColor,
       ),
     );
   }
 
   Widget _statusChip(FixtureStatus status) {
-    final (label, color) = switch (status) {
-      FixtureStatus.pending => ('Pending', AppColors.charcoal200),
-      FixtureStatus.ready => ('Ready', AppColors.pitchGreenLight),
-      FixtureStatus.live => ('Live', AppColors.liveRed),
-      FixtureStatus.completed => ('Done', Colors.white54),
+    final l10n = AppLocalizations.of(context);
+    final (labelKey, color) = switch (status) {
+      FixtureStatus.pending => ('loading', AppColors.charcoal200),
+      FixtureStatus.ready => ('upcoming', AppColors.pitchGreenLight),
+      FixtureStatus.live => ('live', AppColors.liveRed),
+      FixtureStatus.completed => ('completed', Colors.white54),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+      child: Text(l10n.translate(labelKey), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 }

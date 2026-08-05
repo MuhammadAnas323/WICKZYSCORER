@@ -1,6 +1,3 @@
-// lib/ui/scorer/all_matches/view/all_matches_screen.dart
-// "Start Scoring" tab — lists every match (tournament + local) with search.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -13,15 +10,16 @@ import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 
-class AllMatchesScreen extends ConsumerStatefulWidget {
-  final bool onlyFriendly;
-  const AllMatchesScreen({super.key, this.onlyFriendly = false});
+class TournamentUpcomingMatchesScreen extends ConsumerStatefulWidget {
+  const TournamentUpcomingMatchesScreen({super.key});
 
   @override
-  ConsumerState<AllMatchesScreen> createState() => _AllMatchesScreenState();
+  ConsumerState<TournamentUpcomingMatchesScreen> createState() =>
+      _TournamentUpcomingMatchesScreenState();
 }
 
-class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
+class _TournamentUpcomingMatchesScreenState
+    extends ConsumerState<TournamentUpcomingMatchesScreen> {
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -52,11 +50,15 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     final tournaments = await repo.getTournaments();
     final teams = await repo.getAllTeams();
 
-    final matches = (uid == null || uid.isEmpty)
-        ? allMatches
-        : allMatches
-            .where((m) => m.createdBy == uid || m.createdBy.isEmpty)
-            .toList();
+    // Only matches that are not t_custom and have upcoming status
+    // and created by current user
+    final matches = allMatches.where((m) {
+      if (uid != null && uid.isNotEmpty && m.createdBy.isNotEmpty && m.createdBy != uid) {
+        return false;
+      }
+      return m.tournamentId != 't_custom' &&
+          (m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled);
+    }).toList();
 
     if (!mounted) return;
     setState(() {
@@ -68,13 +70,9 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   }
 
   List<ScorerMatch> get _filtered {
-    var list = _matches;
-    if (widget.onlyFriendly) {
-      list = list.where((m) => m.tournamentId == 't_custom').toList();
-    }
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return list;
-    return list.where((m) {
+    if (q.isEmpty) return _matches;
+    return _matches.where((m) {
       final a = _teamNames[m.team1Id]?.toLowerCase() ?? '';
       final b = _teamNames[m.team2Id]?.toLowerCase() ?? '';
       return a.contains(q) ||
@@ -88,10 +86,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   String _tournamentName(String tournamentId, AppLocalizations l10n) {
     final tournament =
         _tournaments.where((t) => t.id == tournamentId).firstOrNull;
-    return tournament?.name ??
-        (tournamentId == 't_custom'
-            ? l10n.translate('local_match')
-            : 'Unknown');
+    return tournament?.name ?? 'Unknown Tournament';
   }
 
   List<_TournamentGroup> get _groups {
@@ -121,53 +116,10 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     return groups;
   }
 
-  String _resultSummary(AppLocalizations l10n) {
-    return '${_matches.length} ${l10n.translate('matches')}';
-  }
-
-  Future<void> _deleteMatch(ScorerMatch match, AppLocalizations l10n) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).cardTheme.color,
-        title: Text(l10n.translate('delete_match'),
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-        content: Text(
-          '${l10n.translate('delete_match_permanently')} (${_teamName(match.team1Id)} vs ${_teamName(match.team2Id)})',
-          style:
-              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.translate('cancel'),
-                style: const TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.liveRed),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.translate('delete'),
-                style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    final repo = ref.read(scorerRepositoryProvider);
-    await repo.deleteMatch(match.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Match deleted'), backgroundColor: AppColors.liveRed),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: cs.background,
@@ -182,26 +134,27 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [AppColors.pitchGreen, Color(0xFF1A7A3E)],
+                  colors: [AppColors.floodlightGold, Colors.orangeAccent],
                 ),
               ),
-              child: const Icon(Icons.sports_cricket_rounded,
-                  color: Colors.white, size: 20),
+              child: const Icon(Icons.emoji_events_rounded,
+                  color: Colors.black, size: 20),
             ),
             const Gap(10),
             Text(
-              l10n.translate('start_scoring_title'),
+              'Upcoming Tournament Matches',
               style: TextStyle(
                   color: cs.onBackground,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0),
+                  letterSpacing: 1.0,
+                  fontSize: 18),
             ),
           ],
         ),
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.pitchGreen))
+              child: CircularProgressIndicator(color: AppColors.floodlightGold))
           : Column(
               children: [
                 Padding(
@@ -235,17 +188,6 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _resultSummary(l10n),
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
-                ),
                 const Gap(8),
                 Expanded(
                   child: _filtered.isEmpty
@@ -253,7 +195,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                           child: Text(l10n.translate('no_matches_found'),
                               style: const TextStyle(color: Colors.white54)))
                       : RefreshIndicator(
-                          color: AppColors.pitchGreen,
+                          color: AppColors.floodlightGold,
                           onRefresh: _load,
                           child: ListView.builder(
                             padding: const EdgeInsets.all(16),
@@ -278,21 +220,9 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                                         match: match,
                                         teamName: _teamName,
                                         onTap: () {
-                                          if (match.status ==
-                                                  MatchStatus.inProgress ||
-                                              match.status ==
-                                                  MatchStatus.live ||
-                                              match.status ==
-                                                  MatchStatus.completed) {
-                                            context
-                                                .push('/scorer/live-scoring');
-                                          } else {
-                                            context.push(
-                                                '/scorer/matches/${match.id}/squad');
-                                          }
+                                          context.push(
+                                              '/scorer/matches/${match.id}/squad');
                                         },
-                                        onDelete: () =>
-                                            _deleteMatch(match, l10n),
                                         l10n: l10n,
                                       )),
                                   const Gap(16),
@@ -323,31 +253,19 @@ class _MatchTile extends StatelessWidget {
   final ScorerMatch match;
   final String Function(String) teamName;
   final VoidCallback onTap;
-  final Future<void> Function() onDelete;
   final AppLocalizations l10n;
 
   const _MatchTile({
     required this.match,
     required this.teamName,
     required this.onTap,
-    required this.onDelete,
     required this.l10n,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isLive = match.status == MatchStatus.live ||
-        match.status == MatchStatus.inProgress;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    String statusText = match.status.name.toUpperCase();
-    if (isLive) statusText = l10n.translate('live');
-    if (match.status == MatchStatus.upcoming ||
-        match.status == MatchStatus.scheduled)
-      statusText = l10n.translate('upcoming');
-    if (match.status == MatchStatus.completed)
-      statusText = l10n.translate('completed');
 
     return InkWell(
       onTap: onTap,
@@ -385,28 +303,18 @@ class _MatchTile extends StatelessWidget {
               ),
             ),
             const Gap(8),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  color: Colors.redAccent, size: 18),
-              tooltip: l10n.translate('delete'),
-              onPressed: onDelete,
-            ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: isLive
-                    ? AppColors.liveRed.withValues(alpha: 0.2)
-                    : AppColors.pitchGreen.withValues(alpha: 0.15),
+                color: AppColors.pitchGreen.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                statusText,
+                l10n.translate('upcoming'),
                 style: TextStyle(
-                  color: isLive
-                      ? AppColors.liveRed
-                      : (isDark
-                          ? AppColors.pitchGreenLight
-                          : AppColors.pitchGreen),
+                  color: isDark
+                      ? AppColors.pitchGreenLight
+                      : AppColors.pitchGreen,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
@@ -89,21 +90,22 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
   }
 
   Future<void> _schedule() async {
+    final l10l = AppLocalizations.of(context);
     if (_team1Id == null || _team2Id == null || _team1Id == _team2Id) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select two different teams'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10l.translate('select_different_teams')), backgroundColor: Colors.red),
       );
       return;
     }
     if (_venue.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a venue'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10l.translate('enter_venue_error')), backgroundColor: Colors.red),
       );
       return;
     }
     if (_tournament == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No tournament selected'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10l.translate('no_tournament_selected')), backgroundColor: Colors.red),
       );
       return;
     }
@@ -130,20 +132,24 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Match scheduled'), backgroundColor: AppColors.pitchGreen),
+      SnackBar(content: Text(l10l.translate('match_scheduled')), backgroundColor: AppColors.pitchGreen),
     );
     context.pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Schedule Match',
-            style: AppTextStyles.titleMedium(Colors.white)
+        title: Text(l10n.translate('schedule_match'),
+            style: AppTextStyles.titleMedium(colorScheme.onBackground)
                 .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold)),
       ),
       body: _loading
@@ -155,20 +161,22 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
   }
 
   Widget _noTournament() {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.emoji_events_outlined, size: 72, color: AppColors.charcoal400),
           const Gap(16),
-          const Text(
-            'No tournaments available',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n.translate('no_tournaments_available'),
+            style: TextStyle(color: colorScheme.onBackground, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Gap(6),
-          const Text(
-            'Create a tournament first.',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Text(
+            l10n.translate('create_tournament_hint'),
+            style: TextStyle(color: colorScheme.onBackground.withOpacity(0.54), fontSize: 13),
           ),
           const Gap(24),
           ElevatedButton.icon(
@@ -178,7 +186,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('Create Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l10n.translate('create_tournament'), style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => context.push('/scorer/tournaments/create'),
           ),
         ],
@@ -187,7 +195,11 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
   }
 
   Widget _buildForm() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final teams = _teams;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -207,7 +219,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
                 Expanded(
                   child: Text(
                     _tournament!.name,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -219,39 +231,37 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
             ),
           ),
           const Gap(24),
-          _label('Team 1'),
+          _label(l10n.translate('teams')),
           const Gap(8),
-          _teamDropdown('Select Team 1', _team1Id, (val) => setState(() => _team1Id = val), teams),
+          _teamDropdown(l10n.translate('select_teams'), _team1Id, (val) => setState(() => _team1Id = val), teams),
           const Gap(16),
-          _label('Team 2'),
-          const Gap(8),
-          _teamDropdown('Select Team 2', _team2Id, (val) => setState(() => _team2Id = val), teams),
+          _teamDropdown(l10n.translate('select_teams'), _team2Id, (val) => setState(() => _team2Id = val), teams),
           const Gap(24),
-          _label('Venue'),
+          _label(l10n.translate('venue')),
           const Gap(8),
           TextField(
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onBackground),
             onChanged: (val) => setState(() => _venue = val),
-            decoration: const InputDecoration(
-              hintText: 'Enter venue name',
-              hintStyle: TextStyle(color: Colors.white38),
+            decoration: InputDecoration(
+              hintText: l10n.translate('enter_venue'),
+              hintStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.38)),
               filled: true,
-              fillColor: AppColors.darkSurface,
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on, color: AppColors.pitchGreenLight),
+              fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on, color: AppColors.pitchGreenLight),
             ),
           ),
           const Gap(24),
-          _label('Date & Time'),
+          _label(l10n.translate('match_time')),
           const Gap(8),
           InkWell(
             onTap: _pickDateTime,
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.darkSurface,
+                color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: theme.dividerColor),
               ),
               child: Row(
                 children: [
@@ -259,7 +269,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
                   const Gap(12),
                   Text(
                     _dateTime.toLocal().toString().replaceRange(16, 19, ''),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -276,7 +286,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.check_circle_rounded, size: 24),
-            label: Text(_saving ? 'Scheduling…' : 'Schedule Match', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            label: Text(_saving ? l10n.translate('scheduling') : l10n.translate('schedule_match'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             onPressed: _saving ? null : _schedule,
           ),
           const Gap(40),
@@ -287,7 +297,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
 
   Widget _label(String text) => Text(
         text,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
+        style: TextStyle(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
       );
 
   Widget _teamDropdown(
@@ -296,16 +306,18 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
     ValueChanged<String?> onChanged,
     List<ScorerTeam> teams,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return DropdownButtonFormField<String>(
       value: selected,
-      dropdownColor: AppColors.darkSurface,
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: colorScheme.surface,
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         filled: true,
-        fillColor: AppColors.darkSurface,
+        fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
         border: const OutlineInputBorder(),
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
+        hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
       ),
       items: teams
           .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis)))

@@ -90,7 +90,7 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.lightSurfaceVariant,
@@ -207,7 +207,7 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.darkSurfaceVariant,

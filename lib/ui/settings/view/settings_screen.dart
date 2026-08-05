@@ -27,13 +27,27 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Theme'),
             trailing: SegmentedButton<ThemeMode>(
               segments: const [
-                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 16)),
-                ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto, size: 16)),
-                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 16)),
+                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 16), label: Text('Light')),
+                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 16), label: Text('Dark')),
               ],
               selected: {themeMode},
               onSelectionChanged: (s) {
-                ref.read(themeModeProvider.notifier).state = s.first;
+                ref.read(settingsViewModelProvider.notifier).setThemeMode(s.first);
+              },
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.language_rounded),
+            title: const Text('Language'),
+            trailing: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'en', label: Text('English')),
+                ButtonSegment(value: 'ur', label: Text('اردو')),
+              ],
+              selected: {ref.watch(localeProvider).languageCode},
+              onSelectionChanged: (s) {
+                ref.read(settingsViewModelProvider.notifier).setLocale(Locale(s.first));
               },
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
             ),

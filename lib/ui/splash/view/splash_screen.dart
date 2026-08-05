@@ -50,7 +50,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 3000),
     )..forward();
 
     _photoZoom = Tween<double>(begin: 1.0, end: 1.25).animate(
@@ -75,16 +75,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<SplashState>(splashViewModelProvider, (prev, next) {
-      if (!_navigated && !next.isLoading) {
-        _navigated = true;
-        final user = ref.read(currentUserProvider);
-        if (user != null) {
-          context.go(user.isScorer ? '/scorer/dashboard' : '/home');
-        } else {
-          context.go('/role-selection');
-        }
+    // Navigate only when BOTH the minimum splash time has passed AND the auth
+    // session has been restored. This prevents flashing the sign-in / role
+    // selection screen for a user who is already logged in.
+    void maybeNavigate() {
+      if (_navigated) return;
+      if (ref.read(splashViewModelProvider).isLoading) return;
+      if (!ref.read(authReadyProvider)) return;
+      _navigated = true;
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        context.go(user.isScorer ? '/scorer/dashboard' : '/home');
+      } else {
+        context.go('/role-selection');
       }
+    }
+
+    ref.listen<bool>(authReadyProvider, (prev, next) => maybeNavigate());
+    ref.listen<SplashState>(splashViewModelProvider, (prev, next) {
+      if (!next.isLoading) maybeNavigate();
     });
 
     return Scaffold(

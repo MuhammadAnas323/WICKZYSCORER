@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
@@ -97,73 +98,86 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
   }
 
   Future<void> _createMatch() async {
+    final l10n = AppLocalizations.of(context);
     final nameA = _teamAController.text.trim();
     final nameB = _teamBController.text.trim();
     if (nameA.isEmpty || nameB.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both team names'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.translate('enter_team_names_error')), backgroundColor: Colors.red),
       );
       return;
     }
     if (nameA.toLowerCase() == nameB.toLowerCase()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teams must be different'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.translate('different_teams_error')), backgroundColor: Colors.red),
       );
       return;
     }
 
     setState(() => _isSaving = true);
-    final repo = ref.read(scorerRepositoryProvider);
-    final teamAId = await _resolveTeam(nameA, 1);
-    final teamBId = await _resolveTeam(nameB, 2);
+    try {
+      final repo = ref.read(scorerRepositoryProvider);
+      final teamAId = await _resolveTeam(nameA, 1);
+      final teamBId = await _resolveTeam(nameB, 2);
 
-    final match = ScorerMatch(
-      id: 'm_local_${DateTime.now().millisecondsSinceEpoch}',
-      tournamentId: 't_custom',
-      team1Id: teamAId,
-      team2Id: teamBId,
-      venue: _venueController.text.trim(),
-      dateTime: _dateTime ?? DateTime.now(),
-      format: _format,
-      overs: int.tryParse(_oversController.text) ?? 20,
-      status: MatchStatus.scheduled,
-      playingXI1: const [],
-      playingXI2: const [],
-      currentInnings: 1,
-    );
-    await repo.saveMatch(match);
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Match created — set up the squads'),
-        backgroundColor: AppColors.pitchGreen,
-      ),
-    );
-    context.pushReplacement('/scorer/matches/${match.id}/squad');
+      final match = ScorerMatch(
+        id: 'm_local_${DateTime.now().millisecondsSinceEpoch}',
+        tournamentId: 't_custom',
+        team1Id: teamAId,
+        team2Id: teamBId,
+        venue: _venueController.text.trim(),
+        dateTime: _dateTime ?? DateTime.now(),
+        format: _format,
+        overs: int.tryParse(_oversController.text) ?? 20,
+        status: MatchStatus.scheduled,
+        playingXI1: const [],
+        playingXI2: const [],
+        currentInnings: 1,
+      );
+      await repo.saveMatch(match);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.translate('match_created_success')),
+          backgroundColor: AppColors.pitchGreen,
+        ),
+      );
+      context.pushReplacement('/scorer/matches/${match.id}/squad');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Widget _teamField({required String label, required TextEditingController controller}) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return TextFormField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onBackground),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
         filled: true,
-        fillColor: AppColors.darkSurface,
+        fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
         border: const OutlineInputBorder(),
         prefixIcon: const Icon(Icons.shield_outlined, color: AppColors.pitchGreenLight),
         suffixIcon: _allTeams.isEmpty
             ? null
             : PopupMenuButton<String>(
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                tooltip: 'Select from existing teams',
-                color: AppColors.darkSurface,
+                icon: Icon(Icons.arrow_drop_down, color: colorScheme.onSurface.withOpacity(0.7)),
+                tooltip: l10n.translate('select_existing_team'),
+                color: colorScheme.surface,
                 onSelected: (name) => setState(() => controller.text = name),
                 itemBuilder: (_) => _allTeams.map((t) => PopupMenuItem(
                   value: t.name,
-                  child: Text(t.name, style: const TextStyle(color: Colors.white)),
+                  child: Text(t.name, style: TextStyle(color: colorScheme.onSurface)),
                 )).toList(),
               ),
       ),
@@ -172,12 +186,16 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Create Local Match', style: AppTextStyles.headlineSmall(Colors.white)),
+        title: Text(l10n.translate('create_local_match'), style: AppTextStyles.headlineSmall(colorScheme.onBackground)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen))
@@ -189,30 +207,30 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _teamField(label: 'Team A', controller: _teamAController)),
+                      Expanded(child: _teamField(label: l10n.translate('team_a'), controller: _teamAController)),
                       const Gap(12),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 14),
-                        child: Text('vs', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 18)),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Text(l10n.translate('vs'), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 18)),
                       ),
                       const Gap(12),
-                      Expanded(child: _teamField(label: 'Team B', controller: _teamBController)),
+                      Expanded(child: _teamField(label: l10n.translate('team_b'), controller: _teamBController)),
                     ],
                   ),
                   const Gap(8),
-                  const Text('Enter team names manually, or tap the dropdown to pick an existing team.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text(l10n.translate('create_match_hint'),
+                      style: TextStyle(color: colorScheme.onBackground.withOpacity(0.54), fontSize: 12)),
                   const Gap(20),
                   TextFormField(
                     controller: _venueController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Venue',
-                      labelStyle: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: colorScheme.onBackground),
+                    decoration: InputDecoration(
+                      labelText: l10n.translate('venue'),
+                      labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
                       filled: true,
-                      fillColor: AppColors.darkSurface,
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.location_on, color: AppColors.pitchGreenLight),
+                      fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.location_on, color: AppColors.pitchGreenLight),
                     ),
                   ),
                   const Gap(20),
@@ -221,9 +239,9 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
+                        color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white24),
+                        border: Border.all(color: theme.dividerColor),
                       ),
                       child: Row(
                         children: [
@@ -232,17 +250,17 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                           Expanded(
                             child: Text(
                               _dateTime == null
-                                  ? 'Set date & time (optional)'
+                                  ? l10n.translate('optional_date_time')
                                   : _dateTime!.toLocal().toString().replaceRange(16, 19, ''),
                               style: TextStyle(
-                                color: _dateTime == null ? Colors.white38 : Colors.white,
+                                color: _dateTime == null ? colorScheme.onBackground.withOpacity(0.38) : colorScheme.onBackground,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                           if (_dateTime != null)
                             IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+                              icon: Icon(Icons.close, color: colorScheme.onBackground.withOpacity(0.38), size: 18),
                               onPressed: () => setState(() => _dateTime = null),
                             ),
                         ],
@@ -250,50 +268,18 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                     ),
                   ),
                   const Gap(20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<MatchFormat>(
-                          value: _format,
-                          dropdownColor: AppColors.darkSurface,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            labelText: 'Format',
-                            labelStyle: TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: AppColors.darkSurface,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: MatchFormat.values.map((f) => DropdownMenuItem(
-                            value: f,
-                            child: Text(f.name.toUpperCase()),
-                          )).toList(),
-                          onChanged: (val) {
-                            if (val != null) setState(() {
-                              _format = val;
-                              _oversController.text = val == MatchFormat.t20
-                                  ? '20'
-                                  : val == MatchFormat.odi ? '50' : '5';
-                            });
-                          },
-                        ),
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _oversController,
-                          style: const TextStyle(color: Colors.white),
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Overs',
-                            labelStyle: TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: AppColors.darkSurface,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
+
+                  TextFormField(
+                    controller: _oversController,
+                    style: TextStyle(color: colorScheme.onBackground),
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: l10n.translate('overs'),
+                      labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
+                      filled: true,
+                      fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+                      border: const OutlineInputBorder(),
+                    ),
                   ),
                   const Gap(32),
                   ElevatedButton.icon(
@@ -306,7 +292,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                     icon: _isSaving
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.sports_score_rounded, size: 24),
-                    label: Text(_isSaving ? 'Creating…' : 'Create Local Match',
+                    label: Text(_isSaving ? l10n.translate('creating') : l10n.translate('create_local_match'),
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     onPressed: _isSaving ? null : _createMatch,
                   ),

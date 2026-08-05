@@ -87,7 +87,7 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       mockAuth = MockAuthService();
-      notifier = CurrentUserNotifier(mockAuth);
+      notifier = CurrentUserNotifier(mockAuth, AuthReadyNotifier());
     });
 
     test('Step 1: Sign up as Scorer only -> sets hasScorerAccount, role is Scorer', () async {

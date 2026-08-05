@@ -21,6 +21,10 @@ class SpectatorHomeState {
   final List<ScorerPlayer> players;
   final List<ScorerMatch> matches;
   final Map<String, LiveMatchData> liveMatchData;
+  final int topTab; // 0 = Tournaments, 1 = Friendly Matches
+  final String tournamentSubFilter; // 'all', 'live', 'upcoming', 'completed'
+  final String friendlySubFilter; // 'all', 'live', 'upcoming', 'completed'
+  final String searchQuery;
 
   const SpectatorHomeState({
     this.isLoading = true,
@@ -30,6 +34,10 @@ class SpectatorHomeState {
     this.players = const [],
     this.matches = const [],
     this.liveMatchData = const {},
+    this.topTab = 0,
+    this.tournamentSubFilter = 'all',
+    this.friendlySubFilter = 'all',
+    this.searchQuery = '',
   });
 
   List<ScorerMatch> get liveMatches => matches
@@ -46,6 +54,52 @@ class SpectatorHomeState {
 
   List<ScorerMatch> get completedMatches =>
       matches.where((m) => m.status == MatchStatus.completed).toList();
+
+  // ── Spectator Filtered Tournaments ─────────────────────────────────────
+  List<ScorerTournament> get filteredTournaments {
+    var list = tournaments;
+    if (searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.trim().toLowerCase();
+      list = list.where((t) => t.name.toLowerCase().contains(q) || (t.venue?.toLowerCase().contains(q) ?? false)).toList();
+    }
+    if (tournamentSubFilter == 'all') return list;
+
+    return list.where((t) {
+      final tourneyMatches = matches.where((m) => m.tournamentId == t.id).toList();
+      if (tournamentSubFilter == 'live') {
+        return tourneyMatches.any((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live || liveMatchData.containsKey(m.id));
+      } else if (tournamentSubFilter == 'upcoming') {
+        return tourneyMatches.any((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled);
+      } else if (tournamentSubFilter == 'completed') {
+        return tourneyMatches.any((m) => m.status == MatchStatus.completed);
+      }
+      return true;
+    }).toList();
+  }
+
+  // ── Spectator Filtered Friendly Matches ────────────────────────────────
+  List<ScorerMatch> get filteredFriendlyMatches {
+    var list = matches.where((m) => m.tournamentId == null || m.tournamentId!.isEmpty).toList();
+
+    if (searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.trim().toLowerCase();
+      list = list.where((m) {
+        final t1 = teamName(m.team1Id).toLowerCase();
+        final t2 = teamName(m.team2Id).toLowerCase();
+        final venue = m.venue.toLowerCase();
+        return t1.contains(q) || t2.contains(q) || venue.contains(q);
+      }).toList();
+    }
+
+    if (friendlySubFilter == 'live') {
+      return list.where((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live || liveMatchData.containsKey(m.id)).toList();
+    } else if (friendlySubFilter == 'upcoming') {
+      return list.where((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled).toList();
+    } else if (friendlySubFilter == 'completed') {
+      return list.where((m) => m.status == MatchStatus.completed).toList();
+    }
+    return list;
+  }
 
   ScorerTournament? tournamentById(String id) =>
       tournaments.where((t) => t.id == id).firstOrNull;
@@ -92,6 +146,10 @@ class SpectatorHomeState {
     List<ScorerPlayer>? players,
     List<ScorerMatch>? matches,
     Map<String, LiveMatchData>? liveMatchData,
+    int? topTab,
+    String? tournamentSubFilter,
+    String? friendlySubFilter,
+    String? searchQuery,
   }) {
     return SpectatorHomeState(
       isLoading: isLoading ?? this.isLoading,
@@ -101,6 +159,10 @@ class SpectatorHomeState {
       players: players ?? this.players,
       matches: matches ?? this.matches,
       liveMatchData: liveMatchData ?? this.liveMatchData,
+      topTab: topTab ?? this.topTab,
+      tournamentSubFilter: tournamentSubFilter ?? this.tournamentSubFilter,
+      friendlySubFilter: friendlySubFilter ?? this.friendlySubFilter,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
@@ -112,12 +174,25 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   SpectatorHomeViewModel(this.ref) : super(const SpectatorHomeState()) {
     _listenToLiveMatches();
     load();
-    // Reload whenever the signed-in user changes (e.g. a scorer signed out and
-    // a spectator signed in on the same device) so the spectator always sees the
-    // latest tournaments/teams/players/matches from the shared repository.
     ref.listen(currentUserProvider, (_, next) {
       if (next != null) load();
     });
+  }
+
+  void setTopTab(int index) {
+    state = state.copyWith(topTab: index);
+  }
+
+  void setTournamentSubFilter(String filter) {
+    state = state.copyWith(tournamentSubFilter: filter);
+  }
+
+  void setFriendlySubFilter(String filter) {
+    state = state.copyWith(friendlySubFilter: filter);
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
   }
 
   void _listenToLiveMatches() {
@@ -139,13 +214,12 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
       final teams = await repo.getAllTeams();
       final players = await repo.getAllPlayers();
       final matches = await repo.getMatches();
-      state = SpectatorHomeState(
+      state = state.copyWith(
         isLoading: false,
         tournaments: tournaments,
         teams: teams,
         players: players,
         matches: matches,
-        liveMatchData: state.liveMatchData,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Failed to load data.');

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,9 +27,50 @@ class ScorerRepository {
   /// watch it and refresh their lists when data changes elsewhere in the app.
   final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
 
+  /// Holds the last Firestore write failure message (if any) so silent
+  /// failures become visible. Screens (e.g. the scorer shell) can listen to
+  /// this and surface a toast/snackbar.
+  final ValueNotifier<String?> lastCloudError = ValueNotifier<String?>(null);
+
+  /// Cleared by whoever shows the error toast, so the same failure is not
+  /// re-toasted on every rebuild.
+  void clearCloudError() => lastCloudError.value = null;
+
   Future<void>? _loading;
 
   ScorerRepository([this._cloud]);
+
+  String? get currentUserId {
+    try {
+      return fa.FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? get currentUserEmail {
+    try {
+      return fa.FirebaseAuth.instance.currentUser?.email;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns true when the write succeeded (or the cloud is not configured).
+  /// On failure it logs the error and stores it in [lastCloudError] so the UI
+  /// can toast "could not sync to cloud — check your connection / sign-in".
+  Future<bool> _cloudWrite(Future<void> Function(FirestoreScorerService cloud) op) async {
+    final cloud = _cloud;
+    if (cloud == null) return true;
+    try {
+      await op(cloud);
+      return true;
+    } catch (e) {
+      debugPrint('[ScorerRepository] Firestore write failed: $e');
+      lastCloudError.value = '$e';
+      return false;
+    }
+  }
 
   // ── Persistence ─────────────────────────────────────────────────────────
 
@@ -171,15 +213,15 @@ class ScorerRepository {
   /// Persists a single entity to Firestore (best-effort) and always refreshes
   /// the local cache. Granular writes keep a failure on one document from
   /// blocking the rest of the data from reaching the cloud.
+  ///
+  /// Failures are surfaced via [lastCloudError] (and logged) instead of being
+  /// silently swallowed, so a Firestore security-rule denial or network error
+  /// is visible in the UI.
   Future<void> _persistToCloud(
       Future<void> Function(FirestoreScorerService cloud) op) async {
     final cloud = _cloud;
     if (cloud != null) {
-      try {
-        await op(cloud);
-      } catch (_) {
-        // Cloud write failed — the local cache below still keeps the data safe.
-      }
+      await _cloudWrite(op);
     }
     await _saveToCache();
   }
@@ -213,9 +255,7 @@ class ScorerRepository {
     _players.clear();
     _matches.clear();
     _schedules.clear();
-    try {
-      await _cloud?.clearAll();
-    } catch (_) {}
+    await _cloudWrite((cloud) => cloud.clearAll());
     await _saveToCache();
     _bumpVersion();
   }
@@ -236,7 +276,20 @@ class ScorerRepository {
     if (index >= 0) {
       _tournaments[index] = tournament;
     } else {
-      _tournaments.add(tournament);
+      // Ownership: newly created tournaments are bound to the signed-in user.
+      // Never overwrite createdBy on subsequent edits.
+      var t = tournament;
+      if (t.createdBy.isEmpty) {
+        t = t.copyWith(
+          createdBy: currentUserId ?? '',
+          ownerId: currentUserId ?? t.ownerId,
+        );
+      }
+      _tournaments.add(t);
+      await _cloudWrite((cloud) => cloud.saveTournament(t));
+      await _saveToCache();
+      _bumpVersion();
+      return;
     }
     await _persistToCloud((cloud) => cloud.saveTournament(tournament));
     _bumpVersion();
@@ -252,9 +305,7 @@ class ScorerRepository {
     _matches.removeWhere((m) => m.tournamentId == tournamentId);
     _schedules.remove(tournamentId);
     _tournaments.removeWhere((t) => t.id == tournamentId);
-    try {
-      await _cloud?.deleteTournament(tournamentId);
-    } catch (_) {}
+    await _cloudWrite((cloud) => cloud.deleteTournament(tournamentId));
     await _saveToCache();
     _bumpVersion();
   }
@@ -321,9 +372,10 @@ class ScorerRepository {
       }
     }
     try {
-      await _cloud?.deleteTeam(teamId);
-      if (updatedTournament != null) {
-        await _cloud?.saveTournament(updatedTournament);
+      await _cloudWrite((cloud) => cloud.deleteTeam(teamId));
+      final t = updatedTournament;
+      if (t != null) {
+        await _cloudWrite((cloud) => cloud.saveTournament(t));
       }
     } catch (_) {}
     await _saveToCache();
@@ -374,9 +426,10 @@ class ScorerRepository {
       }
     }
     try {
-      await _cloud?.deletePlayer(playerId);
-      if (updatedTeam != null) {
-        await _cloud?.saveTeam(updatedTeam);
+      await _cloudWrite((cloud) => cloud.deletePlayer(playerId));
+      final t = updatedTeam;
+      if (t != null) {
+        await _cloudWrite((cloud) => cloud.saveTeam(t));
       }
     } catch (_) {}
     await _saveToCache();
@@ -404,7 +457,17 @@ class ScorerRepository {
     if (index >= 0) {
       _matches[index] = match;
     } else {
-      _matches.add(match);
+      // Ownership: newly created matches are bound to the signed-in user.
+      // Never overwrite createdBy on subsequent edits.
+      var m = match;
+      if (m.createdBy.isEmpty) {
+        m = m.copyWith(createdBy: currentUserId ?? '');
+      }
+      _matches.add(m);
+      await _cloudWrite((cloud) => cloud.saveMatch(m));
+      await _saveToCache();
+      _bumpVersion();
+      return;
     }
     await _persistToCloud((cloud) => cloud.saveMatch(match));
     _bumpVersion();
@@ -413,9 +476,7 @@ class ScorerRepository {
   Future<void> deleteMatch(String matchId) async {
     await _ensureLoaded();
     _matches.removeWhere((m) => m.id == matchId);
-    try {
-      await _cloud?.deleteMatch(matchId);
-    } catch (_) {}
+    await _cloudWrite((cloud) => cloud.deleteMatch(matchId));
     await _saveToCache();
     _bumpVersion();
   }
@@ -624,6 +685,21 @@ class ScorerRepository {
       ..sort((a, b) => b.value.compareTo(a.value));
     if (position <= sorted.length) return sorted[position - 1].key;
     return null;
+  }
+
+  /// One-time cleanup used by [main] at startup: removes every tournament
+  /// (cascading into teams/players/matches/schedule) and every standalone
+  /// match so old demo/test data never reaches the spectator side.
+  Future<void> purgeAllForCleanup() async {
+    await _ensureLoaded();
+    for (final t in List.of(_tournaments)) {
+      await deleteTournament(t.id);
+    }
+    for (final m in List.of(_matches)) {
+      await deleteMatch(m.id);
+    }
+    await _saveToCache();
+    _bumpVersion();
   }
 }
 

@@ -6,7 +6,7 @@ class PointsRules {
   final int tie;
   final int noResult;
   final bool nrrAsTiebreaker;
-  
+
   const PointsRules({
     this.win = 2,
     this.loss = 0,
@@ -33,6 +33,12 @@ class ScorerTournament {
   final double? winnerPrize;
   final double? runnerUpPrize;
   final String? securityCode;
+  final String? description;
+  final String? tournamentRules;
+  final String? tournamentRequirements;
+
+  /// UID of the user who created this tournament (set once).
+  final String createdBy;
 
   const ScorerTournament({
     required this.id,
@@ -51,6 +57,10 @@ class ScorerTournament {
     this.winnerPrize,
     this.runnerUpPrize,
     this.securityCode,
+    this.description,
+    this.tournamentRules,
+    this.tournamentRequirements,
+    this.createdBy = '',
   });
 
   int get numberOfTeams => numTeams;
@@ -74,6 +84,10 @@ class ScorerTournament {
     double? winnerPrize,
     double? runnerUpPrize,
     String? securityCode,
+    String? description,
+    String? tournamentRules,
+    String? tournamentRequirements,
+    String? createdBy,
   }) {
     return ScorerTournament(
       id: id ?? this.id,
@@ -92,6 +106,10 @@ class ScorerTournament {
       winnerPrize: winnerPrize ?? this.winnerPrize,
       runnerUpPrize: runnerUpPrize ?? this.runnerUpPrize,
       securityCode: securityCode ?? this.securityCode,
+      description: description ?? this.description,
+      tournamentRules: tournamentRules ?? this.tournamentRules,
+      tournamentRequirements: tournamentRequirements ?? this.tournamentRequirements,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }

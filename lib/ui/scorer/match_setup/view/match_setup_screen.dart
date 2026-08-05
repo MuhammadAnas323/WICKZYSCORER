@@ -12,6 +12,7 @@ import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
 import 'package:sportyapp/ui/scorer/shared/player_form_dialog.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 
 /// Full match-setup wizard — pick teams, playing XI, toss, opening batsmen, opening bowler
@@ -28,6 +29,9 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   int _step = 0; // 0=match info, 1=toss, 2=opening players
 
   // Step 0 – Match info
+  final _team1Controller = TextEditingController();
+  final _team2Controller = TextEditingController();
+  final _oversController = TextEditingController(text: '20');
   String? _team1Id;
   String? _team2Id;
   String _venue = '';
@@ -57,6 +61,14 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     _loadTeams();
   }
 
+  @override
+  void dispose() {
+    _team1Controller.dispose();
+    _team2Controller.dispose();
+    _oversController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadTeams() async {
     setState(() => _isLoading = true);
     final repo = ref.read(scorerRepositoryProvider);
@@ -81,6 +93,26 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
       _playingXI1.addAll(p1.map((p) => p.id));
       _playingXI2.addAll(p2.map((p) => p.id));
     });
+  }
+
+  Future<String> _resolveTeam(String name, int serial) async {
+    final repo = ref.read(scorerRepositoryProvider);
+    final match = _allTeams.where((t) =>
+        t.name.trim().toLowerCase() == name.trim().toLowerCase()).firstOrNull;
+    if (match != null) return match.id;
+
+    final trimmed = name.trim();
+    final id = 'team_local_${DateTime.now().millisecondsSinceEpoch}_$serial';
+    final team = ScorerTeam(
+      id: id,
+      name: trimmed,
+      shortCode: trimmed.length >= 3 ? trimmed.substring(0, 3).toUpperCase() : trimmed.toUpperCase(),
+      tournamentId: 't_custom',
+      playerIds: const [],
+    );
+    await repo.saveTeam(team);
+    if (mounted) setState(() => _allTeams = List.of(_allTeams)..add(team));
+    return id;
   }
 
   Future<void> _addPlayerToTeam(String teamId) async {
@@ -183,19 +215,37 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     });
   }
 
-  void _nextStep() {
+  Future<void> _nextStep() async {
+    final l10n = AppLocalizations.of(context);
     if (_step == 0) {
-      if (_team1Id == null || _team2Id == null || _team1Id == _team2Id || _venue.isEmpty) {
+      final name1 = _team1Controller.text.trim();
+      final name2 = _team2Controller.text.trim();
+      if (name1.isEmpty || name2.isEmpty || name1.toLowerCase() == name2.toLowerCase() || _venue.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill all match info fields'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.translate('please_fill_info')), backgroundColor: Colors.red),
         );
         return;
       }
-      _loadPlayers();
+      setState(() => _isLoading = true);
+      try {
+        _team1Id = await _resolveTeam(name1, 1);
+        _team2Id = await _resolveTeam(name2, 2);
+        await _loadPlayers();
+        setState(() => _step++);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      return;
     }
     if (_step == 1 && _tossWinnerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select the toss winner'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.translate('select_toss_winner')), backgroundColor: Colors.red),
       );
       return;
     }
@@ -233,9 +283,10 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Future<void> _startMatch() async {
+    final l10n = AppLocalizations.of(context);
     if (_openingStrikerId == null || _openingNonStrikerId == null || _openingBowlerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select opening batsmen and bowler'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.translate('select_openers')), backgroundColor: Colors.red),
       );
       return;
     }
@@ -288,20 +339,27 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: _step > 0
-            ? IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: _prevStep)
-            : const BackButton(color: Colors.white),
-        title: Text(['Match Info', 'Toss', 'Opening Players'][_step], style: AppTextStyles.headlineSmall(Colors.white)),
+            ? IconButton(icon: Icon(Icons.arrow_back, color: colorScheme.onBackground), onPressed: _prevStep)
+            : BackButton(color: colorScheme.onBackground),
+        title: Text(
+          [l10n.translate('match_info'), l10n.translate('toss'), l10n.translate('opening_players')][_step],
+          style: AppTextStyles.headlineSmall(colorScheme.onBackground),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
             value: (_step + 1) / 3,
-            backgroundColor: Colors.white12,
+            backgroundColor: colorScheme.surfaceVariant,
             color: AppColors.pitchGreen,
           ),
         ),
@@ -317,48 +375,55 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Widget _buildStep0() {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionLabel('Select Teams'),
+          _sectionLabel(l10n.translate('select_teams')),
           const Gap(12),
           Row(
             children: [
-              Expanded(child: _teamPicker('Team 1', _team1Id, (val) => setState(() => _team1Id = val))),
+              Expanded(child: _teamManualField('Team 1', _team1Controller)),
               const Gap(12),
-              const Text('vs', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(l10n.translate('vs'), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 18)),
               const Gap(12),
-              Expanded(child: _teamPicker('Team 2', _team2Id, (val) => setState(() => _team2Id = val))),
+              Expanded(child: _teamManualField('Team 2', _team2Controller)),
             ],
           ),
+          const Gap(8),
+          Text(l10n.translate('create_match_hint'),
+              style: TextStyle(color: colorScheme.onBackground.withOpacity(0.54), fontSize: 12)),
           const Gap(20),
-          _sectionLabel('Venue'),
+          _sectionLabel(l10n.translate('venue')),
           const Gap(8),
           TextField(
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onBackground),
             onChanged: (val) => setState(() => _venue = val),
-            decoration: const InputDecoration(
-              hintText: 'Enter venue name',
-              hintStyle: TextStyle(color: Colors.white38),
+            decoration: InputDecoration(
+              hintText: l10n.translate('enter_venue'),
+              hintStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.38)),
               filled: true,
-              fillColor: AppColors.darkSurface,
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on, color: AppColors.pitchGreenLight),
+              fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on, color: AppColors.pitchGreenLight),
             ),
           ),
           const Gap(20),
-          _sectionLabel('Match Time (Optional)'),
+          _sectionLabel(l10n.translate('match_time')),
           const Gap(8),
           InkWell(
             onTap: _pickMatchDateTime,
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.darkSurface,
+                color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: theme.dividerColor),
               ),
               child: Row(
                 children: [
@@ -367,17 +432,17 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   Expanded(
                     child: Text(
                       _dateTime == null
-                          ? 'Set a date & time (optional)'
+                          ? l10n.translate('set_match_time')
                           : _dateTime!.toLocal().toString().replaceRange(16, 19, ''),
                       style: TextStyle(
-                        color: _dateTime == null ? Colors.white38 : Colors.white,
+                        color: _dateTime == null ? colorScheme.onBackground.withOpacity(0.38) : colorScheme.onBackground,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   if (_dateTime != null)
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+                      icon: Icon(Icons.close, color: colorScheme.onBackground.withOpacity(0.38), size: 18),
                       onPressed: () => setState(() => _dateTime = null),
                     ),
                 ],
@@ -385,27 +450,28 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             ),
           ),
           const Gap(20),
-          _sectionLabel('Format & Overs'),
+          _sectionLabel(l10n.translate('format_and_overs')),
           const Gap(8),
           Row(
             children: [
               Expanded(
                 child: DropdownButtonFormField<MatchFormat>(
                   value: _format,
-                  dropdownColor: AppColors.darkSurface,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Format',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  dropdownColor: colorScheme.surface,
+                  style: TextStyle(color: colorScheme.onBackground),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('match_format'),
+                    labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
                     filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
+                    fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+                    border: const OutlineInputBorder(),
                   ),
                   items: MatchFormat.values.map((f) => DropdownMenuItem(value: f, child: Text(f.name.toUpperCase()))).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() {
                       _format = val;
                       _overs = val == MatchFormat.t20 ? 20 : val == MatchFormat.odi ? 50 : 5;
+                      _oversController.text = '$_overs';
                     });
                   },
                 ),
@@ -414,28 +480,61 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               Expanded(
                 child: TextField(
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  controller: TextEditingController(text: '$_overs'),
+                  style: TextStyle(color: colorScheme.onBackground),
+                  controller: _oversController,
                   onChanged: (val) => setState(() => _overs = int.tryParse(val) ?? _overs),
-                  decoration: const InputDecoration(
-                    labelText: 'Overs',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('overs'),
+                    labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
                     filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
+                    fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
             ],
           ),
           const Gap(32),
-          _nextButton('Continue to Toss →'),
+          _nextButton('${l10n.translate('continue_to_toss')} →'),
         ],
       ),
     );
   }
 
+  Widget _teamManualField(String label, TextEditingController controller) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(color: colorScheme.onBackground),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
+        filled: true,
+        fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+        border: const OutlineInputBorder(),
+        suffixIcon: _allTeams.isEmpty
+            ? null
+            : PopupMenuButton<String>(
+                icon: Icon(Icons.arrow_drop_down, color: colorScheme.onSurface.withOpacity(0.7)),
+                tooltip: l10n.translate('select_existing_team'),
+                color: colorScheme.surface,
+                onSelected: (name) => setState(() => controller.text = name),
+                itemBuilder: (_) => _allTeams.map((t) => PopupMenuItem(
+                  value: t.name,
+                  child: Text(t.name, style: TextStyle(color: colorScheme.onSurface)),
+                )).toList(),
+              ),
+      ),
+    );
+  }
+
   Widget _buildStep1() {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
     final t1Name = _teamName(_team1Id);
     final t2Name = _teamName(_team2Id);
     return SingleChildScrollView(
@@ -443,24 +542,24 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Who won the toss?', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          Text(l10n.translate('toss_winner'), style: TextStyle(color: colorScheme.onBackground.withOpacity(0.7), fontSize: 16)),
           const Gap(16),
           _tossTeamButton(t1Name, _team1Id!),
           const Gap(12),
           _tossTeamButton(t2Name, _team2Id!),
           const Gap(32),
           if (_tossWinnerId != null) ...[
-            const Text('Toss winner elected to:', style: TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(l10n.translate('toss_decision'), style: TextStyle(color: colorScheme.onBackground.withOpacity(0.7), fontSize: 16)),
             const Gap(12),
             Row(
               children: [
-                Expanded(child: _tossDecisionButton('Bat First', TossDecision.bat, Icons.sports_cricket)),
+                Expanded(child: _tossDecisionButton(l10n.translate('bat'), TossDecision.bat, Icons.sports_cricket)),
                 const Gap(12),
-                Expanded(child: _tossDecisionButton('Bowl First', TossDecision.bowl, Icons.catching_pokemon)),
+                Expanded(child: _tossDecisionButton(l10n.translate('bowl'), TossDecision.bowl, Icons.catching_pokemon)),
               ],
             ),
             const Gap(32),
-            _nextButton('Set Opening Players →'),
+            _nextButton('${l10n.translate('set_opening_players')} →'),
           ],
         ],
       ),
@@ -468,6 +567,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Widget _buildStep2() {
+    final l10n = AppLocalizations.of(context);
+    
     final battingPlayers = _battingPlayers();
     final bowlingPlayers = _bowlingPlayers();
     final battingTeamName = _teamName(_battingTeamId());
@@ -481,11 +582,11 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
           Row(
             children: [
               Expanded(
-                child: _sectionLabel('$battingTeamName — Opening Batsmen'),
+                child: _sectionLabel('$battingTeamName — ${l10n.translate('opening_players')}'),
               ),
               IconButton(
                 icon: const Icon(Icons.person_add_alt_1, color: AppColors.pitchGreenLight, size: 20),
-                tooltip: 'Add Player to ${_teamName(_battingTeamId())}',
+                tooltip: '${l10n.translate('add_player')} to ${_teamName(_battingTeamId())}',
                 onPressed: () => _addPlayerToTeam(_battingTeamId()),
               ),
             ],
@@ -502,11 +603,11 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
           Row(
             children: [
               Expanded(
-                child: _sectionLabel('$bowlingTeamName — Opening Bowler'),
+                child: _sectionLabel('$bowlingTeamName — ${l10n.translate('opening_bowler')}'),
               ),
               IconButton(
                 icon: const Icon(Icons.person_add_alt_1, color: Colors.redAccent, size: 20),
-                tooltip: 'Add Player to ${_teamName(_bowlingTeamId())}',
+                tooltip: '${l10n.translate('add_player')} to ${_teamName(_bowlingTeamId())}',
                 onPressed: () => _addPlayerToTeam(_bowlingTeamId()),
               ),
             ],
@@ -532,7 +633,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-            label: const Text('Exchange Player between Teams', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l10n.translate('exchange_between_teams'), style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: _exchangePlayers,
           ),
           const Gap(32),
@@ -544,7 +645,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             icon: const Icon(Icons.sports_score_rounded, size: 24),
-            label: const Text('🔴  Start Live Scoring', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            label: Text('🔴  ${l10n.translate('start_scoring')}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             onPressed: _startMatch,
           ),
           const Gap(40),
@@ -553,43 +654,28 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  Widget _sectionLabel(String label) => Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5));
-
-  Widget _teamPicker(String label, String? selected, ValueChanged<String?> onChanged) {
-    return DropdownButtonFormField<String>(
-      value: selected,
-      dropdownColor: AppColors.darkSurface,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        filled: true,
-        fillColor: AppColors.darkSurface,
-        border: const OutlineInputBorder(),
-      ),
-      hint: const Text('Select team', style: TextStyle(color: Colors.white38)),
-      items: _allTeams.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))).toList(),
-      onChanged: onChanged,
-    );
-  }
+  Widget _sectionLabel(String label) => Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5));
 
   Widget _tossTeamButton(String name, String teamId) {
     final isSelected = _tossWinnerId == teamId;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: () => setState(() => _tossWinnerId = teamId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.pitchGreen.withOpacity(0.2) : AppColors.darkSurface,
+          color: isSelected ? AppColors.pitchGreen.withOpacity(0.2) : colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isSelected ? AppColors.pitchGreenLight : Colors.white24, width: isSelected ? 2 : 1),
+          border: Border.all(color: isSelected ? AppColors.pitchGreenLight : theme.dividerColor, width: isSelected ? 2 : 1),
         ),
         child: Row(
           children: [
-            Icon(isSelected ? Icons.check_circle_rounded : Icons.circle_outlined, color: isSelected ? AppColors.pitchGreenLight : Colors.white54),
+            Icon(isSelected ? Icons.check_circle_rounded : Icons.circle_outlined, color: isSelected ? AppColors.pitchGreenLight : colorScheme.onSurface.withOpacity(0.54)),
             const Gap(12),
-            Text(name, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(name, style: TextStyle(color: isSelected ? colorScheme.onSurface : colorScheme.onSurface.withOpacity(0.7), fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
       ),
@@ -598,21 +684,24 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
 
   Widget _tossDecisionButton(String label, TossDecision decision, IconData icon) {
     final isSelected = _tossDecision == decision;
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
     return GestureDetector(
       onTap: () => setState(() => _tossDecision = decision),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.floodlightGold.withOpacity(0.15) : AppColors.darkSurface,
+          color: isSelected ? AppColors.floodlightGold.withOpacity(0.15) : colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isSelected ? AppColors.floodlightGold : Colors.white24, width: isSelected ? 2 : 1),
+          border: Border.all(color: isSelected ? AppColors.floodlightGold : theme.dividerColor, width: isSelected ? 2 : 1),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? AppColors.floodlightGold : Colors.white54, size: 28),
+            Icon(icon, color: isSelected ? AppColors.floodlightGold : colorScheme.onSurface.withOpacity(0.54), size: 28),
             const Gap(6),
-            Text(label, style: TextStyle(color: isSelected ? AppColors.floodlightGold : Colors.white70, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: isSelected ? AppColors.floodlightGold : colorScheme.onSurface.withOpacity(0.7), fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -626,17 +715,18 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     required VoidCallback onTapStriker,
     required VoidCallback onTapNonStriker,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: (isStriker || isNonStriker) ? AppColors.pitchGreen.withOpacity(0.1) : AppColors.darkSurface,
+        color: (isStriker || isNonStriker) ? AppColors.pitchGreen.withOpacity(0.1) : colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: (isStriker || isNonStriker) ? AppColors.pitchGreenLight.withOpacity(0.5) : Colors.white10),
+        border: Border.all(color: (isStriker || isNonStriker) ? AppColors.pitchGreenLight.withOpacity(0.5) : colorScheme.onSurface.withOpacity(0.1)),
       ),
       child: Row(
         children: [
-          Expanded(child: Text(player.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+          Expanded(child: Text(player.name, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600))),
           _pillButton('Striker', isStriker, onTapStriker, Colors.blueAccent),
           const Gap(8),
           _pillButton('Non-Striker', isNonStriker, onTapNonStriker, AppColors.pitchGreenLight),
@@ -646,22 +736,23 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Widget _bowlerSelectorTile({required ScorerPlayer player, required bool isSelected, required VoidCallback onTap}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.redAccent.withOpacity(0.1) : AppColors.darkSurface,
+          color: isSelected ? Colors.redAccent.withOpacity(0.1) : colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? Colors.redAccent.withOpacity(0.5) : Colors.white10),
+          border: Border.all(color: isSelected ? Colors.redAccent.withOpacity(0.5) : colorScheme.onSurface.withOpacity(0.1)),
         ),
         child: Row(
           children: [
             Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                color: isSelected ? Colors.redAccent : Colors.white54),
+                color: isSelected ? Colors.redAccent : colorScheme.onSurface.withOpacity(0.54)),
             const Gap(12),
-            Expanded(child: Text(player.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+            Expanded(child: Text(player.name, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600))),
             Text(player.bowlingStyle.name, style: const TextStyle(color: Colors.grey, fontSize: 11)),
           ],
         ),
@@ -670,17 +761,18 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Widget _pillButton(String label, bool isActive, VoidCallback onTap, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.2) : Colors.white10,
+          color: isActive ? color.withOpacity(0.2) : colorScheme.onSurface.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: isActive ? color : Colors.transparent),
         ),
-        child: Text(label, style: TextStyle(color: isActive ? color : Colors.white54, fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+        child: Text(label, style: TextStyle(color: isActive ? color : colorScheme.onSurface.withOpacity(0.54), fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
       ),
     );
   }
@@ -707,18 +799,22 @@ class _PlayerPickDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return AlertDialog(
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+      title: Text(title, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
       content: SizedBox(
         width: double.maxFinite,
         height: 320,
         child: players.isEmpty
-            ? const Center(child: Text('No players', style: TextStyle(color: Colors.white54)))
+            ? Center(child: Text(l10n.translate('no_data'), style: TextStyle(color: colorScheme.onSurface.withOpacity(0.54))))
             : ListView.separated(
                 itemCount: players.length,
-                separatorBuilder: (_, __) => const Divider(color: Colors.white12, height: 1),
+                separatorBuilder: (_, __) => Divider(color: theme.dividerColor, height: 1),
                 itemBuilder: (ctx, i) {
                   final p = players[i];
                   return ListTile(
@@ -727,7 +823,7 @@ class _PlayerPickDialog extends StatelessWidget {
                       backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
                       child: Text('${p.jerseyNumber ?? '?'}', style: const TextStyle(color: AppColors.pitchGreenLight, fontSize: 12)),
                     ),
-                    title: Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    title: Text(p.name, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600)),
                     subtitle: Text(p.role.name, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                     onTap: () => Navigator.pop(context, p),
                   );
@@ -737,7 +833,7 @@ class _PlayerPickDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text(l10n.translate('cancel'), style: TextStyle(color: colorScheme.onSurface.withOpacity(0.54))),
         ),
       ],
     );

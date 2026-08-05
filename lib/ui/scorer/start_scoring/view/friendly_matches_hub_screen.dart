@@ -1,6 +1,3 @@
-// lib/ui/scorer/start_scoring/view/start_scoring_screen.dart
-// Start Scoring hub: two cards — Tournaments and Matches.
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
@@ -8,8 +5,8 @@ import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 
-class StartScoringScreen extends StatelessWidget {
-  const StartScoringScreen({super.key});
+class FriendlyMatchesHubScreen extends StatelessWidget {
+  const FriendlyMatchesHubScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +35,7 @@ class StartScoringScreen extends StatelessWidget {
             ),
             const Gap(10),
             Text(
-              l10n.translate('start_scoring'),
+              l10n.translate('friendly_matches'),
               style: AppTextStyles.titleMedium(colorScheme.onBackground)
                   .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold),
             ),
@@ -56,29 +53,29 @@ class StartScoringScreen extends StatelessWidget {
             ),
             const Gap(6),
             Text(
-              l10n.translate('scoring_choice_hint'),
+              l10n.translate('match_card_subtitle'),
               style: TextStyle(color: colorScheme.onBackground.withOpacity(0.54), fontSize: 13),
             ),
             const Gap(24),
 
-            // ── Tournaments card ──────────────────────────────────────────
+            // ── Create Friendly Match card ─────────────────────────────
             _HubCard(
-              icon: Icons.emoji_events_rounded,
-              iconBg: AppColors.floodlightGold,
-              title: l10n.translate('tournaments'),
-              subtitle: l10n.translate('tournament_card_subtitle'),
-              onTap: () => context.push('/scorer/tournament-upcoming-matches'),
+              icon: Icons.add_circle_outline_rounded,
+              iconBg: AppColors.pitchGreen,
+              title: l10n.translate('create_local_match'),
+              subtitle: 'Create a new friendly match and set up the squads',
+              onTap: () => context.push('/scorer/matches/create'),
               context: context,
             ),
             const Gap(16),
 
-            // ── Matches card ──────────────────────────────────────────────
+            // ── Select Friendly Match card ─────────────────────────────
             _HubCard(
-              icon: Icons.sports_cricket_rounded,
-              iconBg: AppColors.pitchGreen,
-              title: l10n.translate('friendly_matches'),
-              subtitle: l10n.translate('match_card_subtitle'),
-              onTap: () => context.push('/scorer/friendly-matches-hub'),
+              icon: Icons.list_alt_rounded,
+              iconBg: AppColors.floodlightGold,
+              title: 'Select Friendly Match',
+              subtitle: 'View and manage your created friendly matches',
+              onTap: () => context.push('/scorer/all-matches?onlyFriendly=true'),
               context: context,
             ),
           ],
@@ -147,12 +144,21 @@ class _HubCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 18),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
                     ),
-                    const Gap(4),
+                    const Gap(2),
                     Text(
                       subtitle,
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.54), fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.54),
+                          fontSize: 11),
                     ),
                   ],
                 ),

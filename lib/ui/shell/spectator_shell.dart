@@ -46,9 +46,8 @@ class _SpectatorBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
-    const selectedColor = AppColors.pitchGreenLight;
-    final unselectedColor = isDark ? Colors.white38 : Colors.black38;
+    final bgColor = isDark ? const Color(0xFF141414) : Colors.white;
+    final unselectedColor = isDark ? Colors.white38 : Colors.black45;
 
     final items = [
       (Icons.home_rounded, 'Home'),
@@ -60,11 +59,16 @@ class _SpectatorBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
-            blurRadius: 24,
+            color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+            blurRadius: 20,
             offset: const Offset(0, -4),
           ),
         ],
@@ -80,36 +84,43 @@ class _SpectatorBottomNav extends StatelessWidget {
               return Expanded(
                 child: InkWell(
                   onTap: () => onTap(i),
-                  splashColor: selectedColor.withOpacity(0.1),
+                  splashColor: AppColors.pitchGreen.withOpacity(0.1),
                   highlightColor: Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(
-                        vertical: 6, horizontal: 4),
+                    margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? selectedColor.withOpacity(0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [AppColors.pitchGreen, AppColors.pitchGreenDark],
+                            )
+                          : null,
+                      borderRadius: BorderRadius.circular(5), // 5px border radius as required
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.pitchGreen.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : [],
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           entry.value.$1,
-                          color: isSelected ? selectedColor : unselectedColor,
-                          size: 24,
+                          color: isSelected ? Colors.white : unselectedColor,
+                          size: 22,
                         ),
                         const SizedBox(height: 2),
                         AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 200),
                           style: TextStyle(
-                            color: isSelected ? selectedColor : unselectedColor,
+                            color: isSelected ? Colors.white : unselectedColor,
                             fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             letterSpacing: 0.2,
                           ),
                           child: Text(entry.value.$2),

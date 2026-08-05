@@ -5,10 +5,7 @@ import 'package:gap/gap.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
-import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
-import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
-import 'package:sportyapp/data/models/scorer/scorer_match.dart';
-import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 const double _cardRadius = 5;
 
@@ -17,431 +14,209 @@ class ScorerDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(scorerDashboardViewModelProvider);
     final user = ref.watch(currentUserProvider);
-
-    final displayName = user?.name.isNotEmpty == true ? user!.name : 'Pro Scorer';
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
+    final displayName = user?.name.isNotEmpty == true ? user!.name : 'Scorer';
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: cs.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
         elevation: 0,
         title: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [AppColors.floodlightGold, Colors.orangeAccent],
                 ),
               ),
-              child: const Icon(Icons.sports_score, color: Colors.black, size: 20),
+              child: const Icon(Icons.sports_score, color: Colors.black, size: 22),
             ),
             const Gap(10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CRIXORA',
-                  style: AppTextStyles.titleMedium(Colors.white)
-                      .copyWith(letterSpacing: 1.5, fontWeight: FontWeight.bold),
+                  l10n.translate('scorer_dashboard'),
+                  style: AppTextStyles.titleMedium(cs.onBackground)
+                      .copyWith(letterSpacing: 1.2, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Welcome, $displayName',
-                  style: AppTextStyles.bodySmall(AppColors.charcoal200),
+                  '${l10n.translate('welcome')}, $displayName',
+                  style: AppTextStyles.bodySmall(cs.onSurfaceVariant),
                 ),
               ],
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_rounded, color: AppColors.pitchGreenLight),
-            onPressed: () => context.go('/scorer/profile'),
-          ),
-          const Gap(8),
-        ],
       ),
-      body: RefreshIndicator(
-        color: AppColors.pitchGreen,
-        onRefresh: () async {
-          await ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _welcomeCard(context, state),
-            const Gap(16),
-            _sectionHeader('Tournaments'),
-            const Gap(8),
-            _tournamentsCard(context, ref, state),
-            const Gap(16),
-            _sectionHeader('Matches'),
-            const Gap(8),
-            _matchesCard(context, ref, state),
-            const Gap(80),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Welcome / info card ────────────────────────────────────────────────
-  Widget _welcomeCard(BuildContext context, ScorerDashboardState state) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: AppColors.pitchGreen.withOpacity(0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [AppColors.pitchGreen, Color(0xFF1A7A3E)],
-                  ),
-                ),
-                child: const Icon(Icons.sports_cricket_rounded, color: Colors.white, size: 22),
-              ),
-              const Gap(10),
-              Text(
-                'Welcome to CRIXORA!',
-                style: AppTextStyles.titleLarge(Colors.white),
-              ),
-            ],
-          ),
-          const Gap(12),
-          const Text(
-            'The pitch is ready. The crowd is waiting.\n'
-            'Hit "Start Session" for live, ball-by-ball updates for all fans!',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
-          ),
-          const Gap(16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.pitchGreen,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_cardRadius)),
-              ),
-              icon: const Icon(Icons.play_arrow_rounded, size: 22),
-              label: const Text('Start Session', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              onPressed: () => context.push('/scorer/start-scoring'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String title) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 18,
-          decoration: BoxDecoration(
-            color: AppColors.pitchGreenLight,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const Gap(8),
-        Text(title, style: AppTextStyles.titleLarge(Colors.white)),
-      ],
-    );
-  }
-
-  // ── Tournaments card ───────────────────────────────────────────────────
-  Widget _tournamentsCard(BuildContext context, WidgetRef ref, ScorerDashboardState state) {
-    final filters = [
-      ('all', 'All'),
-      ('live', 'Live'),
-      ('upcoming', 'Upcoming'),
-      ('completed', 'Completed'),
-    ];
-    final tournaments = state.filteredTournaments;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.emoji_events_rounded, color: AppColors.floodlightGold, size: 20),
-              const Gap(8),
               Expanded(
-                child: Text(
-                  'Tournaments',
-                  style: AppTextStyles.titleMedium(Colors.white).copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Text('${tournaments.length}', style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const Gap(10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: filters.map((f) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _chip(
-                    label: f.$2,
-                    selected: state.tournamentFilter == f.$1,
-                    onTap: () => ref.read(scorerDashboardViewModelProvider.notifier).setTournamentFilter(f.$1),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const Gap(10),
-          if (tournaments.isEmpty)
-            _emptyHint('No tournaments')
-          else
-            ...tournaments.map((t) => _tournamentTile(context, t)),
-        ],
-      ),
-    );
-  }
-
-  Widget _tournamentTile(BuildContext context, ScorerTournament t) {
-    return InkWell(
-      onTap: () => context.push('/scorer/tournaments/${t.id}'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        margin: const EdgeInsets.only(bottom: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(_cardRadius),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.floodlightGold.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(_cardRadius),
-              ),
-              child: const Icon(Icons.emoji_events_rounded, color: AppColors.floodlightGold, size: 20),
-            ),
-            const Gap(10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(
-                    '${t.format.name.toUpperCase()} • ${t.numTeams} teams',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Matches card ───────────────────────────────────────────────────────
-  Widget _matchesCard(BuildContext context, WidgetRef ref, ScorerDashboardState state) {
-    final filters = [
-      ('all', 'All'),
-      ('live', 'Live'),
-      ('upcoming', 'Upcoming'),
-      ('completed', 'Completed'),
-    ];
-    final matches = state.filteredMatches;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.sports_score_rounded, color: AppColors.pitchGreenLight, size: 20),
-              const Gap(8),
-              Expanded(
-                child: Text(
-                  'Matches',
-                  style: AppTextStyles.titleMedium(Colors.white).copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Text('${matches.length}', style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const Gap(10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: filters.map((f) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _chip(
-                    label: f.$2,
-                    selected: state.matchFilter == f.$1,
-                    onTap: () => ref.read(scorerDashboardViewModelProvider.notifier).setMatchFilter(f.$1),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const Gap(6),
-          // My matches only toggle
-          Row(
-            children: [
-              const Icon(Icons.filter_alt_outlined, color: Colors.white54, size: 16),
-              const Gap(6),
-              const Expanded(
-                child: Text('My matches only', style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ),
-              Switch(
-                value: state.myMatchesOnly,
-                activeTrackColor: AppColors.pitchGreen,
-                onChanged: (v) => ref.read(scorerDashboardViewModelProvider.notifier).setMyMatchesOnly(v),
-              ),
-            ],
-          ),
-          const Gap(6),
-          if (matches.isEmpty)
-            _emptyHint('No matches')
-          else
-            ...matches.map((m) => _matchTile(context, ref, m, state)),
-        ],
-      ),
-    );
-  }
-
-  Widget _matchTile(BuildContext context, WidgetRef ref, ScorerMatch match, ScorerDashboardState state) {
-    final isLive = match.status == MatchStatus.inProgress || match.status == MatchStatus.live;
-    final isCompleted = match.status == MatchStatus.completed;
-
-    return InkWell(
-      onTap: () {
-        if (isLive || isCompleted) {
-          ref.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
-          context.push('/scorer/live-scoring');
-        } else {
-          context.push('/scorer/matches/${match.id}/squad');
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        margin: const EdgeInsets.only(bottom: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(_cardRadius),
-          border: Border.all(color: isLive ? AppColors.liveRed.withOpacity(0.6) : Colors.white10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isLive ? AppColors.liveRed : Colors.white12,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    isLive ? 'LIVE' : match.status.name.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const Spacer(),
-                Text(match.venue, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-            const Gap(8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.95,
                   children: [
-                    Text(state.teamName(match.team1Id), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (match.innings1 != null)
-                      Text('${match.innings1!.totalRuns}/${match.innings1!.wickets} (${match.innings1!.overs.toStringAsFixed(1)} ov)',
-                          style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 14)),
+                    // 1. Tournaments Card
+                    _LargeNavCard(
+                      title: l10n.translate('tournaments'),
+                      subtitle: l10n.translate('manage_score_tournaments'),
+                      icon: Icons.emoji_events_rounded,
+                      gradientColors: isDark
+                          ? const [Color(0xFF1E3A8A), Color(0xFF1E1B4B)]
+                          : const [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                      iconColor: isDark ? Colors.amber : const Color(0xFF1D4ED8),
+                      textColor: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                      onTap: () => context.push('/scorer/tournaments'),
+                    ),
+
+                    // 2. Friendly Matches Card
+                    _LargeNavCard(
+                      title: l10n.translate('friendly_matches'),
+                      subtitle: l10n.translate('individual_matches'),
+                      icon: Icons.sports_cricket_rounded,
+                      gradientColors: isDark
+                          ? const [Color(0xFF065F46), Color(0xFF064E3B)]
+                          : const [Color(0xFFD1FAE5), Color(0xA110B981)],
+                      iconColor: isDark ? AppColors.pitchGreenLight : const Color(0xFF047857),
+                      textColor: isDark ? Colors.white : const Color(0xFF065F46),
+                      onTap: () => context.push('/scorer/all-matches'),
+                    ),
+
+                    // 3. Profile Card
+                    _LargeNavCard(
+                      title: l10n.translate('profile'),
+                      subtitle: l10n.translate('account_settings'),
+                      icon: Icons.person_rounded,
+                      gradientColors: isDark
+                          ? const [Color(0xFF5B21B6), Color(0xFF4C1D95)]
+                          : const [Color(0xFFEDE9FE), Color(0xFFDDD6FE)],
+                      iconColor: isDark ? Colors.purpleAccent : const Color(0xFF6D28D9),
+                      textColor: isDark ? Colors.white : const Color(0xFF5B21B6),
+                      onTap: () => context.push('/scorer/profile'),
+                    ),
+
+                    // 4. Start Scoring Card
+                    _LargeNavCard(
+                      title: l10n.translate('start_scoring'),
+                      subtitle: l10n.translate('quick_session'),
+                      icon: Icons.play_circle_fill_rounded,
+                      gradientColors: isDark
+                          ? const [Color(0xFF991B1B), Color(0xFF7F1D1D)]
+                          : const [Color(0xFFFEE2E2), Color(0xFFFCA5A5)],
+                      iconColor: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626),
+                      textColor: isDark ? Colors.white : const Color(0xFF991B1B),
+                      onTap: () => context.push('/scorer/start-scoring'),
+                    ),
                   ],
                 ),
-                const Text('VS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(state.teamName(match.team2Id), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (match.innings2 != null)
-                      Text('${match.innings2!.totalRuns}/${match.innings2!.wickets} (${match.innings2!.overs.toStringAsFixed(1)} ov)',
-                          style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 14)),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chip({required String label, required bool selected, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.pitchGreen : Colors.white10,
-          borderRadius: BorderRadius.circular(_cardRadius),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.white70,
-            fontSize: 11,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _emptyHint(String text) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(_cardRadius),
-      ),
-      child: Text(text, style: const TextStyle(color: Colors.grey, fontSize: 13)),
     );
   }
 }
+
+class _LargeNavCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> gradientColors;
+  final Color iconColor;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  const _LargeNavCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.gradientColors,
+    required this.iconColor,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_cardRadius), // Exactly 5px border radius as required
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(_cardRadius),
+              ),
+              child: Icon(icon, color: iconColor, size: 28),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Gap(4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.75),
+                    fontSize: 11,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

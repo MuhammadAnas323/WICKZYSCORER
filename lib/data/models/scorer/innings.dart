@@ -33,6 +33,14 @@ class Innings {
   
   int get legalBallsDelivered => balls.where((ball) => ball.isLegalBall).length;
 
+  /// Deliveries that count towards the 6-ball over (legal balls).
+  List<BallEvent> get legalBalls =>
+      balls.where((ball) => ball.isLegalBall).toList();
+
+  /// No-ball / wide deliveries — they add runs but do NOT advance the over.
+  List<BallEvent> get extraBalls =>
+      balls.where((ball) => !ball.isLegalBall).toList();
+
   double get overs {
     int legalBalls = legalBallsDelivered;
     int completedOvers = legalBalls ~/ 6;

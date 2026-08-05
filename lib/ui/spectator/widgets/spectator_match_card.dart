@@ -62,7 +62,7 @@ class SpectatorMatchCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: BorderRadius.circular(AppConstants.radiusLG),
+          borderRadius: BorderRadius.circular(5),
           border: Border.all(
             color: isLive ? AppColors.liveRed.withOpacity(0.4) : Colors.transparent,
           ),

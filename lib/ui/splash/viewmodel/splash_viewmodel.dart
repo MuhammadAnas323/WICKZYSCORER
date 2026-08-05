@@ -13,7 +13,7 @@ class SplashViewModel extends StateNotifier<SplashState> {
   }
 
   Future<void> _init() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 3));
     state = state.copyWith(isLoading: false);
   }
 }

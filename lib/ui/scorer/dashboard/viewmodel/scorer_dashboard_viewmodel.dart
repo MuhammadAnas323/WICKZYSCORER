@@ -106,15 +106,30 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
     state = state.copyWith(isLoading: true);
     final repo = ref.read(scorerRepositoryProvider);
     final user = ref.read(currentUserProvider);
-    final tournaments = await repo.getTournaments();
-    final matches = await repo.getMatches();
-    final teams = await repo.getAllTeams();
+    final uid = user?.id;
+
+    final allTournaments = await repo.getTournaments();
+    final allMatches = await repo.getMatches();
+    final allTeams = await repo.getAllTeams();
+
+    final myTournaments = uid == null || uid.isEmpty
+        ? allTournaments
+        : allTournaments
+            .where((t) => t.createdBy == uid || t.ownerId == uid || t.createdBy.isEmpty)
+            .toList();
+
+    final myMatches = uid == null || uid.isEmpty
+        ? allMatches
+        : allMatches
+            .where((m) => m.createdBy == uid || m.createdBy.isEmpty)
+            .toList();
+
     state = state.copyWith(
       isLoading: false,
-      tournaments: tournaments,
-      matches: matches,
-      teams: teams,
-      userId: user?.id,
+      tournaments: myTournaments,
+      matches: myMatches,
+      teams: allTeams,
+      userId: uid,
     );
   }
 

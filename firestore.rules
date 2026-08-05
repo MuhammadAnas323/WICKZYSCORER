@@ -1,53 +1,83 @@
-// TEMPORARY security rules — placeholder until real authentication is wired in.
-// TODO: Replace with authenticated rules once Scorer auth is implemented.
+// Scorer access rules.
 //
-// Intended final behaviour:
-//   - Anyone can read matches, tournaments, teams, players (spectator access).
-//   - Only an authenticated Scorer can CREATE / UPDATE / DELETE match data.
-//   - A match can only be written by the scorer who created it (scorerId field).
+// Owner/co-owner restrictions on editing and deleting tournaments, matches,
+// teams, players and related data have been REMOVED. Any signed-in user may
+// now create/update/delete scorer data. Reads remain open to everyone
+// (signed-in or anonymous) in both the scorer and spectator views.
+//
+// Note on structure: this app stores `teams`, `players`, `matches` and
+// `scorer_schedules` as TOP-LEVEL collections (teams/players/matches carry a
+// `tournamentId` field; `scorer_schedules` uses the tournament id as its
+// document id).
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Public read, restricted write (by scorerId field — placeholder).
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Scorer data is fully writable by any signed-in user (ownership checks
+    // were removed). Reads stay open to everyone.
+    function canWriteScorerData() {
+      return isSignedIn();
+    }
+
+    // ── Tournaments ────────────────────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      allow read: if true; // anyone can view tournament details / settings
+      allow create: if canWriteScorerData();
+      allow update, delete: if canWriteScorerData();
+
+      // Per-tournament schedule (if it is ever stored as a subcollection).
+      match /schedule/{scheduleId} {
+        allow read: if true;
+        allow write: if canWriteScorerData();
+      }
+    }
+
+    // ── Matches ────────────────────────────────────────────────────────────
     match /matches/{matchId} {
       allow read: if true;
-      allow create: if request.auth != null;   // TEMP: open to all authenticated
-      allow update: if request.auth != null;   // TEMP: open to all authenticated
-      allow delete: if request.auth != null;   // TEMP: open to all authenticated
+      allow create: if canWriteScorerData();
+      allow update, delete: if canWriteScorerData();
     }
 
-    match /tournaments/{tournamentId} {
+    // ── Teams ──────────────────────────────────────────────────────────────
+    match /teams/{teamId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow create: if canWriteScorerData();
+      allow update: if canWriteScorerData();
+      allow delete: if canWriteScorerData();
+      allow list: if true;
     }
 
-    match /tournaments/{tournamentId}/teams/{teamId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
-    }
-
+    // ── Players ────────────────────────────────────────────────────────────
     match /players/{playerId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow create: if canWriteScorerData();
+      allow update: if canWriteScorerData();
+      allow delete: if canWriteScorerData();
+      allow list: if true;
     }
 
-    // User profiles: each user can read/write their own document.
+    // ── Schedules (document id == tournament id) ───────────────────────────
+    match /scorer_schedules/{tournamentId} {
+      allow read: if true;
+      allow write: if canWriteScorerData();
+    }
+
+    // ── User profiles: each user can read/write their own document ─────────
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // Deny everything else unless explicitly allowed above.
     match /{document=**} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if false;
     }
   }
 }

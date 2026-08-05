@@ -1,4 +1,4 @@
-﻿// lib/routes/app_router.dart
+// lib/routes/app_router.dart
 // go_router configuration for CRIXORA.
 // Spectator shell: 4-tab bottom navigation (Home, Live, Events, Profile).
 
@@ -58,14 +58,17 @@ import 'package:sportyapp/ui/scorer/teams/view/team_players_view_screen.dart';
 import 'package:sportyapp/ui/scorer/match_setup/view/match_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/live_scoring/view/live_scoring_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/start_scoring_screen.dart';
+import 'package:sportyapp/ui/scorer/start_scoring/view/friendly_matches_hub_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/schedule_match_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/toss_screen.dart';
 import 'package:sportyapp/ui/scorer/create_match/view/create_local_match_screen.dart';
 import 'package:sportyapp/ui/scorer/all_matches/view/all_matches_screen.dart';
+import 'package:sportyapp/ui/scorer/tournaments/view/tournament_upcoming_matches_screen.dart';
 import 'package:sportyapp/ui/scorer/matches/view/scorer_matches_screen.dart';
 import 'package:sportyapp/ui/scorer/squad_setup/view/squad_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_builder_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_view_screen.dart';
+
 
 /// The app's GoRouter instance.
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -85,6 +88,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final currentUser = ref.read(currentUserProvider);
       final location = state.uri.toString();
+
+      // The splash screen is a self-governed gate: it waits for the auth
+      // session to be restored AND its minimum display time before navigating.
+      // Exempt it from the automatic redirect so it can't be interrupted early.
+      if (location == '/splash') return null;
 
       final publicRoutes = [
         '/splash', '/onboarding', '/signup',
@@ -384,9 +392,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             SquadSetupScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
-        path: '/scorer/start-scoring',
-        name: 'scorer-start-scoring',
-        builder: (context, state) => const StartScoringScreen(),
+        path: '/scorer/all-matches',
+        name: 'scorer-all-matches',
+        builder: (context, state) {
+          final onlyFriendlyStr = state.uri.queryParameters['onlyFriendly'];
+          final onlyFriendly = onlyFriendlyStr == 'true';
+          return AllMatchesScreen(onlyFriendly: onlyFriendly);
+        },
+      ),
+      GoRoute(
+        path: '/scorer/friendly-matches-hub',
+        name: 'scorer-friendly-matches-hub',
+        builder: (context, state) => const FriendlyMatchesHubScreen(),
+      ),
+      GoRoute(
+        path: '/scorer/tournament-upcoming-matches',
+        name: 'scorer-tournament-upcoming-matches',
+        builder: (context, state) => const TournamentUpcomingMatchesScreen(),
       ),
       GoRoute(
         path: '/scorer/schedule-match',
@@ -469,9 +491,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/scorer/all-matches',
-                name: 'scorer-all-matches',
-                builder: (context, state) => const AllMatchesScreen(),
+                path: '/scorer/start-scoring',
+                name: 'scorer-start-scoring',
+                builder: (context, state) => const StartScoringScreen(),
               ),
             ],
           ),

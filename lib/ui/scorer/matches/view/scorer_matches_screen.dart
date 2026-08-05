@@ -12,12 +12,14 @@ import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class ScorerMatchesScreen extends ConsumerStatefulWidget {
   const ScorerMatchesScreen({super.key});
 
   @override
-  ConsumerState<ScorerMatchesScreen> createState() => _ScorerMatchesScreenState();
+  ConsumerState<ScorerMatchesScreen> createState() =>
+      _ScorerMatchesScreenState();
 }
 
 class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
@@ -49,10 +51,13 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
 
   String _teamName(String id) => _teamNames[id] ?? id;
 
-  String _tournamentName(String tournamentId) {
+  String _tournamentName(String tournamentId, AppLocalizations l10n) {
     final tournament =
         _tournaments.where((t) => t.id == tournamentId).firstOrNull;
-    return tournament?.name ?? (tournamentId == 't_custom' ? 'Local Match' : 'Unknown');
+    return tournament?.name ??
+        (tournamentId == 't_custom'
+            ? l10n.translate('local_match')
+            : 'Unknown');
   }
 
   void _openMatch(ScorerMatch match) {
@@ -65,25 +70,29 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     }
   }
 
-  Future<void> _deleteMatch(ScorerMatch match) async {
+  Future<void> _deleteMatch(ScorerMatch match, AppLocalizations l10n) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
-        title: const Text('Delete match?', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).cardTheme.color,
+        title: Text(l10n.translate('delete_match'),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
-          'This will remove ${_teamName(match.team1Id)} vs ${_teamName(match.team2Id)} from the scorer data.',
-          style: const TextStyle(color: Colors.white70),
+          '${l10n.translate('delete_confirm')} (${_teamName(match.team1Id)} vs ${_teamName(match.team2Id)})',
+          style:
+              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: Text(l10n.translate('cancel'),
+                style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.liveRed),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.translate('delete'),
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -94,32 +103,38 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     await repo.deleteMatch(match.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Match deleted'), backgroundColor: AppColors.liveRed),
+      const SnackBar(
+          content: Text('Match deleted'), backgroundColor: AppColors.liveRed),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Matches',
-            style: AppTextStyles.titleMedium(Colors.white)
+        title: Text(l10n.translate('matches'),
+            style: AppTextStyles.titleMedium(cs.onBackground)
                 .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_rounded, color: AppColors.pitchGreenLight, size: 28),
-            tooltip: 'Add Match',
-            onPressed: () => context.push('/scorer/matches/create'),
-          ),
-        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/scorer/friendly-matches-hub'),
+        backgroundColor: AppColors.pitchGreen,
+        foregroundColor: Colors.white,
+        tooltip: l10n.translate('add_match'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.pitchGreen))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.pitchGreen))
           : _matches.isEmpty
-              ? _emptyState()
+              ? _emptyState(l10n)
               : RefreshIndicator(
                   color: AppColors.pitchGreen,
                   onRefresh: _load,
@@ -131,9 +146,10 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
                       return _MatchTile(
                         match: match,
                         teamName: _teamName,
-                        tournamentName: _tournamentName,
+                        tournamentName: (id) => _tournamentName(id, l10n),
                         onTap: () => _openMatch(match),
-                        onDelete: () => _deleteMatch(match),
+                        onDelete: () => _deleteMatch(match, l10n),
+                        l10n: l10n,
                       );
                     },
                   ),
@@ -141,32 +157,38 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     );
   }
 
-  Widget _emptyState() {
+  Widget _emptyState(AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.sports_cricket_rounded, size: 72, color: AppColors.charcoal400),
+          const Icon(Icons.sports_cricket_rounded,
+              size: 72, color: AppColors.charcoal400),
           const Gap(16),
-          const Text(
-            'No matches yet',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n.translate('no_matches'),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onBackground,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
           ),
           const Gap(6),
-          const Text(
-            'Create a match and set up the squads.',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Text(
+            l10n.translate('create_match_squads'),
+            style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const Gap(24),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.pitchGreen,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('Add Match', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => context.push('/scorer/matches/create'),
+            label: Text(l10n.translate('add_match'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => context.push('/scorer/friendly-matches-hub'),
           ),
         ],
       ),
@@ -180,6 +202,7 @@ class _MatchTile extends StatelessWidget {
   final String Function(String) tournamentName;
   final VoidCallback onTap;
   final Future<void> Function() onDelete;
+  final AppLocalizations l10n;
 
   const _MatchTile({
     required this.match,
@@ -187,6 +210,7 @@ class _MatchTile extends StatelessWidget {
     required this.tournamentName,
     required this.onTap,
     required this.onDelete,
+    required this.l10n,
   });
 
   @override
@@ -195,6 +219,17 @@ class _MatchTile extends StatelessWidget {
         match.status == MatchStatus.inProgress;
     final canStart = match.status == MatchStatus.upcoming ||
         match.status == MatchStatus.scheduled;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    String statusText = match.status.name.toUpperCase();
+    if (isLive) statusText = l10n.translate('live');
+    if (match.status == MatchStatus.upcoming ||
+        match.status == MatchStatus.scheduled)
+      statusText = l10n.translate('upcoming');
+    if (match.status == MatchStatus.completed)
+      statusText = l10n.translate('completed');
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -202,9 +237,10 @@ class _MatchTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.darkSurface,
+          color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(
+              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,18 +250,22 @@ class _MatchTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '${teamName(match.team1Id)}  vs  ${teamName(match.team2Id)}',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
                   ),
                 ),
                 const Gap(8),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                  tooltip: 'Delete match',
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 18),
+                  tooltip: l10n.translate('delete'),
                   onPressed: onDelete,
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: isLive
                         ? AppColors.liveRed.withValues(alpha: 0.2)
@@ -233,9 +273,13 @@ class _MatchTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isLive ? 'LIVE' : match.status.name.toUpperCase(),
+                    statusText,
                     style: TextStyle(
-                      color: isLive ? AppColors.liveRed : AppColors.pitchGreenLight,
+                      color: isLive
+                          ? AppColors.liveRed
+                          : (isDark
+                              ? AppColors.pitchGreenLight
+                              : AppColors.pitchGreen),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -247,7 +291,8 @@ class _MatchTile extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.emoji_events_outlined,
-                    color: AppColors.floodlightGold.withValues(alpha: 0.8), size: 14),
+                    color: AppColors.floodlightGold.withValues(alpha: 0.8),
+                    size: 14),
                 const Gap(4),
                 Expanded(
                   child: Text(
@@ -266,14 +311,15 @@ class _MatchTile extends StatelessWidget {
                 const Gap(4),
                 Expanded(
                   child: Text(
-                    '${match.format.name.toUpperCase()} • ${match.overs} overs • ${match.venue}',
+                    '${match.format.name.toUpperCase()} • ${match.overs} ${l10n.translate('overs')} • ${match.venue}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (canStart)
-                  const Icon(Icons.chevron_right_rounded, color: Colors.white38, size: 20),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: Colors.white38, size: 20),
               ],
             ),
           ],

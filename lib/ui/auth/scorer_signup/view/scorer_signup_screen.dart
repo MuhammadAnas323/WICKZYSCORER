@@ -47,12 +47,12 @@ class _ScorerSignupScreenState extends ConsumerState<ScorerSignupScreen> {
             children: [
               Text('Scorer Sign Up', style: AppTextStyles.headlineLarge(AppColors.floodlightGold)),
               const SizedBox(height: 8),
-              Text('Start scoring professional matches', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
+              Text('Sign up for professional matches', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
               const SizedBox(height: 32),
               CommonSignupForm(key: _formKey, isScorer: true),
               const SizedBox(height: 40),
               AppPrimaryButton(
-                label: 'Start Scoring',
+                label: 'Sign Up',
                 isLoading: state.isLoading,
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {

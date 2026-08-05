@@ -10,6 +10,7 @@ import 'package:sportyapp/data/models/scorer/dismissal.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class LiveScoringScreen extends ConsumerStatefulWidget {
   const LiveScoringScreen({super.key});
@@ -28,8 +29,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))
-      ..repeat(reverse: true);
+    _pulseCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 1))
+          ..repeat(reverse: true);
     // Restore an in-progress draft match (e.g. after app was closed mid-scoring).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(scorerLiveMatchRepositoryProvider).restoreActiveDraft();
@@ -101,14 +103,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       final updatedInn = updatedMatch.currentInningsData;
       if (updatedInn != null) {
         final isAllOut = updatedInn.wickets >= 10;
-        final isOversComplete = updatedInn.legalBallsDelivered >= (updatedMatch.overs * 6);
+        final isOversComplete =
+            updatedInn.legalBallsDelivered >= (updatedMatch.overs * 6);
 
         if ((isAllOut || isOversComplete) && updatedMatch.currentInnings == 1) {
           // Save the completed innings as a draft and let the scorer start
           // the 2nd innings manually.
           liveRepo.completeCurrentInnings();
-        } else if ((isAllOut || isOversComplete) && updatedMatch.currentInnings == 2) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _showMatchSummaryDialog(updatedMatch));
+        } else if ((isAllOut || isOversComplete) &&
+            updatedMatch.currentInnings == 2) {
+          WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _showMatchSummaryDialog(updatedMatch));
         }
       }
     }
@@ -124,7 +129,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       runs: 0,
       extras: type,
       extrasRuns: total,
-      isBoundary: (type == ExtrasType.bye || type == ExtrasType.legBye) && total == 4,
+      isBoundary:
+          (type == ExtrasType.bye || type == ExtrasType.legBye) && total == 4,
     );
   }
 
@@ -137,12 +143,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         onContinue: (strikerId, nonStrikerId, bowlerId) {
           Navigator.pop(ctx);
           ref.read(scorerLiveMatchRepositoryProvider).switchInnings(
-            newBattingTeamId: match.team2Id == match.innings1?.battingTeamId ? match.team1Id : match.team2Id,
-            newBowlingTeamId: match.innings1?.battingTeamId ?? match.team1Id,
-            strikerId: strikerId,
-            nonStrikerId: nonStrikerId,
-            bowlerId: bowlerId,
-          );
+                newBattingTeamId: match.team2Id == match.innings1?.battingTeamId
+                    ? match.team1Id
+                    : match.team2Id,
+                newBowlingTeamId:
+                    match.innings1?.battingTeamId ?? match.team1Id,
+                strikerId: strikerId,
+                nonStrikerId: nonStrikerId,
+                bowlerId: bowlerId,
+              );
         },
       ),
     );
@@ -167,24 +176,27 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           final margin = inn2Runs >= target
               ? '${10 - inn2Wickets} wickets'
               : '${(target - 1) - inn2Runs} runs';
-          liveRepo.endMatch(winnerTeamId: winnerId, summary: '$winnerId won by $margin');
+          liveRepo.endMatch(
+              winnerTeamId: winnerId, summary: '$winnerId won by $margin');
           liveRepo.setActiveMatch(null);
           // Auto-advance the tournament schedule (if one exists for this match).
-          final loserId = winnerId == match.team2Id ? match.team1Id : match.team2Id;
+          final loserId =
+              winnerId == match.team2Id ? match.team1Id : match.team2Id;
           ref.read(scorerRepositoryProvider).applyScheduleResult(
-            tournamentId: match.tournamentId,
-            winnerTeamId: winnerId,
-            loserTeamId: loserId,
-            matchTeam1Id: match.team1Id,
-            matchTeam2Id: match.team2Id,
-          );
+                tournamentId: match.tournamentId,
+                winnerTeamId: winnerId,
+                loserTeamId: loserId,
+                matchTeam1Id: match.team1Id,
+                matchTeam2Id: match.team2Id,
+              );
           context.go('/scorer/dashboard');
         },
       ),
     );
   }
 
-  void _showWicketModal(BuildContext context, ScorerMatch match, List<ScorerPlayer> allPlayers) {
+  void _showWicketModal(
+      BuildContext context, ScorerMatch match, List<ScorerPlayer> allPlayers) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -203,11 +215,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   void _showNewBatsmanPicker(ScorerMatch match, List<ScorerPlayer> allPlayers) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final inn = match.currentInningsData;
     if (inn == null) return;
-    final battingTeamPlayers = allPlayers.where((p) => p.teamId == inn.battingTeamId).toList();
+    final battingTeamPlayers =
+        allPlayers.where((p) => p.teamId == inn.battingTeamId).toList();
     final alreadyIn = inn.battingOrder.toSet();
-    final available = battingTeamPlayers.where((p) => !alreadyIn.contains(p.id)).toList();
+    final available =
+        battingTeamPlayers.where((p) => !alreadyIn.contains(p.id)).toList();
 
     if (available.isEmpty) return;
 
@@ -217,28 +235,41 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        decoration: const BoxDecoration(
-          color: AppColors.darkSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('🏏 New Batsman', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('🏏 ${l10n.translate('batsman')}',
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const Gap(12),
             ...available.map((p) => ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
-                child: Text('${p.jerseyNumber ?? '?'}', style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
-              ),
-              title: Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: Text(p.battingStyle.name, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-              onTap: () {
-                ref.read(scorerLiveMatchRepositoryProvider).setNextBatsman(p.id);
-                Navigator.pop(ctx);
-              },
-            )),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
+                    child: Text('${p.jerseyNumber ?? '?'}',
+                        style: const TextStyle(
+                            color: AppColors.pitchGreenLight,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold)),
+                  subtitle: Text(p.battingStyle.name,
+                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  onTap: () {
+                    ref
+                        .read(scorerLiveMatchRepositoryProvider)
+                        .setNextBatsman(p.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
           ],
         ),
       ),
@@ -246,9 +277,14 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   void _showBowlerPicker(ScorerMatch match, List<ScorerPlayer> allPlayers) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final inn = match.currentInningsData;
     if (inn == null) return;
-    final bowlingTeamPlayers = allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
+    final bowlingTeamPlayers =
+        allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
 
     showModalBottomSheet(
       context: context,
@@ -256,31 +292,43 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        decoration: const BoxDecoration(
-          color: AppColors.darkSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('🎳 Select Bowler', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('🎳 ${l10n.translate('bowler')}',
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const Gap(12),
             ...bowlingTeamPlayers.map((p) => ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.redAccent.withOpacity(0.15),
-                child: Text('${p.jerseyNumber ?? '?'}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-              ),
-              title: Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: Text(p.bowlingStyle.name, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-              trailing: inn.currentBowlerId == p.id
-                  ? const Icon(Icons.check_circle, color: AppColors.pitchGreenLight)
-                  : null,
-              onTap: () {
-                ref.read(scorerLiveMatchRepositoryProvider).setBowler(p.id);
-                Navigator.pop(ctx);
-              },
-            )),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.redAccent.withOpacity(0.15),
+                    child: Text('${p.jerseyNumber ?? '?'}',
+                        style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold)),
+                  subtitle: Text(p.bowlingStyle.name,
+                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  trailing: inn.currentBowlerId == p.id
+                      ? const Icon(Icons.check_circle,
+                          color: AppColors.pitchGreenLight)
+                      : null,
+                  onTap: () {
+                    ref.read(scorerLiveMatchRepositoryProvider).setBowler(p.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
           ],
         ),
       ),
@@ -289,26 +337,35 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final liveRepo = ref.watch(scorerLiveMatchRepositoryProvider);
     // Watch the stream so any repo mutation (record ball, undo, swap strike,
     // bowler change) rebuilds this screen instead of only incidental setState.
-    final match = ref.watch(scorerLiveMatchStreamProvider).value ?? liveRepo.activeMatch;
+    final match =
+        ref.watch(scorerLiveMatchStreamProvider).value ?? liveRepo.activeMatch;
 
     if (match == null) {
       return Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.sports_score_outlined, color: Colors.grey, size: 72),
+              const Icon(Icons.sports_score_outlined,
+                  color: Colors.grey, size: 72),
               const Gap(16),
-              const Text('No active match', style: TextStyle(color: Colors.grey, fontSize: 18)),
+              Text(l10n.translate('match_not_found'),
+                  style: const TextStyle(color: Colors.grey, fontSize: 18)),
               const Gap(16),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.pitchGreen, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.pitchGreen,
+                    foregroundColor: Colors.white),
                 onPressed: () => context.go('/scorer/dashboard'),
-                child: const Text('Back to Dashboard'),
+                child: Text(l10n.translate('back')),
               ),
             ],
           ),
@@ -336,6 +393,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     required String team1Name,
     required String team2Name,
   }) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final inn = match.currentInningsData;
     final totalRuns = inn?.totalRuns ?? 0;
     final wickets = inn?.wickets ?? 0;
@@ -345,22 +406,24 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     final nonStrikerId = inn?.nonStrikerId;
     final bowlerId = inn?.currentBowlerId;
 
-    ScorerPlayer? findPlayer(String? id) => id == null ? null : allPlayers.where((p) => p.id == id).firstOrNull;
+    ScorerPlayer? findPlayer(String? id) =>
+        id == null ? null : allPlayers.where((p) => p.id == id).firstOrNull;
     final striker = findPlayer(strikerId);
     final nonStriker = findPlayer(nonStrikerId);
     final bowler = findPlayer(bowlerId);
 
     // Target for 2nd innings
-    final target = match.currentInnings == 2 ? (match.innings1?.totalRuns ?? 0) + 1 : null;
+    final target =
+        match.currentInnings == 2 ? (match.innings1?.totalRuns ?? 0) + 1 : null;
     final runsNeeded = target != null ? target - totalRuns : null;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
           onPressed: () => context.go('/scorer/dashboard'),
         ),
         title: Row(
@@ -373,12 +436,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                   color: AppColors.liveRed,
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, color: Colors.white, size: 8),
-                    Gap(4),
-                    Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                    const Icon(Icons.circle, color: Colors.white, size: 8),
+                    const Gap(4),
+                    Text(l10n.translate('live'),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800)),
                   ],
                 ),
               ),
@@ -389,7 +456,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 '$team1Name vs $team2Name',
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(
+                    color: colorScheme.onBackground.withOpacity(0.7),
+                    fontSize: 13),
               ),
             ),
           ],
@@ -397,7 +466,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         actions: [
           TextButton(
             onPressed: () => _showMatchSummaryDialog(match),
-            child: const Text('End Match', style: TextStyle(color: Colors.redAccent)),
+            child: Text(l10n.translate('end_match'),
+                style: const TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -409,7 +479,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.pitchGreen.withOpacity(0.3), AppColors.darkSurface],
+                colors: [
+                  AppColors.pitchGreen.withOpacity(0.3),
+                  colorScheme.surface
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -427,14 +500,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     children: [
                       Text(
                         '$totalRuns/$wickets',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 48, letterSpacing: -1),
+                        style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 48,
+                            letterSpacing: -1),
                       ),
                       const Gap(12),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
                           '(${overs.toStringAsFixed(1)})',
-                          style: const TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -442,21 +522,37 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 ),
                 if (target != null)
                   Text(
-                    'Target: $target | Need $runsNeeded runs',
-                    style: const TextStyle(color: AppColors.floodlightGold, fontWeight: FontWeight.bold),
+                    '${l10n.translate('target')}: $target | ${l10n.translate('runs_needed')} $runsNeeded',
+                    style: const TextStyle(
+                        color: AppColors.floodlightGold,
+                        fontWeight: FontWeight.bold),
                   ),
                 const Gap(8),
-                // Current over balls
+                // Current over balls — flex-wrap layout so an over with any
+                // number of wides/no-balls (extra deliveries) plus the 6 legal
+                // balls flows onto extra rows instead of overflowing the
+                // scoreboard on narrow (320–375px) screens.
                 Wrap(
                   alignment: WrapAlignment.center,
-                  runSpacing: 4,
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
                     ...currentOverBalls.map((b) => _ballDot(b)),
                     ...List.generate(
-                      (6 - currentOverBalls.where((b) => b.isLegalBall).length).clamp(0, 6),
-                      (i) => _emptyDot(),
+                      (6 - currentOverBalls.where((b) => b.isLegalBall).length)
+                          .clamp(0, 6),
+                      (_) => _emptyDot(),
                     ),
                   ],
+                ),
+                const Gap(6),
+                // Ball counts are always visible: legal deliveries vs extras.
+                Text(
+                  '${l10n.translate('legal_balls')} ${currentOverBalls.where((b) => b.isLegalBall).length}/6 · '
+                  '${l10n.translate('extras')} ${currentOverBalls.where((b) => !b.isLegalBall).length}',
+                  style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.38),
+                      fontSize: 10),
                 ),
                 const Gap(12),
                 // Batsmen & Bowler info
@@ -480,7 +576,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               child: Column(
                 children: [
                   // ── 2nd Innings ready banner ─────────────────────────────
-                  if (match.currentInnings == 1 && match.innings1?.isComplete == true) ...[
+                  if (match.currentInnings == 1 &&
+                      match.innings1?.isComplete == true) ...[
                     _secondInningsBanner(match),
                     const Gap(12),
                   ],
@@ -493,16 +590,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     crossAxisSpacing: 8,
                     childAspectRatio: 1.4,
                     children: [
-                      _runButton(0, AppColors.darkSurface, Colors.white70),
-                      _runButton(1, AppColors.darkSurface, Colors.white),
-                      _runButton(2, AppColors.darkSurface, Colors.white),
-                      _runButton(3, AppColors.darkSurface, Colors.white),
-                      _runButton(4, const Color(0xFF1A3A1A), AppColors.pitchGreenLight,
+                      _runButton(0, colorScheme.surface,
+                          colorScheme.onSurface.withOpacity(0.7)),
+                      _runButton(1, colorScheme.surface, colorScheme.onSurface),
+                      _runButton(2, colorScheme.surface, colorScheme.onSurface),
+                      _runButton(3, colorScheme.surface, colorScheme.onSurface),
+                      _runButton(4, AppColors.pitchGreen.withOpacity(0.1),
+                          AppColors.pitchGreenLight,
                           label: '4 ◈', isBoundary: true),
-                      _runButton(5, AppColors.darkSurface, Colors.white),
-                      _runButton(6, const Color(0xFF3A1A1A), Colors.redAccent,
+                      _runButton(5, colorScheme.surface, colorScheme.onSurface),
+                      _runButton(6, Colors.redAccent.withOpacity(0.1),
+                          Colors.redAccent,
                           label: '6 ★', isSix: true, isBoundary: true),
-                      _runButton(7, AppColors.darkSurface, Colors.white),
+                      _runButton(7, colorScheme.surface, colorScheme.onSurface),
                     ],
                   ),
                   const Gap(12),
@@ -512,18 +612,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _showExtras = !_showExtras),
+                          onTap: () =>
+                              setState(() => _showExtras = !_showExtras),
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: _showExtras ? Colors.orange.withOpacity(0.2) : AppColors.darkSurface,
+                              color: _showExtras
+                                  ? Colors.orange.withOpacity(0.2)
+                                  : colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: _showExtras ? Colors.orange : Colors.white24),
+                              border: Border.all(
+                                  color: _showExtras
+                                      ? Colors.orange
+                                      : theme.dividerColor),
                             ),
-                            child: const Column(
+                            child: Column(
                               children: [
-                                Text('Extras', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('Wd/Nb/B/Lb', style: TextStyle(color: Colors.orange, fontSize: 10)),
+                                Text(l10n.translate('extras'),
+                                    style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
+                                const Text('Wd/Nb/B/Lb',
+                                    style: TextStyle(
+                                        color: Colors.orange, fontSize: 10)),
                               ],
                             ),
                           ),
@@ -533,21 +645,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                       Expanded(
                         child: GestureDetector(
                           onTap: () {
-                            final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+                            final liveRepo =
+                                ref.read(scorerLiveMatchRepositoryProvider);
                             final m = liveRepo.activeMatch;
-                            if (m != null) _showWicketModal(context, m, allPlayers);
+                            if (m != null)
+                              _showWicketModal(context, m, allPlayers);
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: AppColors.liveRed.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.liveRed.withOpacity(0.6)),
+                              border: Border.all(
+                                  color: AppColors.liveRed.withOpacity(0.6)),
                             ),
-                            child: const Column(
+                            child: Column(
                               children: [
-                                Text('WICKET', style: TextStyle(color: AppColors.liveRed, fontWeight: FontWeight.w900, fontSize: 14)),
-                                Text('W', style: TextStyle(color: AppColors.liveRed, fontSize: 10)),
+                                Text(l10n.translate('wicket').toUpperCase(),
+                                    style: const TextStyle(
+                                        color: AppColors.liveRed,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14)),
+                                const Text('W',
+                                    style: TextStyle(
+                                        color: AppColors.liveRed,
+                                        fontSize: 10)),
                               ],
                             ),
                           ),
@@ -568,33 +690,39 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     children: [
                       Expanded(
                         child: _controlButton(
-                          label: '↩ Undo',
+                          label: '↩ ${l10n.translate('undo')}',
                           icon: Icons.undo_rounded,
                           color: Colors.orange,
                           onTap: () {
-                            ref.read(scorerLiveMatchRepositoryProvider).undoLastBall();
+                            ref
+                                .read(scorerLiveMatchRepositoryProvider)
+                                .undoLastBall();
                           },
                         ),
                       ),
                       const Gap(8),
                       Expanded(
                         child: _controlButton(
-                          label: '⇄ Swap Strike',
+                          label: '⇄ ${l10n.translate('swap_strike')}',
                           icon: Icons.swap_horiz_rounded,
                           color: Colors.blueAccent,
                           onTap: () {
-                            ref.read(scorerLiveMatchRepositoryProvider).swapStrike();
+                            ref
+                                .read(scorerLiveMatchRepositoryProvider)
+                                .swapStrike();
                           },
                         ),
                       ),
                       const Gap(8),
                       Expanded(
                         child: _controlButton(
-                          label: '🎳 Bowler',
+                          label: '🎳 ${l10n.translate('bowler')}',
                           icon: Icons.sports_cricket_outlined,
                           color: Colors.purpleAccent,
                           onTap: () {
-                            final m = ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
+                            final m = ref
+                                .read(scorerLiveMatchRepositoryProvider)
+                                .activeMatch;
                             if (m != null) _showBowlerPicker(m, allPlayers);
                           },
                         ),
@@ -607,9 +735,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     children: [
                       Expanded(
                         child: _miniControl(
-                          label: '- Over',
+                          label: '- ${l10n.translate('overs')}',
                           icon: Icons.remove_rounded,
-                          color: Colors.white70,
+                          color: colorScheme.onBackground.withOpacity(0.7),
                           onTap: () => _changeOvers(-1),
                         ),
                       ),
@@ -618,9 +746,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                       const Gap(6),
                       Expanded(
                         child: _miniControl(
-                          label: '+ Over',
+                          label: '+ ${l10n.translate('overs')}',
                           icon: Icons.add_rounded,
-                          color: Colors.white70,
+                          color: colorScheme.onBackground.withOpacity(0.7),
                           onTap: () => _changeOvers(1),
                         ),
                       ),
@@ -628,10 +756,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                       Expanded(
                         flex: 2,
                         child: _miniControl(
-                          label: 'Replace Player',
+                          label: l10n.translate('replace_player'),
                           icon: Icons.swap_vert_rounded,
                           color: Colors.blueAccent,
-                          onTap: () => _showReplacePlayerSheet(match, allPlayers, team1Name, team2Name),
+                          onTap: () => _showReplacePlayerSheet(
+                              match, allPlayers, team1Name, team2Name),
                         ),
                       ),
                     ],
@@ -658,34 +787,46 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     } else if (ball.isBoundary) {
       bg = AppColors.pitchGreen;
       text = Colors.white;
+    } else if (!ball.isLegalBall) {
+      // Wide / no-ball (extra delivery) — visually distinct, orange ring.
+      bg = Colors.orange.withOpacity(0.18);
+      text = Colors.orangeAccent;
     } else {
       bg = Colors.white24;
       text = Colors.white;
     }
 
     return Container(
-      width: 30,
-      height: 30,
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+      width: 28,
+      height: 28,
+      margin: const EdgeInsets.symmetric(horizontal: 1),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bg,
+        border: ball.isLegalBall ? null : Border.all(color: Colors.orange),
+      ),
       alignment: Alignment.center,
-      child: Text(ball.displayLabel, style: TextStyle(color: text, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(ball.displayLabel,
+          style: TextStyle(
+              color: text, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 
   Widget _emptyDot() {
     return Container(
-      width: 30,
-      height: 30,
-      margin: const EdgeInsets.symmetric(horizontal: 3),
+      width: 28,
+      height: 28,
+      margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white24),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
     );
   }
 
   Widget _batInfoChip(ScorerPlayer? player, bool isStriker) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     if (player == null) return const SizedBox();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,35 +834,56 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         Row(
           children: [
             if (isStriker)
-              const Text('* ', style: TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold)),
+              const Text('* ',
+                  style: TextStyle(
+                      color: AppColors.pitchGreenLight,
+                      fontWeight: FontWeight.bold)),
             Flexible(
               child: Text(
                 player.name.split(' ').first,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13),
               ),
             ),
           ],
         ),
-        Text(isStriker ? 'Striker' : 'Non-Striker', style: const TextStyle(color: Colors.grey, fontSize: 10)),
+        Text(
+            isStriker
+                ? l10n.translate('striker')
+                : l10n.translate('non_striker'),
+            style: const TextStyle(color: Colors.grey, fontSize: 10)),
       ],
     );
   }
 
   Widget _bowlerInfoChip(ScorerPlayer? player, Innings? inn) {
+    final colorScheme = Theme.of(context).colorScheme;
     if (player == null) return const SizedBox();
-    final playerBalls = inn?.balls.where((b) => b.bowlerId == player.id).length ?? 0;
-    final playerWickets = inn?.balls.where((b) => b.bowlerId == player.id && b.isWicket).length ?? 0;
-    final playerRuns = inn?.balls.where((b) => b.bowlerId == player.id).fold(0, (s, b) => s + b.totalRuns) ?? 0;
+    final playerBalls =
+        inn?.balls.where((b) => b.bowlerId == player.id).length ?? 0;
+    final playerWickets =
+        inn?.balls.where((b) => b.bowlerId == player.id && b.isWicket).length ??
+            0;
+    final playerRuns = inn?.balls
+            .where((b) => b.bowlerId == player.id)
+            .fold(0, (s, b) => s + b.totalRuns) ??
+        0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(player.name.split(' ').first,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text('$playerRuns runs • $playerWickets-W • ${(playerBalls ~/ 6)}.${playerBalls % 6} ov',
+            style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
+        Text(
+            '$playerRuns runs • $playerWickets-W • ${(playerBalls ~/ 6)}.${playerBalls % 6} ov',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.grey, fontSize: 10)),
@@ -730,11 +892,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _secondInningsBanner(ScorerMatch match) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.floodlightGold.withOpacity(0.2), AppColors.darkSurface],
+          colors: [
+            AppColors.floodlightGold.withOpacity(0.2),
+            colorScheme.surface
+          ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -743,19 +912,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.play_circle_fill_rounded, color: AppColors.floodlightGold, size: 28),
+          const Icon(Icons.play_circle_fill_rounded,
+              color: AppColors.floodlightGold, size: 28),
           const Gap(10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '1st Innings complete',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                Text(
+                  l10n.translate('innings_break'),
+                  style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
                 ),
                 Text(
                   'Innings saved. Start the 2nd innings when ready.',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                  style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 11),
                 ),
               ],
             ),
@@ -766,29 +941,44 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               backgroundColor: AppColors.floodlightGold,
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => _showInningsBreakDialog(match),
-            child: const Text('Start 2nd Innings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(l10n.translate('start_second_innings'),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ],
       ),
     );
   }
 
-  Widget _runButton(int runs, Color bg, Color textColor, {String? label, bool isBoundary = false, bool isSix = false}) {
+  Widget _runButton(int runs, Color bg, Color textColor,
+      {String? label, bool isBoundary = false, bool isSix = false}) {
     return GestureDetector(
-      onTap: () => _recordBall(runs: runs, isBoundary: isBoundary, isSix: isSix),
+      onTap: () =>
+          _recordBall(runs: runs, isBoundary: isBoundary, isSix: isSix),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isBoundary ? Colors.greenAccent.withOpacity(0.5) : Colors.white12),
+          border: Border.all(
+              color: isBoundary
+                  ? Colors.greenAccent.withOpacity(0.5)
+                  : Colors.white12),
           boxShadow: isSix
-              ? [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 12)]
+              ? [
+                  BoxShadow(
+                      color: Colors.redAccent.withOpacity(0.3), blurRadius: 12)
+                ]
               : isBoundary
-                  ? [BoxShadow(color: AppColors.pitchGreen.withOpacity(0.3), blurRadius: 12)]
+                  ? [
+                      BoxShadow(
+                          color: AppColors.pitchGreen.withOpacity(0.3),
+                          blurRadius: 12)
+                    ]
                   : null,
         ),
         child: Center(
@@ -806,6 +996,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _extrasPicker() {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final selected = _selectedExtrasType;
     return Container(
       padding: const EdgeInsets.all(10),
@@ -817,58 +1009,64 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (selected == null) ...[
-            const Text('Select Extra Type', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
-            const Gap(8),
-            Row(
-              children: [
-                Expanded(
-                  child: _extrasTypeButton(ExtrasType.wide, 'Wide'),
+          Text(l10n.translate('select_extra_type'),
+              style: const TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12)),
+          const Gap(8),
+          // Type row — always visible.
+          Row(
+            children: [
+              Expanded(child: _extrasTypeButton(ExtrasType.wide, 'Wide')),
+              const Gap(6),
+              Expanded(child: _extrasTypeButton(ExtrasType.noBall, 'No Ball')),
+            ],
+          ),
+          const Gap(6),
+          Row(
+            children: [
+              Expanded(child: _extrasTypeButton(ExtrasType.bye, 'Bye')),
+              const Gap(6),
+              Expanded(child: _extrasTypeButton(ExtrasType.legBye, 'Leg Bye')),
+            ],
+          ),
+          const Gap(10),
+          // Run count row — shown ALWAYS (not only after a type is tapped).
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  selected == null
+                      ? l10n.translate('extra_type_hint')
+                      : '${_extrasTitle(selected)} runs',
+                  style: const TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11),
                 ),
-                const Gap(6),
-                Expanded(
-                  child: _extrasTypeButton(ExtrasType.noBall, 'No Ball'),
-                ),
-              ],
-            ),
-            const Gap(6),
-            Row(
-              children: [
-                Expanded(
-                  child: _extrasTypeButton(ExtrasType.bye, 'Bye'),
-                ),
-                const Gap(6),
-                Expanded(
-                  child: _extrasTypeButton(ExtrasType.legBye, 'Leg Bye'),
-                ),
-              ],
-            ),
-          ] else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_extrasTitle(selected)} runs',
-                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
+              ),
+              if (selected != null)
                 TextButton(
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 32),
                   ),
                   onPressed: () => setState(() => _selectedExtrasType = null),
-                  child: const Text('Change', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)),
+                  child: Text(l10n.translate('update'),
+                      style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.54),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
                 ),
-              ],
-            ),
-            const Gap(4),
-            Row(
-              children: [1, 2, 3, 4].map((r) {
-                return Expanded(child: _extrasRunButton(selected, r));
-              }).toList(),
-            ),
-          ],
+            ],
+          ),
+          const Gap(4),
+          Row(
+            children: [1, 2, 3, 4].map((r) {
+              return Expanded(child: _extrasRunButton(selected, r));
+            }).toList(),
+          ),
         ],
       ),
     );
@@ -900,16 +1098,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           border: Border.all(color: Colors.orange.withOpacity(0.4)),
         ),
         child: Text(label,
-            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+            style: const TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.bold,
+                fontSize: 12),
             textAlign: TextAlign.center),
       ),
     );
   }
 
-  Widget _extrasRunButton(ExtrasType type, int runs) {
+  Widget _extrasRunButton(ExtrasType? type, int runs) {
     final isByes = type == ExtrasType.bye || type == ExtrasType.legBye;
     return GestureDetector(
-      onTap: () => _recordExtras(type, runs),
+      onTap: () {
+        if (type == null) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(const SnackBar(
+              content: Text(
+                  'Select an extra type (Wide / No Ball / Bye / Leg Bye) first'),
+              backgroundColor: Colors.orange,
+            ));
+          return;
+        }
+        _recordExtras(type, runs);
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -921,11 +1134,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         child: Column(
           children: [
             Text('$runs',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900)),
             const Gap(2),
             Text(
-              isByes ? (runs == 1 ? 'bye' : 'byes') : (runs == 1 ? 'run' : 'runs'),
-              style: const TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold),
+              isByes
+                  ? (runs == 1 ? 'bye' : 'byes')
+                  : (runs == 1 ? 'run' : 'runs'),
+              style: const TextStyle(
+                  color: Colors.orange,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -941,18 +1162,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _oversBadge(int overs) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: colorScheme.onSurface.withOpacity(0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$overs', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('Overs', style: TextStyle(color: Colors.grey, fontSize: 9)),
+          Text('$overs',
+              style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16)),
+          Text(l10n.translate('overs'),
+              style: const TextStyle(color: Colors.grey, fontSize: 9)),
         ],
       ),
     );
@@ -990,8 +1218,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  void _showReplacePlayerSheet(
-      ScorerMatch match, List<ScorerPlayer> allPlayers, String team1Name, String team2Name) {
+  void _showReplacePlayerSheet(ScorerMatch match, List<ScorerPlayer> allPlayers,
+      String team1Name, String team2Name) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1004,16 +1232,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         onReplace: (teamId, playerOutId, playerInId) {
           Navigator.pop(ctx);
           ref.read(scorerLiveMatchRepositoryProvider).replacePlayer(
-            teamId: teamId,
-            playerOutId: playerOutId,
-            playerInId: playerInId,
-          );
+                teamId: teamId,
+                playerOutId: playerOutId,
+                playerInId: playerInId,
+              );
         },
       ),
     );
   }
 
-  Widget _controlButton({required String label, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _controlButton(
+      {required String label,
+      required IconData icon,
+      required Color color,
+      required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1027,7 +1259,10 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           children: [
             Icon(icon, color: color, size: 20),
             const Gap(3),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            Text(label,
+                style: TextStyle(
+                    color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -1056,7 +1291,8 @@ class _ReplacePlayerSheet extends ConsumerStatefulWidget {
   final List<ScorerPlayer> allPlayers;
   final String team1Name;
   final String team2Name;
-  final void Function(String teamId, String playerOutId, String playerInId) onReplace;
+  final void Function(String teamId, String playerOutId, String playerInId)
+      onReplace;
 
   const _ReplacePlayerSheet({
     required this.match,
@@ -1067,7 +1303,8 @@ class _ReplacePlayerSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ReplacePlayerSheet> createState() => _ReplacePlayerSheetState();
+  ConsumerState<_ReplacePlayerSheet> createState() =>
+      _ReplacePlayerSheetState();
 }
 
 class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
@@ -1075,15 +1312,18 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
   String? _outId;
   String? _inId;
 
-  String get _teamId => _teamIndex == 0 ? widget.match.team1Id : widget.match.team2Id;
+  String get _teamId =>
+      _teamIndex == 0 ? widget.match.team1Id : widget.match.team2Id;
 
   List<ScorerPlayer> get _xiPlayers {
-    final ids = _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
+    final ids =
+        _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
     return widget.allPlayers.where((p) => ids.contains(p.id)).toList();
   }
 
   List<ScorerPlayer> get _benchPlayers {
-    final ids = _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
+    final ids =
+        _teamIndex == 0 ? widget.match.playingXI1 : widget.match.playingXI2;
     return widget.allPlayers
         .where((p) => p.teamId == _teamId && !ids.contains(p.id))
         .toList();
@@ -1091,12 +1331,16 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final canConfirm = _outId != null && _inId != null;
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF10162B),
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: SafeArea(
@@ -1105,8 +1349,11 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Replace Player',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            Text(l10n.translate('replace_player'),
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center),
             const Gap(12),
             Row(
@@ -1122,32 +1369,46 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
             ),
             const Gap(16),
             const Text('Player to replace',
-                style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold)),
             const Gap(8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _xiPlayers.map((p) => _playerChip(p, selected: _outId == p.id, onTap: () {
-                setState(() {
-                  _outId = p.id;
-                  if (_inId == p.id) _inId = null;
-                });
-              })).toList(),
+              children: _xiPlayers
+                  .map((p) =>
+                      _playerChip(p, selected: _outId == p.id, onTap: () {
+                        setState(() {
+                          _outId = p.id;
+                          if (_inId == p.id) _inId = null;
+                        });
+                      }))
+                  .toList(),
             ),
             const Gap(16),
             const Text('Replacement from bench',
-                style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold)),
             const Gap(8),
             if (_benchPlayers.isEmpty)
-              const Text('No bench players available',
-                  style: TextStyle(color: Colors.white38, fontSize: 12))
+              Text(l10n.translate('no_bench_players'),
+                  style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.38),
+                      fontSize: 12))
             else
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _benchPlayers.map((p) => _playerChip(p, selected: _inId == p.id, onTap: () {
-                  setState(() => _inId = p.id);
-                })).toList(),
+                children: _benchPlayers
+                    .map((p) =>
+                        _playerChip(p, selected: _inId == p.id, onTap: () {
+                          setState(() => _inId = p.id);
+                        }))
+                    .toList(),
               ),
             const Gap(20),
             SizedBox(
@@ -1158,11 +1419,13 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade600,
-                  disabledBackgroundColor: Colors.white12,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  disabledBackgroundColor:
+                      colorScheme.onSurface.withOpacity(0.12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Confirm Substitution',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(l10n.translate('confirm_substitution'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -1173,6 +1436,9 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
 
   Widget _teamTab(int index, String name) {
     final active = _teamIndex == index;
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
     return GestureDetector(
       onTap: () => setState(() {
         _teamIndex = index;
@@ -1182,14 +1448,19 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: active ? Colors.blueAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+          color: active
+              ? Colors.blueAccent.withOpacity(0.25)
+              : colorScheme.onSurface.withOpacity(0.05),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: active ? Colors.blueAccent : Colors.white12),
+          border: Border.all(
+              color: active ? Colors.blueAccent : theme.dividerColor),
         ),
         child: Text(
           name,
           style: TextStyle(
-            color: active ? Colors.white : Colors.white60,
+            color: active
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withOpacity(0.6),
             fontSize: 12,
             fontWeight: active ? FontWeight.bold : FontWeight.w500,
           ),
@@ -1200,20 +1471,28 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
     );
   }
 
-  Widget _playerChip(ScorerPlayer p, {required bool selected, required VoidCallback onTap}) {
+  Widget _playerChip(ScorerPlayer p,
+      {required bool selected, required VoidCallback onTap}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.green.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+          color: selected
+              ? Colors.green.withOpacity(0.25)
+              : colorScheme.onSurface.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? Colors.green : Colors.white12),
+          border:
+              Border.all(color: selected ? Colors.green : theme.dividerColor),
         ),
         child: Text(
           p.name,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.white70,
+            color: selected
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withOpacity(0.7),
             fontSize: 11,
             fontWeight: selected ? FontWeight.bold : FontWeight.w400,
           ),
@@ -1230,7 +1509,8 @@ class _WicketModal extends ConsumerStatefulWidget {
   final List<ScorerPlayer> allPlayers;
   final ValueChanged<Dismissal> onWicket;
 
-  const _WicketModal({required this.match, required this.allPlayers, required this.onWicket});
+  const _WicketModal(
+      {required this.match, required this.allPlayers, required this.onWicket});
 
   @override
   ConsumerState<_WicketModal> createState() => _WicketModalState();
@@ -1242,24 +1522,37 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final inn = widget.match.currentInningsData;
     if (inn == null) return const SizedBox();
 
-    final fieldingTeam = widget.allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
+    final fieldingTeam =
+        widget.allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      decoration: const BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('🚨 Wicket!', style: TextStyle(color: AppColors.liveRed, fontSize: 22, fontWeight: FontWeight.w900)),
+          Text('🚨 ${l10n.translate('wicket_alert')}',
+              style: const TextStyle(
+                  color: AppColors.liveRed,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900)),
           const Gap(16),
-          const Text('Dismissal Type', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+          Text(l10n.translate('dismissal_type'),
+              style: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold)),
           const Gap(8),
           Wrap(
             spacing: 8,
@@ -1270,15 +1563,26 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
                 label: Text(t.name),
                 selected: isSelected,
                 selectedColor: AppColors.liveRed,
-                backgroundColor: Colors.white10,
-                labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                backgroundColor: colorScheme.onSurface.withOpacity(0.1),
+                labelStyle: TextStyle(
+                    color: isSelected
+                        ? Colors.white
+                        : colorScheme.onSurface.withOpacity(0.7),
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal),
                 onSelected: (_) => setState(() => _type = t),
               );
             }).toList(),
           ),
-          if (_type == DismissalType.caught || _type == DismissalType.runOut || _type == DismissalType.stumped) ...[
+          if (_type == DismissalType.caught ||
+              _type == DismissalType.runOut ||
+              _type == DismissalType.stumped) ...[
             const Gap(16),
-            const Text('Fielder (optional)', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+            Text(l10n.translate('fielder_optional'),
+                style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold)),
             const Gap(8),
             SizedBox(
               height: 120,
@@ -1287,14 +1591,20 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
                 children: fieldingTeam.map((p) {
                   final isSelected = _fielderId == p.id;
                   return GestureDetector(
-                    onTap: () => setState(() => _fielderId = isSelected ? null : p.id),
+                    onTap: () =>
+                        setState(() => _fielderId = isSelected ? null : p.id),
                     child: Container(
                       width: 80,
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.blueAccent.withOpacity(0.2) : Colors.white10,
+                        color: isSelected
+                            ? Colors.blueAccent.withOpacity(0.2)
+                            : colorScheme.onSurface.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: isSelected ? Colors.blueAccent : Colors.transparent),
+                        border: Border.all(
+                            color: isSelected
+                                ? Colors.blueAccent
+                                : Colors.transparent),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1302,10 +1612,18 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
                           CircleAvatar(
                             backgroundColor: Colors.blueAccent.withOpacity(0.2),
                             radius: 22,
-                            child: Text('${p.jerseyNumber ?? '?'}', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                            child: Text('${p.jerseyNumber ?? '?'}',
+                                style: const TextStyle(
+                                    color: Colors.blueAccent,
+                                    fontWeight: FontWeight.bold)),
                           ),
                           const Gap(4),
-                          Text(p.name.split(' ').first, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                          Text(p.name.split(' ').first,
+                              style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center),
                         ],
                       ),
                     ),
@@ -1322,7 +1640,8 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
                 backgroundColor: AppColors.liveRed,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
                 final dismissal = Dismissal(
@@ -1333,7 +1652,9 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
                 );
                 widget.onWicket(dismissal);
               },
-              child: const Text('Confirm Wicket', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(l10n.translate('confirm_wicket'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],
@@ -1346,12 +1667,14 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
 
 class _InningsBreakDialog extends ConsumerStatefulWidget {
   final ScorerMatch match;
-  final void Function(String strikerId, String nonStrikerId, String bowlerId) onContinue;
+  final void Function(String strikerId, String nonStrikerId, String bowlerId)
+      onContinue;
 
   const _InningsBreakDialog({required this.match, required this.onContinue});
 
   @override
-  ConsumerState<_InningsBreakDialog> createState() => _InningsBreakDialogState();
+  ConsumerState<_InningsBreakDialog> createState() =>
+      _InningsBreakDialogState();
 }
 
 class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
@@ -1382,62 +1705,95 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
     final inn1 = widget.match.innings1;
     final score = inn1 != null ? '${inn1.totalRuns}/${inn1.wickets}' : '';
     final target = (inn1?.totalRuns ?? 0) + 1;
 
     return AlertDialog(
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('⏸️ Innings Break', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+      title: Text('⏸️ ${l10n.translate('innings_break')}',
+          style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 20)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('1st Innings: $score', style: const TextStyle(color: Colors.white70)),
-            Text('Target: $target runs', style: const TextStyle(color: AppColors.floodlightGold, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('1st Innings: $score',
+                style:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7))),
+            Text('${l10n.translate('target')}: $target runs',
+                style: const TextStyle(
+                    color: AppColors.floodlightGold,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18)),
             const Gap(20),
-            const Text('Select Opening Batsmen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(l10n.translate('opening_players'),
+                style: TextStyle(
+                    color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const Gap(8),
             ..._battingPlayers.take(6).map((p) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
-                child: Text('${p.jerseyNumber ?? '?'}', style: const TextStyle(color: AppColors.pitchGreenLight, fontSize: 12)),
-              ),
-              title: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 13)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _miniPill('Strike', _strikerId == p.id, Colors.blueAccent, () => setState(() => _strikerId = p.id)),
-                  const Gap(6),
-                  _miniPill('Non-S', _nonStrikerId == p.id, AppColors.pitchGreenLight, () => setState(() => _nonStrikerId = p.id)),
-                ],
-              ),
-            )),
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
+                    child: Text('${p.jerseyNumber ?? '?'}',
+                        style: const TextStyle(
+                            color: AppColors.pitchGreenLight, fontSize: 12)),
+                  ),
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _miniPill('Strike', _strikerId == p.id, Colors.blueAccent,
+                          () => setState(() => _strikerId = p.id)),
+                      const Gap(6),
+                      _miniPill(
+                          'Non-S',
+                          _nonStrikerId == p.id,
+                          AppColors.pitchGreenLight,
+                          () => setState(() => _nonStrikerId = p.id)),
+                    ],
+                  ),
+                )),
             const Gap(16),
-            const Text('Opening Bowler', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(l10n.translate('opening_bowler'),
+                style: TextStyle(
+                    color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const Gap(8),
             ..._bowlerCandidates().map((p) => RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              value: p.id,
-              groupValue: _bowlerId,
-              title: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 13)),
-              activeColor: Colors.redAccent,
-              onChanged: (val) => setState(() => _bowlerId = val),
-            )),
+                  contentPadding: EdgeInsets.zero,
+                  value: p.id,
+                  groupValue: _bowlerId,
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  activeColor: Colors.redAccent,
+                  onChanged: (val) => setState(() => _bowlerId = val),
+                )),
             if (_bowlerCandidates().isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
-                child: Text('No players available to bowl. Add players to the bowling team first.',
+                child: Text(
+                    'No players available to bowl. Add players to the bowling team first.',
                     style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
               ),
-            if (_strikerId == null || _nonStrikerId == null || _bowlerId == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 10),
-                child: Text('Select a striker, non-striker, and bowler to start.',
-                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+            if (_strikerId == null ||
+                _nonStrikerId == null ||
+                _bowlerId == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(l10n.translate('select_openers'),
+                    style: const TextStyle(
+                        color: Colors.orangeAccent, fontSize: 12)),
               ),
           ],
         ),
@@ -1447,12 +1803,17 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.pitchGreen,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          onPressed: (_strikerId == null || _nonStrikerId == null || _bowlerId == null)
+          onPressed: (_strikerId == null ||
+                  _nonStrikerId == null ||
+                  _bowlerId == null)
               ? null
-              : () => widget.onContinue(_strikerId!, _nonStrikerId!, _bowlerId!),
-          child: const Text('Start 2nd Innings', style: TextStyle(fontWeight: FontWeight.bold)),
+              : () =>
+                  widget.onContinue(_strikerId!, _nonStrikerId!, _bowlerId!),
+          child: Text(l10n.translate('start_second_innings'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -1461,12 +1822,15 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
   /// Players who can bowl, falling back to the full bowling squad when nobody
   /// has a declared bowling style so the innings can always start.
   List<ScorerPlayer> _bowlerCandidates() {
-    final styled = _bowlingPlayers.where((p) => p.bowlingStyle != BowlingStyle.none).toList();
+    final styled = _bowlingPlayers
+        .where((p) => p.bowlingStyle != BowlingStyle.none)
+        .toList();
     if (styled.isNotEmpty) return styled;
     return _bowlingPlayers;
   }
 
-  Widget _miniPill(String label, bool isActive, Color color, VoidCallback onTap) {
+  Widget _miniPill(
+      String label, bool isActive, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1477,7 +1841,11 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: isActive ? color : Colors.transparent),
         ),
-        child: Text(label, style: TextStyle(color: isActive ? color : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+        child: Text(label,
+            style: TextStyle(
+                color: isActive ? color : Colors.grey,
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -1493,6 +1861,9 @@ class _MatchSummaryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
     final inn1 = match.innings1;
     final inn2 = match.innings2;
     final target = (inn1?.totalRuns ?? 0) + 1;
@@ -1509,9 +1880,14 @@ class _MatchSummaryDialog extends StatelessWidget {
     }
 
     return AlertDialog(
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Center(child: Text('🏆 Match Summary', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22))),
+      title: Center(
+          child: Text('🏆 ${l10n.translate('match_summary')}',
+              style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22))),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1520,14 +1896,32 @@ class _MatchSummaryDialog extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.pitchGreen.withOpacity(0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.pitchGreenLight.withOpacity(0.5)),
+              border:
+                  Border.all(color: AppColors.pitchGreenLight.withOpacity(0.5)),
             ),
-            child: Text(result, style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
+            child: Text(result,
+                style: const TextStyle(
+                    color: AppColors.pitchGreenLight,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+                textAlign: TextAlign.center),
           ),
           const Gap(20),
-          if (inn1 != null) _scoreRow('1st Innings', inn1.battingTeamId, '${inn1.totalRuns}/${inn1.wickets}', '(${inn1.overs.toStringAsFixed(1)} ov)'),
+          if (inn1 != null)
+            _scoreRow(
+                '1st Innings',
+                inn1.battingTeamId,
+                '${inn1.totalRuns}/${inn1.wickets}',
+                '(${inn1.overs.toStringAsFixed(1)} ov)',
+                colorScheme),
           const Gap(8),
-          if (inn2 != null) _scoreRow('2nd Innings', inn2.battingTeamId, '${inn2.totalRuns}/${inn2.wickets}', '(${inn2.overs.toStringAsFixed(1)} ov)'),
+          if (inn2 != null)
+            _scoreRow(
+                '2nd Innings',
+                inn2.battingTeamId,
+                '${inn2.totalRuns}/${inn2.wickets}',
+                '(${inn2.overs.toStringAsFixed(1)} ov)',
+                colorScheme),
         ],
       ),
       actions: [
@@ -1535,25 +1929,34 @@ class _MatchSummaryDialog extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.floodlightGold,
             foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: onClose,
-          child: const Text('Finish Match', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(l10n.translate('confirm'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 
-  Widget _scoreRow(String label, String teamId, String score, String overs) {
+  Widget _scoreRow(String label, String teamId, String score, String overs,
+      ColorScheme colorScheme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          Text(teamId.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(teamId.toUpperCase(),
+              style: TextStyle(
+                  color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
         ]),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(score, style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.w900, fontSize: 20)),
+          Text(score,
+              style: const TextStyle(
+                  color: AppColors.pitchGreenLight,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20)),
           Text(overs, style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ]),
       ],

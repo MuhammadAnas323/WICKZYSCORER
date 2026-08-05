@@ -2,6 +2,7 @@ import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 
 enum TossDecision { bat, bowl }
+
 enum MatchStatus { live, scheduled, upcoming, inProgress, completed, abandoned }
 
 class ScorerMatch {
@@ -28,6 +29,9 @@ class ScorerMatch {
   final String? resultSummary;
   final String? specialInstructions;
 
+  /// UID of the user who created this match (set once).
+  final String createdBy;
+
   const ScorerMatch({
     required this.id,
     required this.tournamentId,
@@ -51,6 +55,7 @@ class ScorerMatch {
     this.winnerTeamId,
     this.resultSummary,
     this.specialInstructions,
+    this.createdBy = '',
   });
 
   String? get battingTeamId {
@@ -58,7 +63,7 @@ class ScorerMatch {
     if (currentInnings == 2) return innings2?.battingTeamId;
     return null;
   }
-  
+
   Innings? get currentInningsData {
     return currentInnings == 1 ? innings1 : innings2;
   }
@@ -91,6 +96,7 @@ class ScorerMatch {
     String? winnerTeamId,
     String? resultSummary,
     String? specialInstructions,
+    String? createdBy,
   }) {
     return ScorerMatch(
       id: id ?? this.id,
@@ -115,6 +121,7 @@ class ScorerMatch {
       winnerTeamId: winnerTeamId ?? this.winnerTeamId,
       resultSummary: resultSummary ?? this.resultSummary,
       specialInstructions: specialInstructions ?? this.specialInstructions,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }

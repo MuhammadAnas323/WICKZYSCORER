@@ -9,6 +9,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class ScorerTournamentsScreen extends ConsumerWidget {
   const ScorerTournamentsScreen({super.key});
@@ -17,9 +18,11 @@ class ScorerTournamentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(scorerDashboardViewModelProvider);
     final tournaments = state.tournaments;
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -38,20 +41,21 @@ class ScorerTournamentsScreen extends ConsumerWidget {
             ),
             const Gap(10),
             Text(
-              'My Tournaments',
-              style: AppTextStyles.titleMedium(Colors.white)
+              l10n.translate('my_tournaments'),
+              style: AppTextStyles.titleMedium(cs.onBackground)
                   .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_rounded, color: AppColors.pitchGreenLight, size: 28),
-            tooltip: 'Create Tournament',
-            onPressed: () => context.push('/scorer/tournaments/create'),
-          ),
-          const Gap(8),
-        ],
+        actions: const [],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/scorer/tournaments/create'),
+        backgroundColor: AppColors.pitchGreen,
+        foregroundColor: Colors.white,
+        tooltip: l10n.translate('create_tournament'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: RefreshIndicator(
         color: AppColors.pitchGreen,
@@ -59,7 +63,7 @@ class ScorerTournamentsScreen extends ConsumerWidget {
           await ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
         },
         child: tournaments.isEmpty
-            ? _emptyState(context, ref)
+            ? _emptyState(context, ref, l10n)
             : GridView.builder(
                 padding: const EdgeInsets.all(16),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -70,13 +74,13 @@ class ScorerTournamentsScreen extends ConsumerWidget {
                   childAspectRatio: 0.95,
                 ),
                 itemCount: tournaments.length,
-                itemBuilder: (ctx, i) => _tournamentCard(context, tournaments[i]),
+                itemBuilder: (ctx, i) => _tournamentCard(context, tournaments[i], l10n),
               ),
       ),
     );
   }
 
-  Widget _emptyState(BuildContext context, WidgetRef ref) {
+  Widget _emptyState(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return RefreshIndicator(
@@ -94,15 +98,19 @@ class ScorerTournamentsScreen extends ConsumerWidget {
                   children: [
                     const Icon(Icons.emoji_events_outlined, size: 72, color: AppColors.charcoal400),
                     const Gap(16),
-                    const Text(
-                      'No tournaments yet',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.translate('no_tournaments'),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onBackground, 
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold
+                      ),
                     ),
                     const Gap(6),
-                    const Text(
-                      'Create your first tournament and start scoring.',
+                    Text(
+                      l10n.translate('create_first_tournament'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                     const Gap(24),
                     ElevatedButton.icon(
@@ -113,7 +121,7 @@ class ScorerTournamentsScreen extends ConsumerWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       icon: const Icon(Icons.add, size: 20),
-                      label: const Text('Create Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(l10n.translate('create_tournament'), style: const TextStyle(fontWeight: FontWeight.bold)),
                       onPressed: () => context.push('/scorer/tournaments/create'),
                     ),
                   ],
@@ -126,16 +134,19 @@ class ScorerTournamentsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _tournamentCard(BuildContext context, ScorerTournament t) {
+  Widget _tournamentCard(BuildContext context, ScorerTournament t, AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: () => context.push('/scorer/tournaments/${t.id}'),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(5),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.darkSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,7 +163,11 @@ class ScorerTournamentsScreen extends ConsumerWidget {
                   ),
                   child: Text(
                     t.format.name.toUpperCase(),
-                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.pitchGreenLight),
+                    style: TextStyle(
+                      fontSize: 9, 
+                      fontWeight: FontWeight.bold, 
+                      color: isDark ? AppColors.pitchGreenLight : AppColors.pitchGreen
+                    ),
                   ),
                 ),
               ],
@@ -160,14 +175,18 @@ class ScorerTournamentsScreen extends ConsumerWidget {
             const Gap(8),
             Text(
               t.name,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold, fontSize: 14),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
             Text(
-              '${t.numTeams} Teams',
-              style: const TextStyle(color: AppColors.pitchGreenLight, fontWeight: FontWeight.w600, fontSize: 12),
+              '${t.teamIds.length} ${l10n.translate('teams')}',
+              style: TextStyle(
+                color: isDark ? AppColors.pitchGreenLight : AppColors.pitchGreen, 
+                fontWeight: FontWeight.w600, 
+                fontSize: 12
+              ),
             ),
             const Gap(2),
             Text(

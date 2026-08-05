@@ -7,6 +7,8 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/ui/scorer/shared/player_form_dialog.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 
 class TeamSetupScreen extends ConsumerStatefulWidget {
@@ -92,9 +94,10 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
 
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Team saved!'), backgroundColor: AppColors.pitchGreen),
+      SnackBar(
+          content: Text(l10n.translate('save')), backgroundColor: AppColors.pitchGreen),
     );
 
     if (Navigator.of(context).canPop()) {
@@ -114,10 +117,10 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
   void _addPlayer() {
     showDialog(
       context: context,
-      builder: (ctx) => _AddPlayerDialog(
+      builder: (ctx) => PlayerFormDialog(
         teamId: widget.teamId ?? 'temp',
         tournamentId: _resolvedTournamentId ?? '',
-        onAdd: (player) {
+        onSave: (player) {
           setState(() => _players.add(player));
         },
       ),
@@ -130,21 +133,27 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final textColor = theme.colorScheme.onBackground;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
+    final surfaceColor = theme.colorScheme.surface;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
+        leading: BackButton(color: textColor),
         title: Text(
-          widget.teamId == null ? 'Create Team' : 'Edit Team',
-          style: AppTextStyles.headlineSmall(Colors.white),
+          widget.teamId == null ? l10n.translate('create_tournament').replaceAll('Tournament', 'Team') : l10n.translate('edit_tournament').replaceAll('Tournament', 'Team'),
+          style: AppTextStyles.headlineSmall(textColor),
         ),
         actions: [
           TextButton(
             onPressed: _saveTeam,
-            child: const Text('Save',
-                style: TextStyle(
+            child: Text(l10n.translate('save'),
+                style: const TextStyle(
                     color: AppColors.pitchGreenLight,
                     fontWeight: FontWeight.bold,
                     fontSize: 16)),
@@ -156,8 +165,8 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
         onPressed: _addPlayer,
         backgroundColor: AppColors.pitchGreen,
         icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Add Player',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(l10n.translate('add_player'),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
           ? const Center(
@@ -176,18 +185,18 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                           flex: 3,
                           child: TextFormField(
                             controller: _nameController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                              labelText: 'Team Name',
-                              labelStyle: TextStyle(color: Colors.white70),
-                              prefixIcon: Icon(Icons.groups_rounded,
+                            style: TextStyle(color: textColor),
+                            decoration: InputDecoration(
+                              labelText: l10n.translate('team_name'),
+                              labelStyle: TextStyle(color: subTextColor),
+                              prefixIcon: const Icon(Icons.groups_rounded,
                                   color: AppColors.pitchGreenLight),
                               filled: true,
-                              fillColor: AppColors.darkSurface,
-                              border: OutlineInputBorder(),
+                              fillColor: surfaceColor,
+                              border: const OutlineInputBorder(),
                             ),
                             validator: (val) =>
-                                val == null || val.isEmpty ? 'Required' : null,
+                                val == null || val.isEmpty ? l10n.translate('required') : null,
                           ),
                         ),
                         const Gap(12),
@@ -195,19 +204,19 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                           flex: 1,
                           child: TextFormField(
                             controller: _shortCodeController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textColor),
                             maxLength: 4,
                             textCapitalization: TextCapitalization.characters,
-                            decoration: const InputDecoration(
-                              labelText: 'Code',
-                              labelStyle: TextStyle(color: Colors.white70),
+                            decoration: InputDecoration(
+                              labelText: l10n.translate('short_code'),
+                              labelStyle: TextStyle(color: subTextColor),
                               counterText: '',
                               filled: true,
-                              fillColor: AppColors.darkSurface,
-                              border: OutlineInputBorder(),
+                              fillColor: surfaceColor,
+                              border: const OutlineInputBorder(),
                             ),
                             validator: (val) =>
-                                val == null || val.isEmpty ? 'Required' : null,
+                                val == null || val.isEmpty ? l10n.translate('required') : null,
                           ),
                         ),
                       ],
@@ -215,31 +224,31 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                     const Gap(12),
                     TextFormField(
                       controller: _ownerNameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Owner Name (Optional)',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(Icons.person_outline,
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        labelText: l10n.translate('owner_name'),
+                        labelStyle: TextStyle(color: subTextColor),
+                        prefixIcon: const Icon(Icons.person_outline,
                             color: AppColors.pitchGreenLight),
                         filled: true,
-                        fillColor: AppColors.darkSurface,
-                        border: OutlineInputBorder(),
+                        fillColor: surfaceColor,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const Gap(12),
                     TextFormField(
                       controller: _whatsappController,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
                         labelText:
-                            'WhatsApp Number (Optional, e.g. +923001234567)',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(Icons.phone_android,
+                            l10n.translate('whatsapp'),
+                        labelStyle: TextStyle(color: subTextColor),
+                        prefixIcon: const Icon(Icons.phone_android,
                             color: AppColors.pitchGreenLight),
                         filled: true,
-                        fillColor: AppColors.darkSurface,
-                        border: OutlineInputBorder(),
+                        fillColor: surfaceColor,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const Gap(14),
@@ -248,7 +257,7 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                             color: _isPaid
@@ -267,7 +276,7 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                                   size: 20),
                               const Gap(8),
                               Text(
-                                'Tournament Entry Fee: ${_isPaid ? "PAID" : "UNPAID"}',
+                                '${l10n.translate('entry_fees')}: ${_isPaid ? l10n.translate('paid').toUpperCase() : l10n.translate('unpaid').toUpperCase()}',
                                 style: TextStyle(
                                     color: _isPaid
                                         ? AppColors.pitchGreenLight
@@ -291,8 +300,8 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Squad (${_players.length} Players)',
-                            style: AppTextStyles.titleLarge(Colors.white)),
+                        Text('${l10n.translate('squad')} (${_players.length} ${l10n.translate('teams')})',
+                            style: AppTextStyles.titleLarge(textColor)),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
@@ -319,27 +328,29 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                       Container(
                         padding: const EdgeInsets.all(32),
                         decoration: BoxDecoration(
-                          color: AppColors.darkSurface,
+                          color: surfaceColor,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white10),
+                          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
                         ),
-                        child: const Column(
+                        child: Column(
                           children: [
                             Icon(Icons.person_add_outlined,
-                                size: 48, color: Colors.grey),
-                            Gap(12),
+                                size: 48, color: subTextColor),
+                            const Gap(12),
                             Text(
-                              'No players added yet',
+                              l10n.translate('no_players_yet'),
                               style: TextStyle(
-                                  color: Colors.white70,
+                                  color: textColor.withOpacity(0.7),
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
                             ),
-                            Gap(4),
+                            const Gap(4),
                             Text(
-                              'Tap "Add Player" to build your squad',
+                              l10n.translate('tap_checkbox'),
                               style:
-                                  TextStyle(color: Colors.grey, fontSize: 12),
+                                  TextStyle(color: subTextColor, fontSize: 12),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -355,11 +366,11 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                           onEdit: () {
                             showDialog(
                               context: context,
-                              builder: (ctx) => _AddPlayerDialog(
+                              builder: (ctx) => PlayerFormDialog(
                                 teamId: widget.teamId ?? 'temp',
                                 tournamentId: _resolvedTournamentId ?? '',
                                 existingPlayer: player,
-                                onAdd: (updated) {
+                                onSave: (updated) {
                                   setState(() {
                                     _players[i] = updated;
                                   });
@@ -419,14 +430,18 @@ class _PlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.onBackground;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
+    final surfaceColor = theme.colorScheme.surface;
     final roleColor = _roleColor(player.role);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -452,13 +467,13 @@ class _PlayerTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(player.name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: textColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 14)),
                 Text(
                   '${player.battingStyle.name.toUpperCase()} • ${player.bowlingStyle.name.toUpperCase()}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  style: TextStyle(color: subTextColor, fontSize: 11),
                 ),
               ],
             ),
@@ -476,8 +491,8 @@ class _PlayerTile extends StatelessWidget {
                     fontSize: 10)),
           ),
           IconButton(
-              icon: const Icon(Icons.edit_outlined,
-                  color: Colors.white54, size: 18),
+              icon: Icon(Icons.edit_outlined,
+                  color: subTextColor.withOpacity(0.7), size: 18),
               onPressed: onEdit),
           IconButton(
               icon: const Icon(Icons.delete_outline,
@@ -485,186 +500,6 @@ class _PlayerTile extends StatelessWidget {
               onPressed: onRemove),
         ],
       ),
-    );
-  }
-}
-
-class _AddPlayerDialog extends ConsumerStatefulWidget {
-  final String teamId;
-  final String tournamentId;
-  final ScorerPlayer? existingPlayer;
-  final ValueChanged<ScorerPlayer> onAdd;
-
-  const _AddPlayerDialog({
-    required this.teamId,
-    required this.tournamentId,
-    required this.onAdd,
-    this.existingPlayer,
-  });
-
-  @override
-  ConsumerState<_AddPlayerDialog> createState() => _AddPlayerDialogState();
-}
-
-class _AddPlayerDialogState extends ConsumerState<_AddPlayerDialog> {
-  final _nameController = TextEditingController();
-  final _jerseyController = TextEditingController();
-  PlayerRole _role = PlayerRole.batsman;
-  BattingStyle _battingStyle = BattingStyle.rightHand;
-  BowlingStyle _bowlingStyle = BowlingStyle.none;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.existingPlayer != null) {
-      final p = widget.existingPlayer!;
-      _nameController.text = p.name;
-      _jerseyController.text = '${p.jerseyNumber ?? ''}';
-      _role = p.role;
-      _battingStyle = p.battingStyle;
-      _bowlingStyle = p.bowlingStyle;
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _jerseyController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEdit = widget.existingPlayer != null;
-    return AlertDialog(
-      backgroundColor: AppColors.darkSurface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(
-        isEdit ? 'Edit Player' : 'Add Player',
-        style:
-            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Player Name',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF2A2A2A),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const Gap(12),
-            TextField(
-              controller: _jerseyController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Jersey #',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF2A2A2A),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const Gap(12),
-            DropdownButtonFormField<PlayerRole>(
-              value: _role,
-              dropdownColor: AppColors.darkSurface,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Role',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF2A2A2A),
-                border: OutlineInputBorder(),
-              ),
-              items: PlayerRole.values
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r.name)))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _role = val);
-              },
-            ),
-            const Gap(12),
-            DropdownButtonFormField<BattingStyle>(
-              value: _battingStyle,
-              dropdownColor: AppColors.darkSurface,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Batting Style',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF2A2A2A),
-                border: OutlineInputBorder(),
-              ),
-              items: BattingStyle.values
-                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _battingStyle = val);
-              },
-            ),
-            const Gap(12),
-            DropdownButtonFormField<BowlingStyle>(
-              value: _bowlingStyle,
-              dropdownColor: AppColors.darkSurface,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Bowling Style',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF2A2A2A),
-                border: OutlineInputBorder(),
-              ),
-              items: BowlingStyle.values
-                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _bowlingStyle = val);
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.pitchGreen,
-            foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          onPressed: () {
-            if (_nameController.text.trim().isEmpty) return;
-            final id = widget.existingPlayer?.id ??
-                'p_${widget.teamId}_${_nameController.text.trim().replaceAll(' ', '_').toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
-            final player = ScorerPlayer(
-              id: id,
-              name: _nameController.text.trim(),
-              teamId: widget.teamId,
-              tournamentId: widget.tournamentId,
-              role: _role,
-              battingStyle: _battingStyle,
-              bowlingStyle: _bowlingStyle,
-              jerseyNumber: int.tryParse(_jerseyController.text),
-            );
-            widget.onAdd(player);
-            Navigator.pop(context);
-          },
-          child: Text(isEdit ? 'Update' : 'Add',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-        ),
-      ],
     );
   }
 }

@@ -26,7 +26,8 @@ Map<String, dynamic> dismissalToJson(Dismissal d) => {
     };
 
 Dismissal dismissalFromJson(Map<String, dynamic> json) => Dismissal(
-      type: _enumByName(DismissalType.values, json['type'], DismissalType.bowled),
+      type:
+          _enumByName(DismissalType.values, json['type'], DismissalType.bowled),
       batsmanId: json['batsmanId'] ?? '',
       bowlerId: json['bowlerId'],
       fielderId: json['fielderId'],
@@ -56,7 +57,8 @@ BallEvent ballEventFromJson(Map<String, dynamic> json) => BallEvent(
       batsmanId: json['batsmanId'] ?? '',
       bowlerId: json['bowlerId'] ?? '',
       runs: (json['runs'] as num?)?.toInt() ?? 0,
-      extrasType: _enumByName(ExtrasType.values, json['extrasType'], ExtrasType.none),
+      extrasType:
+          _enumByName(ExtrasType.values, json['extrasType'], ExtrasType.none),
       extrasRuns: (json['extrasRuns'] as num?)?.toInt() ?? 0,
       isWicket: json['isWicket'] ?? false,
       dismissal: json['dismissal'] == null
@@ -124,6 +126,7 @@ Map<String, dynamic> scorerMatchToJson(ScorerMatch m) => {
       'winnerTeamId': m.winnerTeamId,
       'resultSummary': m.resultSummary,
       'specialInstructions': m.specialInstructions,
+      'createdBy': m.createdBy,
     };
 
 ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
@@ -135,11 +138,13 @@ ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
       dateTime: DateTime.tryParse(json['dateTime'] ?? '') ?? DateTime.now(),
       format: _enumByName(MatchFormat.values, json['format'], MatchFormat.t20),
       overs: (json['overs'] as num?)?.toInt() ?? 20,
-      status: _enumByName(MatchStatus.values, json['status'], MatchStatus.scheduled),
+      status: _enumByName(
+          MatchStatus.values, json['status'], MatchStatus.scheduled),
       tossWinnerId: json['tossWinnerId'],
       tossDecision: json['tossDecision'] == null
           ? null
-          : _enumByName(TossDecision.values, json['tossDecision'], TossDecision.bat),
+          : _enumByName(
+              TossDecision.values, json['tossDecision'], TossDecision.bat),
       playingXI1: (json['playingXI1'] as List? ?? []).cast<String>(),
       playingXI2: (json['playingXI2'] as List? ?? []).cast<String>(),
       openingStrikerId: json['openingStrikerId'],
@@ -155,6 +160,7 @@ ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
       winnerTeamId: json['winnerTeamId'],
       resultSummary: json['resultSummary'],
       specialInstructions: json['specialInstructions'],
+      createdBy: json['createdBy'] ?? '',
     );
 
 // ─── ScorerTournament ──────────────────────────────────────────────────────
@@ -182,6 +188,10 @@ Map<String, dynamic> scorerTournamentToJson(ScorerTournament t) => {
       'winnerPrize': t.winnerPrize,
       'runnerUpPrize': t.runnerUpPrize,
       'securityCode': t.securityCode,
+      'description': t.description,
+      'tournamentRules': t.tournamentRules,
+      'tournamentRequirements': t.tournamentRequirements,
+      'createdBy': t.createdBy,
     };
 
 ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
@@ -209,6 +219,10 @@ ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
     winnerPrize: (json['winnerPrize'] as num?)?.toDouble(),
     runnerUpPrize: (json['runnerUpPrize'] as num?)?.toDouble(),
     securityCode: json['securityCode'],
+    description: json['description'],
+    tournamentRules: json['tournamentRules'],
+    tournamentRequirements: json['tournamentRequirements'],
+    createdBy: json['createdBy'] ?? '',
   );
 }
 
@@ -260,10 +274,10 @@ ScorerPlayer scorerPlayerFromJson(Map<String, dynamic> json) => ScorerPlayer(
       teamId: json['teamId'] ?? '',
       tournamentId: json['tournamentId'] ?? '',
       role: _enumByName(PlayerRole.values, json['role'], PlayerRole.batsman),
-      battingStyle:
-          _enumByName(BattingStyle.values, json['battingStyle'], BattingStyle.rightHand),
-      bowlingStyle:
-          _enumByName(BowlingStyle.values, json['bowlingStyle'], BowlingStyle.none),
+      battingStyle: _enumByName(
+          BattingStyle.values, json['battingStyle'], BattingStyle.rightHand),
+      bowlingStyle: _enumByName(
+          BowlingStyle.values, json['bowlingStyle'], BowlingStyle.none),
       jerseyNumber: (json['jerseyNumber'] as num?)?.toInt(),
       photoUrl: json['photoUrl'],
     );

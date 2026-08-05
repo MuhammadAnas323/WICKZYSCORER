@@ -99,6 +99,9 @@ class FakeLiveMatchRepository implements LiveMatchRepository {
   Future<void> deleteLiveMatch(String matchId) async {}
 
   @override
+  void dispose() {}
+
+  @override
   Future<LiveMatchData?> getLiveData(String matchId) async => null;
 
   @override

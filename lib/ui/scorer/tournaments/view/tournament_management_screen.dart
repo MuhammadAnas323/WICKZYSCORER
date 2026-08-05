@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 
 class TournamentManagementScreen extends ConsumerStatefulWidget {
@@ -25,11 +26,14 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   late TextEditingController _winnerPrizeController;
   late TextEditingController _runnerUpPrizeController;
   late TextEditingController _securityCodeController;
-  MatchFormat _selectedFormat = MatchFormat.t20;
+  late TextEditingController _descriptionController;
+  late TextEditingController _rulesController;
+  late TextEditingController _requirementsController;
+  // Default tournament format (internal), UI field removed.
+  final MatchFormat _defaultFormat = MatchFormat.t20;
   bool _nrrTiebreaker = true;
   int _numTeams = 4;
   List<String> _existingTeamIds = [];
-  String? _existingSecurityCode;
 
   @override
   void initState() {
@@ -41,6 +45,9 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _winnerPrizeController = TextEditingController();
     _runnerUpPrizeController = TextEditingController();
     _securityCodeController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _rulesController = TextEditingController();
+    _requirementsController = TextEditingController();
 
     if (widget.tournamentId != null) {
       _loadExisting();
@@ -53,15 +60,17 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
       setState(() {
         _nameController.text = tournament.name;
         _venueController.text = tournament.venue;
-        _selectedFormat = tournament.format;
+
         _customOversController.text = tournament.customOvers.toString();
         _entryFeeController.text = tournament.entryFee != null ? tournament.entryFee!.toStringAsFixed(0) : '';
         _winnerPrizeController.text = tournament.winnerPrize != null ? tournament.winnerPrize!.toStringAsFixed(0) : '';
         _runnerUpPrizeController.text = tournament.runnerUpPrize != null ? tournament.runnerUpPrize!.toStringAsFixed(0) : '';
+        _descriptionController.text = tournament.description ?? '';
+        _rulesController.text = tournament.tournamentRules ?? '';
+        _requirementsController.text = tournament.tournamentRequirements ?? '';
         _nrrTiebreaker = tournament.pointsRules.nrrAsTiebreaker;
         _numTeams = tournament.numTeams;
         _existingTeamIds = tournament.teamIds;
-        _existingSecurityCode = tournament.securityCode;
       });
     }
   }
@@ -75,76 +84,83 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _winnerPrizeController.dispose();
     _runnerUpPrizeController.dispose();
     _securityCodeController.dispose();
+    _descriptionController.dispose();
+    _rulesController.dispose();
+    _requirementsController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final repo = ref.read(scorerRepositoryProvider);
-    final id = widget.tournamentId ?? 't_${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final repo = ref.read(scorerRepositoryProvider);
+      final user = ref.read(currentUserProvider);
+      final id = widget.tournamentId ?? 't_${DateTime.now().millisecondsSinceEpoch}';
 
-    final enteredCode = _securityCodeController.text.trim();
+      final tournament = ScorerTournament(
+        id: id,
+        name: _nameController.text.trim(),
+        ownerId: user?.id ?? 'user_1',
+        createdBy: user?.id ?? '',
+        format: _defaultFormat,
+        customOvers: int.tryParse(_customOversController.text) ?? 20,
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 14)),
+        venue: _venueController.text.trim(),
+        numTeams: _numTeams,
+        teamIds: _existingTeamIds,
+        pointsRules: PointsRules(nrrAsTiebreaker: _nrrTiebreaker),
+        entryFee: _entryFeeController.text.isNotEmpty ? double.tryParse(_entryFeeController.text) : null,
+        winnerPrize: _winnerPrizeController.text.isNotEmpty ? double.tryParse(_winnerPrizeController.text) : null,
+        runnerUpPrize: _runnerUpPrizeController.text.isNotEmpty ? double.tryParse(_runnerUpPrizeController.text) : null,
+        description: _descriptionController.text.isNotEmpty ? _descriptionController.text.trim() : null,
+        tournamentRules: _rulesController.text.isNotEmpty ? _rulesController.text.trim() : null,
+        tournamentRequirements: _requirementsController.text.isNotEmpty ? _requirementsController.text.trim() : null,
+      );
 
-    // Editing: the user must enter the original security code to proceed.
-    if (widget.tournamentId != null) {
-      if (enteredCode.isEmpty || enteredCode != (_existingSecurityCode ?? '')) {
+      await repo.saveTournament(tournament);
+
+      // Refresh dashboards after navigation so it never blocks leaving the form.
+      try {
+        ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
+      } catch (_) {}
+
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incorrect security code. Cannot edit this tournament.')),
+          SnackBar(content: Text(l10n.translate('save')), backgroundColor: AppColors.pitchGreen),
         );
-        return;
+        Navigator.of(context).pop();
       }
-    }
-
-    if (widget.tournamentId == null && enteredCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please set a security code for this tournament.')),
-      );
-      return;
-    }
-
-    final tournament = ScorerTournament(
-      id: id,
-      name: _nameController.text.trim(),
-      ownerId: 'user_1',
-      format: _selectedFormat,
-      customOvers: int.tryParse(_customOversController.text) ?? 20,
-      startDate: DateTime.now(),
-      endDate: DateTime.now().add(const Duration(days: 14)),
-      venue: _venueController.text.trim(),
-      numTeams: _numTeams,
-      teamIds: _existingTeamIds,
-      pointsRules: PointsRules(nrrAsTiebreaker: _nrrTiebreaker),
-      entryFee: double.tryParse(_entryFeeController.text),
-      winnerPrize: double.tryParse(_winnerPrizeController.text),
-      runnerUpPrize: double.tryParse(_runnerUpPrizeController.text),
-      securityCode: enteredCode,
-    );
-
-    await repo.saveTournament(tournament);
-    ref.read(scorerDashboardViewModelProvider.notifier).loadDashboard();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tournament saved successfully!'), backgroundColor: AppColors.pitchGreen),
-      );
-      context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.tournamentId != null;
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final textColor = theme.colorScheme.onBackground;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
+    final surfaceColor = theme.colorScheme.surface;
+    final fieldFillColor = theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surfaceVariant;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
+        leading: BackButton(color: textColor),
         title: Text(
-          isEdit ? 'Edit Tournament' : 'Create Tournament',
-          style: AppTextStyles.headlineSmall(Colors.white),
+          isEdit ? l10n.translate('edit_tournament') : l10n.translate('create_tournament'),
+          style: AppTextStyles.headlineSmall(textColor),
         ),
       ),
       body: SafeArea(
@@ -157,109 +173,69 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Tournament Name',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    prefixIcon: Icon(Icons.emoji_events, color: AppColors.floodlightGold),
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('tournament_name'),
+                    labelStyle: TextStyle(color: subTextColor),
+                    prefixIcon: const Icon(Icons.emoji_events, color: AppColors.floodlightGold),
                     filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                  validator: (val) => val == null || val.isEmpty ? l10n.translate('required') : null,
                 ),
                 const Gap(16),
 
                 TextFormField(
                   controller: _venueController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Venue / Stadium',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    prefixIcon: Icon(Icons.location_on, color: AppColors.pitchGreenLight),
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('venue'),
+                    labelStyle: TextStyle(color: subTextColor),
+                    prefixIcon: const Icon(Icons.location_on, color: AppColors.pitchGreenLight),
                     filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                  validator: (val) => val == null || val.isEmpty ? l10n.translate('required') : null,
                 ),
                 const Gap(16),
 
-                DropdownButtonFormField<MatchFormat>(
-                  initialValue: _selectedFormat,
-                  dropdownColor: AppColors.darkSurface,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Match Format',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
-                  ),
-                  items: MatchFormat.values
-                      .map((f) => DropdownMenuItem(
-                            value: f,
-                            child: Text(f.name.toUpperCase()),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedFormat = val);
-                  },
-                ),
+                // Match Format field removed as per requirements.
                 const Gap(16),
 
                 TextFormField(
                   controller: _customOversController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Overs per Innings',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('overs_per_innings'),
+                    labelStyle: TextStyle(color: subTextColor),
                     filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: OutlineInputBorder(),
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const Gap(16),
-
-                TextFormField(
-                  controller: _securityCodeController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Security Code',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    hintText: isEdit
-                        ? 'Enter the security code to edit'
-                        : 'Set a code to protect this tournament',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.pitchGreenLight),
-                    filled: true,
-                    fillColor: AppColors.darkSurface,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (val) => (val == null || val.trim().isEmpty) ? 'Security code required' : null,
-                ),
-                const Gap(24),
 
                 // Financials & Cash Prizes Section
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
+                    color: surfaceColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.floodlightGold.withOpacity(0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.attach_money_rounded, color: AppColors.floodlightGold, size: 20),
-                          Gap(6),
+                          const Icon(Icons.attach_money_rounded, color: AppColors.floodlightGold, size: 20),
+                          const Gap(6),
                           Text(
-                            'Entry Fees & Cash Prizes',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            l10n.translate('cash_prizes'),
+                            style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                         ],
                       ),
@@ -267,15 +243,15 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                       TextFormField(
                         controller: _entryFeeController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          labelText: 'Team Entry Fee (e.g. 5000)',
-                          labelStyle: TextStyle(color: Colors.white70),
-                          prefixText: '\$ ',
-                          prefixStyle: TextStyle(color: AppColors.pitchGreenLight),
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: l10n.translate('tournament_entry_fee'),
+                          labelStyle: TextStyle(color: subTextColor),
+                          prefixText: 'PKR ',
+                          prefixStyle: const TextStyle(color: AppColors.pitchGreenLight),
                           filled: true,
-                          fillColor: Color(0xFF2A2A2A),
-                          border: OutlineInputBorder(),
+                          fillColor: fieldFillColor,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                       const Gap(12),
@@ -285,15 +261,15 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                             child: TextFormField(
                               controller: _winnerPrizeController,
                               keyboardType: TextInputType.number,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Winner Cash Prize',
-                                labelStyle: TextStyle(color: Colors.white70),
-                                prefixText: '🏆 \$ ',
-                                prefixStyle: TextStyle(color: AppColors.floodlightGold),
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: l10n.translate('winner_prize'),
+                                labelStyle: TextStyle(color: subTextColor),
+                                prefixText: '🏆 PKR ',
+                                prefixStyle: const TextStyle(color: AppColors.floodlightGold),
                                 filled: true,
-                                fillColor: Color(0xFF2A2A2A),
-                                border: OutlineInputBorder(),
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -302,15 +278,15 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                             child: TextFormField(
                               controller: _runnerUpPrizeController,
                               keyboardType: TextInputType.number,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Runner-Up Prize',
-                                labelStyle: TextStyle(color: Colors.white70),
-                                prefixText: '🥈 \$ ',
-                                prefixStyle: TextStyle(color: Colors.white70),
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: l10n.translate('runner_up_prize'),
+                                labelStyle: TextStyle(color: subTextColor),
+                                prefixText: '🥈 PKR ',
+                                prefixStyle: TextStyle(color: subTextColor),
                                 filled: true,
-                                fillColor: Color(0xFF2A2A2A),
-                                border: OutlineInputBorder(),
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -321,29 +297,74 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                 ),
                 const Gap(20),
 
+                // Description
+                TextFormField(
+                  controller: _descriptionController,
+                  style: TextStyle(color: textColor),
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('description') == 'description' ? 'Description' : l10n.translate('description'),
+                    labelStyle: TextStyle(color: subTextColor),
+                    filled: true,
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const Gap(20),
+
+                // Rules
+                TextFormField(
+                  controller: _rulesController,
+                  style: TextStyle(color: textColor),
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: 'Tournament Rules',
+                    labelStyle: TextStyle(color: subTextColor),
+                    filled: true,
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const Gap(20),
+
+                // Requirements
+                TextFormField(
+                  controller: _requirementsController,
+                  style: TextStyle(color: textColor),
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: 'Tournament Requirements',
+                    labelStyle: TextStyle(color: subTextColor),
+                    filled: true,
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const Gap(20),
+
                 // Points Table & Rules
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
+                    color: surfaceColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Points Rules & Tiebreaker',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      Text(
+                        l10n.translate('points_rules'),
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const Gap(8),
-                      const Text(
+                      Text(
                         'Win: 2 pts | Tie/No Result: 1 pt | Loss: 0 pt',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: subTextColor, fontSize: 12),
                       ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Net Run Rate (NRR) as Tiebreaker', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        title: Text(l10n.translate('nrr_tiebreaker'), style: TextStyle(color: textColor, fontSize: 13)),
                         value: _nrrTiebreaker,
                         activeThumbColor: AppColors.pitchGreenLight,
                         onChanged: (val) => setState(() => _nrrTiebreaker = val),
@@ -362,7 +383,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                   ),
                   onPressed: _save,
                   child: Text(
-                    isEdit ? 'Update Tournament' : 'Save Tournament & Continue',
+                    isEdit ? l10n.translate('update') : l10n.translate('save'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),

@@ -7,6 +7,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 
 class TournamentDetailViewScreen extends ConsumerStatefulWidget {
@@ -49,25 +50,27 @@ class _TournamentDetailViewScreenState
   }
 
   Future<void> _deleteTeam(ScorerTeam team) async {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
-        title: const Text('Remove Team?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(l10n.translate('delete'),
+            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
         content: Text('Remove "${team.name}" from this tournament?',
-            style: const TextStyle(color: Colors.white70)),
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white54))),
+              child: Text(l10n.translate('cancel'),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
+            child: Text(l10n.translate('delete')),
           ),
         ],
       ),
@@ -82,56 +85,34 @@ class _TournamentDetailViewScreenState
   }
 
   Future<void> _deleteTournament() async {
-    final codeController = TextEditingController();
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
-        title: const Text('Delete Tournament',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: codeController,
-          obscureText: true,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Enter security code to delete',
-            labelStyle: TextStyle(color: Colors.white70),
-            filled: true,
-            fillColor: Color(0xFF2A2A2A),
-            border: OutlineInputBorder(),
-          ),
-        ),
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(l10n.translate('delete'),
+            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        content: Text(
+            l10n.translate('delete_match_permanently'),
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white54))),
+              child: Text(l10n.translate('cancel'),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(l10n.translate('delete')),
           ),
         ],
       ),
     );
 
     if (confirmed != true) return;
-
-    final entered = codeController.text.trim();
-    final t = _tournament;
-    if (entered.isEmpty ||
-        t?.securityCode == null ||
-        entered != t!.securityCode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Incorrect security code. Tournament not deleted.')),
-      );
-      return;
-    }
 
     await ref
         .read(scorerRepositoryProvider)
@@ -142,13 +123,19 @@ class _TournamentDetailViewScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final textColor = theme.colorScheme.onBackground;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
+    final surfaceColor = theme.colorScheme.surface;
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            leading: const BackButton(color: Colors.white)),
+            leading: BackButton(color: textColor)),
         body: const Center(
             child: CircularProgressIndicator(color: AppColors.pitchGreen)),
       );
@@ -157,31 +144,31 @@ class _TournamentDetailViewScreenState
     final t = _tournament;
     if (t == null) {
       return Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            leading: const BackButton(color: Colors.white)),
-        body: const Center(
-            child: Text('Tournament not found',
-                style: TextStyle(color: Colors.white70))),
+            leading: BackButton(color: textColor)),
+        body: Center(
+            child: Text(l10n.translate('match_not_found'),
+                style: TextStyle(color: subTextColor))),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
+        leading: BackButton(color: textColor),
         title: Text(t.name,
-            style: AppTextStyles.headlineSmall(Colors.white),
+            style: AppTextStyles.headlineSmall(textColor),
             overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded,
                 color: AppColors.pitchGreenLight),
-            tooltip: 'Edit Tournament',
+            tooltip: l10n.translate('edit_tournament'),
             onPressed: () async {
               await context.push('/scorer/tournaments/${t.id}/edit');
               _loadData();
@@ -189,7 +176,7 @@ class _TournamentDetailViewScreenState
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            tooltip: 'Delete Tournament',
+            tooltip: l10n.translate('delete'),
             onPressed: _deleteTournament,
           ),
           const Gap(4),
@@ -199,8 +186,8 @@ class _TournamentDetailViewScreenState
         backgroundColor: AppColors.pitchGreen,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add, fontWeight: FontWeight.bold),
-        label: const Text('Add Team',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(l10n.translate('teams'),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         onPressed: () async {
           await context.push('/scorer/teams?tournamentId=${t.id}');
           _loadData();
@@ -221,7 +208,7 @@ class _TournamentDetailViewScreenState
                   gradient: LinearGradient(
                     colors: [
                       AppColors.pitchGreen.withOpacity(0.25),
-                      AppColors.darkSurface
+                      surfaceColor
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -241,8 +228,8 @@ class _TournamentDetailViewScreenState
                         Expanded(
                           child: Text(
                             t.name,
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: textColor,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold),
                           ),
@@ -267,19 +254,19 @@ class _TournamentDetailViewScreenState
                     const Gap(10),
                     Row(
                       children: [
-                        const Icon(Icons.location_on,
-                            color: Colors.white54, size: 16),
+                        Icon(Icons.location_on,
+                            color: subTextColor.withOpacity(0.7), size: 16),
                         const Gap(4),
                         Text(t.venue,
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13)),
+                            style: TextStyle(
+                                color: subTextColor, fontSize: 13)),
                         const Gap(16),
-                        const Icon(Icons.sports_cricket,
-                            color: Colors.white54, size: 16),
+                        Icon(Icons.sports_cricket,
+                            color: subTextColor.withOpacity(0.7), size: 16),
                         const Gap(4),
-                        Text('${t.customOvers} Overs',
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13)),
+                        Text('${t.customOvers} ${l10n.translate('overs')}',
+                            style: TextStyle(
+                                color: subTextColor, fontSize: 13)),
                       ],
                     ),
                   ],
@@ -291,7 +278,7 @@ class _TournamentDetailViewScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                       color: AppColors.floodlightGold.withOpacity(0.3)),
@@ -299,14 +286,14 @@ class _TournamentDetailViewScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.monetization_on_outlined,
+                        const Icon(Icons.monetization_on_outlined,
                             color: AppColors.floodlightGold, size: 20),
-                        Gap(8),
-                        Text('Financials & Cash Prizes',
+                        const Gap(8),
+                        Text(l10n.translate('cash_prizes'),
                             style: TextStyle(
-                                color: Colors.white,
+                                color: textColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15)),
                       ],
@@ -315,25 +302,25 @@ class _TournamentDetailViewScreenState
                     Row(
                       children: [
                         _prizeTile(
-                            'Entry Fee',
+                            l10n.translate('entry_fees'),
                             t.entryFee != null
-                                ? '\$${t.entryFee!.toStringAsFixed(0)}'
+                                ? r'$ ' '${t.entryFee!.toStringAsFixed(0)}'
                                 : 'Free',
-                            Colors.blueAccent),
+                            Colors.blueAccent, surfaceColor, subTextColor),
                         const Gap(8),
                         _prizeTile(
-                            'Winner Prize 🏆',
+                            '${l10n.translate('cash_prizes')} 🏆',
                             t.winnerPrize != null
-                                ? '\$${t.winnerPrize!.toStringAsFixed(0)}'
+                                ? '\$ ${t.winnerPrize!.toStringAsFixed(0)}'
                                 : 'TBD',
-                            AppColors.floodlightGold),
+                            AppColors.floodlightGold, surfaceColor, subTextColor),
                         const Gap(8),
                         _prizeTile(
                             'Runner-Up 🥈',
                             t.runnerUpPrize != null
-                                ? '\$${t.runnerUpPrize!.toStringAsFixed(0)}'
+                                ? '\$ ${t.runnerUpPrize!.toStringAsFixed(0)}'
                                 : 'TBD',
-                            Colors.white70),
+                            subTextColor, surfaceColor, subTextColor),
                       ],
                     ),
                   ],
@@ -353,7 +340,7 @@ class _TournamentDetailViewScreenState
                     gradient: LinearGradient(
                       colors: [
                         AppColors.pitchGreen.withOpacity(0.18),
-                        AppColors.darkSurface
+                        surfaceColor
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -370,20 +357,20 @@ class _TournamentDetailViewScreenState
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text('Match Schedule',
+                          children: [
+                            Text(l10n.translate('manual_schedule'),
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: textColor,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15)),
-                            Gap(2),
+                            const Gap(2),
                             Text('Stages, fixtures & auto-advancement',
                                 style: TextStyle(
-                                    color: Colors.grey, fontSize: 11)),
+                                    color: subTextColor, fontSize: 11)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: Colors.white38),
+                      Icon(Icons.chevron_right, color: subTextColor.withOpacity(0.5)),
                     ],
                   ),
                 ),
@@ -394,8 +381,8 @@ class _TournamentDetailViewScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Participating Teams (${_teams.length})',
-                      style: AppTextStyles.titleLarge(Colors.white)),
+                  Text('${l10n.translate('teams')} (${_teams.length})',
+                      style: AppTextStyles.titleLarge(textColor)),
                 ],
               ),
               const Gap(12),
@@ -405,26 +392,26 @@ class _TournamentDetailViewScreenState
                   padding: const EdgeInsets.all(32),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
+                    color: surfaceColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.groups_outlined,
-                          size: 48, color: Colors.grey),
+                      Icon(Icons.groups_outlined,
+                          size: 48, color: subTextColor),
                       const Gap(12),
-                      const Text(
-                        'No teams added yet',
+                      Text(
+                        l10n.translate('no_matches'),
                         style: TextStyle(
-                            color: Colors.white70,
+                            color: textColor.withOpacity(0.7),
                             fontSize: 16,
                             fontWeight: FontWeight.bold),
                       ),
                       const Gap(4),
-                      const Text(
-                        'Add participating teams to get started.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      Text(
+                        l10n.translate('create_match_squads'),
+                        style: TextStyle(color: subTextColor, fontSize: 12),
                       ),
                       const Gap(16),
                       ElevatedButton.icon(
@@ -438,7 +425,7 @@ class _TournamentDetailViewScreenState
                           _loadData();
                         },
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add First Team'),
+                        label: const Text('Add Team'),
                       ),
                     ],
                   ),
@@ -460,9 +447,9 @@ class _TournamentDetailViewScreenState
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.darkSurface,
+                          color: surfaceColor,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white10),
+                          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
                         ),
                         child: Row(
                           children: [
@@ -485,13 +472,13 @@ class _TournamentDetailViewScreenState
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(team.name,
-                                      style: const TextStyle(
-                                          color: Colors.white,
+                                      style: TextStyle(
+                                          color: textColor,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15)),
                                   Text('${team.playerIds.length} Squad Players',
-                                      style: const TextStyle(
-                                          color: Colors.grey, fontSize: 11)),
+                                      style: TextStyle(
+                                          color: subTextColor, fontSize: 11)),
                                 ],
                               ),
                             ),
@@ -526,7 +513,7 @@ class _TournamentDetailViewScreenState
                                     ),
                                     const Gap(4),
                                     Text(
-                                      team.isEntryFeePaid ? 'Paid' : 'Unpaid',
+                                      team.isEntryFeePaid ? l10n.translate('paid') : l10n.translate('unpaid'),
                                       style: TextStyle(
                                         color: team.isEntryFeePaid
                                             ? AppColors.pitchGreenLight
@@ -540,8 +527,8 @@ class _TournamentDetailViewScreenState
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.edit_outlined,
-                                  color: Colors.white54, size: 20),
+                              icon: Icon(Icons.edit_outlined,
+                                  color: subTextColor.withOpacity(0.7), size: 20),
                               tooltip: 'Team Details',
                               onPressed: () async {
                                 await context
@@ -564,12 +551,12 @@ class _TournamentDetailViewScreenState
     );
   }
 
-  Widget _prizeTile(String label, String value, Color color) {
+  Widget _prizeTile(String label, String value, Color color, Color surfaceColor, Color subTextColor) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: Theme.of(context).inputDecorationTheme.fillColor ?? surfaceColor,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
@@ -579,7 +566,7 @@ class _TournamentDetailViewScreenState
                     color: color, fontWeight: FontWeight.bold, fontSize: 15)),
             const Gap(2),
             Text(label,
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                style: TextStyle(color: subTextColor, fontSize: 10),
                 textAlign: TextAlign.center),
           ],
         ),
