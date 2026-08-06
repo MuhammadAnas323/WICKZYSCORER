@@ -9,7 +9,7 @@ class SettingsState {
   final bool wicketAlerts;
   final bool matchStartAlerts;
   const SettingsState({
-    this.themeMode = ThemeMode.dark,
+    this.themeMode = ThemeMode.light,
     this.locale = const Locale('en'),
     this.notificationsEnabled = true,
     this.liveScoreAlerts = true,

@@ -9,6 +9,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
+import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
@@ -24,6 +25,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   List<ScheduleStage> _stages = [];
   List<ScorerTeam> _teams = [];
   bool _isLoading = true;
+  bool _opening = false;
 
   @override
   void initState() {
@@ -45,6 +47,37 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
 
   String _teamName(String? id) =>
       id == null ? 'TBD' : (_teams.where((t) => t.id == id).firstOrNull?.name ?? id);
+
+  /// Tapping "Start Scoring" on a ready fixture creates/finds its match and
+  /// jumps into the scoring workflow (squad setup → toss → live scoring).
+  Future<void> _startScoring(ScheduleFixture fx) async {
+    if (_opening) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _opening = true);
+    try {
+      final match = await ref.read(scorerRepositoryProvider).findOrCreateMatchForFixture(
+            tournamentId: widget.tournamentId,
+            fixture: fx,
+          );
+      if (!mounted) return;
+      if (match == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.translate('awaiting_result'))),
+        );
+        return;
+      }
+      if (match.status == MatchStatus.completed) {
+        context.push('/scorer/match-summary?matchId=${match.id}');
+      } else if (match.status == MatchStatus.inProgress ||
+          match.status == MatchStatus.live) {
+        context.push('/scorer/live-scoring');
+      } else {
+        context.push('/scorer/matches/${match.id}/squad');
+      }
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +276,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                           backgroundColor: AppColors.pitchGreen.withValues(alpha: 0.15),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
-                        onPressed: () {},
+                        onPressed: () => _startScoring(fx),
                         child: Text(l10n.translate('start_scoring'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ),

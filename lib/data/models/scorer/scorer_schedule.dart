@@ -139,12 +139,68 @@ class ScheduleFixture {
 
 enum ScheduleStageType { roundRobin, knockout, custom }
 
+enum StageQualificationRule { topN, all, none }
+
+enum StageProgressionAction {
+  advance,
+  eliminate,
+  lowerBracket,
+  repechage,
+  thirdPlace,
+  stayActive,
+  runnerUp,
+  none,
+}
+
+class StageConfiguration {
+  final String? nextStageId;
+  final String? previousStageId; // Added for dependency engine
+  final String? championStageId; // Added for winner tracking
+  final String? runnerUpStageId; // Added for runner up tracking
+  final StageQualificationRule qualificationRule;
+  final int qualificationCount;
+  final StageProgressionAction winnerAction;
+  final StageProgressionAction loserAction;
+  final bool autoCreateNextMatch;
+  final bool autoPairTeams; // Added for seeding/random pairing
+  final bool waitingForOpponent;
+  final Map<String, String> nextMatchByFixtureId;
+  
+  // Rules (Phase 1 added requirements)
+  final String? tieRule;
+  final bool hasSuperOver;
+  final bool hasWalkover;
+  final bool hasAbandoned;
+  final bool hasForfeit;
+
+  const StageConfiguration({
+    this.nextStageId,
+    this.previousStageId,
+    this.championStageId,
+    this.runnerUpStageId,
+    this.qualificationRule = StageQualificationRule.none,
+    this.qualificationCount = 0,
+    this.winnerAction = StageProgressionAction.advance,
+    this.loserAction = StageProgressionAction.eliminate,
+    this.autoCreateNextMatch = false,
+    this.autoPairTeams = false,
+    this.waitingForOpponent = true,
+    this.nextMatchByFixtureId = const {},
+    this.tieRule,
+    this.hasSuperOver = true,
+    this.hasWalkover = true,
+    this.hasAbandoned = true,
+    this.hasForfeit = true,
+  });
+}
+
 class ScheduleStage {
   final String id;
   final String name;
   final int order;
   final ScheduleStageType type;
   final List<ScheduleFixture> fixtures;
+  final StageConfiguration config;
 
   const ScheduleStage({
     required this.id,
@@ -152,6 +208,7 @@ class ScheduleStage {
     required this.order,
     required this.type,
     required this.fixtures,
+    this.config = const StageConfiguration(),
   });
 
   ScheduleStage copyWith({
@@ -159,6 +216,7 @@ class ScheduleStage {
     int? order,
     ScheduleStageType? type,
     List<ScheduleFixture>? fixtures,
+    StageConfiguration? config,
   }) {
     return ScheduleStage(
       id: id,
@@ -166,6 +224,7 @@ class ScheduleStage {
       order: order ?? this.order,
       type: type ?? this.type,
       fixtures: fixtures ?? this.fixtures,
+      config: config ?? this.config,
     );
   }
 }

@@ -69,6 +69,58 @@ ScheduleFixture scheduleFixtureFromJson(Map<String, dynamic> json) => ScheduleFi
           FixtureStatus.values, json['status'], FixtureStatus.pending),
     );
 
+// ─── StageConfiguration ───────────────────────────────────────────────────────
+
+Map<String, dynamic> stageConfigurationToJson(StageConfiguration c) => {
+      'nextStageId': c.nextStageId,
+      'previousStageId': c.previousStageId,
+      'championStageId': c.championStageId,
+      'runnerUpStageId': c.runnerUpStageId,
+      'qualificationRule': c.qualificationRule.name,
+      'qualificationCount': c.qualificationCount,
+      'winnerAction': c.winnerAction.name,
+      'loserAction': c.loserAction.name,
+      'autoCreateNextMatch': c.autoCreateNextMatch,
+      'autoPairTeams': c.autoPairTeams,
+      'waitingForOpponent': c.waitingForOpponent,
+      'nextMatchByFixtureId': c.nextMatchByFixtureId,
+      'tieRule': c.tieRule,
+      'hasSuperOver': c.hasSuperOver,
+      'hasWalkover': c.hasWalkover,
+      'hasAbandoned': c.hasAbandoned,
+      'hasForfeit': c.hasForfeit,
+    };
+
+StageConfiguration stageConfigurationFromJson(Map<String, dynamic> json) =>
+    StageConfiguration(
+      nextStageId: json['nextStageId'] as String?,
+      previousStageId: json['previousStageId'] as String?,
+      championStageId: json['championStageId'] as String?,
+      runnerUpStageId: json['runnerUpStageId'] as String?,
+      qualificationRule: _nameToEnum(
+          StageQualificationRule.values,
+          json['qualificationRule'] as String?,
+          StageQualificationRule.none),
+      qualificationCount: (json['qualificationCount'] as num?)?.toInt() ?? 0,
+      winnerAction: _nameToEnum(StageProgressionAction.values,
+          json['winnerAction'] as String?, StageProgressionAction.advance),
+      loserAction: _nameToEnum(StageProgressionAction.values,
+          json['loserAction'] as String?, StageProgressionAction.eliminate),
+      autoCreateNextMatch: json['autoCreateNextMatch'] as bool? ?? false,
+      autoPairTeams: json['autoPairTeams'] as bool? ?? false,
+      waitingForOpponent: json['waitingForOpponent'] as bool? ?? true,
+      nextMatchByFixtureId:
+          (json['nextMatchByFixtureId'] as Map<String, dynamic>?)?.map(
+                (k, v) => MapEntry(k, v.toString()),
+              ) ??
+              const {},
+      tieRule: json['tieRule'] as String?,
+      hasSuperOver: json['hasSuperOver'] as bool? ?? true,
+      hasWalkover: json['hasWalkover'] as bool? ?? true,
+      hasAbandoned: json['hasAbandoned'] as bool? ?? true,
+      hasForfeit: json['hasForfeit'] as bool? ?? true,
+    );
+
 // ─── Stage ──────────────────────────────────────────────────────────────────
 
 Map<String, dynamic> scheduleStageToJson(ScheduleStage s) => {
@@ -77,6 +129,7 @@ Map<String, dynamic> scheduleStageToJson(ScheduleStage s) => {
       'order': s.order,
       'type': s.type.name,
       'fixtures': s.fixtures.map(scheduleFromFixtureToJson).toList(),
+      'config': stageConfigurationToJson(s.config),
     };
 
 ScheduleStage scheduleStageFromJson(Map<String, dynamic> json) => ScheduleStage(
@@ -87,4 +140,7 @@ ScheduleStage scheduleStageFromJson(Map<String, dynamic> json) => ScheduleStage(
       fixtures: (json['fixtures'] as List? ?? [])
           .map((e) => scheduleFixtureFromJson(e as Map<String, dynamic>))
           .toList(),
+      config: json['config'] != null
+          ? stageConfigurationFromJson(json['config'] as Map<String, dynamic>)
+          : const StageConfiguration(),
     );

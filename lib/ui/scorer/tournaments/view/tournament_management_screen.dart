@@ -20,6 +20,7 @@ class TournamentManagementScreen extends ConsumerStatefulWidget {
 class _TournamentManagementScreenState extends ConsumerState<TournamentManagementScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _organizerController;
   late TextEditingController _venueController;
   late TextEditingController _customOversController;
   late TextEditingController _entryFeeController;
@@ -27,8 +28,12 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   late TextEditingController _runnerUpPrizeController;
   late TextEditingController _securityCodeController;
   late TextEditingController _descriptionController;
-  late TextEditingController _rulesController;
-  late TextEditingController _requirementsController;
+  List<TextEditingController> _rulesControllers = [TextEditingController()];
+  List<TextEditingController> _requirementsControllers = [TextEditingController()];
+  late TextEditingController _winPointsController;
+  late TextEditingController _lossPointsController;
+  late TextEditingController _tiePointsController;
+  late TextEditingController _noResultPointsController;
   // Default tournament format (internal), UI field removed.
   final MatchFormat _defaultFormat = MatchFormat.t20;
   bool _nrrTiebreaker = true;
@@ -39,6 +44,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _organizerController = TextEditingController();
     _venueController = TextEditingController();
     _customOversController = TextEditingController(text: '20');
     _entryFeeController = TextEditingController();
@@ -46,8 +52,10 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _runnerUpPrizeController = TextEditingController();
     _securityCodeController = TextEditingController();
     _descriptionController = TextEditingController();
-    _rulesController = TextEditingController();
-    _requirementsController = TextEditingController();
+    _winPointsController = TextEditingController(text: '2');
+    _lossPointsController = TextEditingController(text: '0');
+    _tiePointsController = TextEditingController(text: '1');
+    _noResultPointsController = TextEditingController(text: '1');
 
     if (widget.tournamentId != null) {
       _loadExisting();
@@ -59,6 +67,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     if (tournament != null) {
       setState(() {
         _nameController.text = tournament.name;
+        _organizerController.text = tournament.organizer;
         _venueController.text = tournament.venue;
 
         _customOversController.text = tournament.customOvers.toString();
@@ -66,8 +75,30 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         _winnerPrizeController.text = tournament.winnerPrize != null ? tournament.winnerPrize!.toStringAsFixed(0) : '';
         _runnerUpPrizeController.text = tournament.runnerUpPrize != null ? tournament.runnerUpPrize!.toStringAsFixed(0) : '';
         _descriptionController.text = tournament.description ?? '';
-        _rulesController.text = tournament.tournamentRules ?? '';
-        _requirementsController.text = tournament.tournamentRequirements ?? '';
+        
+        if (tournament.tournamentRules != null && tournament.tournamentRules!.isNotEmpty) {
+          _rulesControllers = tournament.tournamentRules!
+              .split('\n')
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty)
+              .map((l) => TextEditingController(text: l.replaceFirst(RegExp(r'^\d+\s*[-.]\s*'), '')))
+              .toList();
+          if (_rulesControllers.isEmpty) _rulesControllers.add(TextEditingController());
+        }
+        
+        if (tournament.tournamentRequirements != null && tournament.tournamentRequirements!.isNotEmpty) {
+          _requirementsControllers = tournament.tournamentRequirements!
+              .split('\n')
+              .map((l) => l.trim())
+              .where((l) => l.isNotEmpty)
+              .map((l) => TextEditingController(text: l.replaceFirst(RegExp(r'^\d+\s*[-.]\s*'), '')))
+              .toList();
+          if (_requirementsControllers.isEmpty) _requirementsControllers.add(TextEditingController());
+        }
+        _winPointsController.text = tournament.pointsRules.win.toString();
+        _lossPointsController.text = tournament.pointsRules.loss.toString();
+        _tiePointsController.text = tournament.pointsRules.tie.toString();
+        _noResultPointsController.text = tournament.pointsRules.noResult.toString();
         _nrrTiebreaker = tournament.pointsRules.nrrAsTiebreaker;
         _numTeams = tournament.numTeams;
         _existingTeamIds = tournament.teamIds;
@@ -78,6 +109,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   @override
   void dispose() {
     _nameController.dispose();
+    _organizerController.dispose();
     _venueController.dispose();
     _customOversController.dispose();
     _entryFeeController.dispose();
@@ -85,9 +117,30 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _runnerUpPrizeController.dispose();
     _securityCodeController.dispose();
     _descriptionController.dispose();
-    _rulesController.dispose();
-    _requirementsController.dispose();
+    for (var c in _rulesControllers) {
+      c.dispose();
+    }
+    for (var c in _requirementsControllers) {
+      c.dispose();
+    }
+    _winPointsController.dispose();
+    _lossPointsController.dispose();
+    _tiePointsController.dispose();
+    _noResultPointsController.dispose();
     super.dispose();
+  }
+
+  String _formatAsPoints(List<TextEditingController> controllers) {
+    final lines = controllers
+        .map((c) => c.text.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (var i = 0; i < lines.length; i++) {
+      buffer.writeln('${i + 1}- ${lines[i]}');
+    }
+    return buffer.toString().trim();
   }
 
   Future<void> _save() async {
@@ -103,6 +156,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         name: _nameController.text.trim(),
         ownerId: user?.id ?? 'user_1',
         createdBy: user?.id ?? '',
+        organizer: _organizerController.text.trim(),
         format: _defaultFormat,
         customOvers: int.tryParse(_customOversController.text) ?? 20,
         startDate: DateTime.now(),
@@ -110,13 +164,19 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         venue: _venueController.text.trim(),
         numTeams: _numTeams,
         teamIds: _existingTeamIds,
-        pointsRules: PointsRules(nrrAsTiebreaker: _nrrTiebreaker),
+        pointsRules: PointsRules(
+          win: int.tryParse(_winPointsController.text) ?? 2,
+          loss: int.tryParse(_lossPointsController.text) ?? 0,
+          tie: int.tryParse(_tiePointsController.text) ?? 1,
+          noResult: int.tryParse(_noResultPointsController.text) ?? 1,
+          nrrAsTiebreaker: _nrrTiebreaker,
+        ),
         entryFee: _entryFeeController.text.isNotEmpty ? double.tryParse(_entryFeeController.text) : null,
         winnerPrize: _winnerPrizeController.text.isNotEmpty ? double.tryParse(_winnerPrizeController.text) : null,
         runnerUpPrize: _runnerUpPrizeController.text.isNotEmpty ? double.tryParse(_runnerUpPrizeController.text) : null,
         description: _descriptionController.text.isNotEmpty ? _descriptionController.text.trim() : null,
-        tournamentRules: _rulesController.text.isNotEmpty ? _rulesController.text.trim() : null,
-        tournamentRequirements: _requirementsController.text.isNotEmpty ? _requirementsController.text.trim() : null,
+        tournamentRules: _formatAsPoints(_rulesControllers).isNotEmpty ? _formatAsPoints(_rulesControllers) : null,
+        tournamentRequirements: _formatAsPoints(_requirementsControllers).isNotEmpty ? _formatAsPoints(_requirementsControllers) : null,
       );
 
       await repo.saveTournament(tournament);
@@ -183,6 +243,20 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                     border: const OutlineInputBorder(),
                   ),
                   validator: (val) => val == null || val.isEmpty ? l10n.translate('required') : null,
+                ),
+                const Gap(16),
+
+                TextFormField(
+                  controller: _organizerController,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('organizer'),
+                    labelStyle: TextStyle(color: subTextColor),
+                    prefixIcon: const Icon(Icons.person_outline, color: AppColors.pitchGreenLight),
+                    filled: true,
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
                 const Gap(16),
 
@@ -313,32 +387,110 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                 const Gap(20),
 
                 // Rules
-                TextFormField(
-                  controller: _rulesController,
-                  style: TextStyle(color: textColor),
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: 'Tournament Rules',
-                    labelStyle: TextStyle(color: subTextColor),
-                    filled: true,
-                    fillColor: surfaceColor,
-                    border: const OutlineInputBorder(),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tournament Rules', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                    const Gap(8),
+                    ...List.generate(_rulesControllers.length, (index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            Text('${index + 1}.', style: TextStyle(color: subTextColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                            const Gap(8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _rulesControllers[index],
+                                style: TextStyle(color: textColor),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter rule ${index + 1}',
+                                  hintStyle: TextStyle(color: subTextColor.withOpacity(0.5)),
+                                  filled: true,
+                                  fillColor: surfaceColor,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            if (_rulesControllers.length > 1)
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: AppColors.vibrantRed),
+                                onPressed: () {
+                                  setState(() {
+                                    _rulesControllers[index].dispose();
+                                    _rulesControllers.removeAt(index);
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _rulesControllers.add(TextEditingController());
+                        });
+                      },
+                      icon: const Icon(Icons.add, color: AppColors.pitchGreenLight),
+                      label: const Text('Add Rule', style: TextStyle(color: AppColors.pitchGreenLight)),
+                    ),
+                  ],
                 ),
                 const Gap(20),
 
                 // Requirements
-                TextFormField(
-                  controller: _requirementsController,
-                  style: TextStyle(color: textColor),
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: 'Tournament Requirements',
-                    labelStyle: TextStyle(color: subTextColor),
-                    filled: true,
-                    fillColor: surfaceColor,
-                    border: const OutlineInputBorder(),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tournament Requirements', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                    const Gap(8),
+                    ...List.generate(_requirementsControllers.length, (index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            Text('${index + 1}.', style: TextStyle(color: subTextColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                            const Gap(8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _requirementsControllers[index],
+                                style: TextStyle(color: textColor),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter requirement ${index + 1}',
+                                  hintStyle: TextStyle(color: subTextColor.withOpacity(0.5)),
+                                  filled: true,
+                                  fillColor: surfaceColor,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            if (_requirementsControllers.length > 1)
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: AppColors.vibrantRed),
+                                onPressed: () {
+                                  setState(() {
+                                    _requirementsControllers[index].dispose();
+                                    _requirementsControllers.removeAt(index);
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _requirementsControllers.add(TextEditingController());
+                        });
+                      },
+                      icon: const Icon(Icons.add, color: AppColors.pitchGreenLight),
+                      label: const Text('Add Requirement', style: TextStyle(color: AppColors.pitchGreenLight)),
+                    ),
+                  ],
                 ),
                 const Gap(20),
 
@@ -357,16 +509,84 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                         l10n.translate('points_rules'),
                         style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
-                      const Gap(8),
-                      Text(
-                        'Win: 2 pts | Tie/No Result: 1 pt | Loss: 0 pt',
-                        style: TextStyle(color: subTextColor, fontSize: 12),
+                      const Gap(16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _winPointsController,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: 'Win',
+                                labelStyle: TextStyle(color: subTextColor),
+                                filled: true,
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const Gap(8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _lossPointsController,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: 'Loss',
+                                labelStyle: TextStyle(color: subTextColor),
+                                filled: true,
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      const Gap(12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _tiePointsController,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: 'Tie',
+                                labelStyle: TextStyle(color: subTextColor),
+                                filled: true,
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const Gap(8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _noResultPointsController,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: 'No Result',
+                                labelStyle: TextStyle(color: subTextColor),
+                                filled: true,
+                                fillColor: fieldFillColor,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Gap(16),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(l10n.translate('nrr_tiebreaker'), style: TextStyle(color: textColor, fontSize: 13)),
                         value: _nrrTiebreaker,
-                        activeThumbColor: AppColors.pitchGreenLight,
+                        activeThumbColor: AppColors.vibrantCyan,
                         onChanged: (val) => setState(() => _nrrTiebreaker = val),
                       ),
                     ],

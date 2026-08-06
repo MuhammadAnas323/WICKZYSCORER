@@ -42,7 +42,11 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     final teams = await repo.getAllTeams();
     if (!mounted) return;
     setState(() {
-      _matches = matches;
+      // Completed matches are final results — keep the scorer portion focused
+      // on matches that still need scoring.
+      _matches = matches
+          .where((m) => m.status != MatchStatus.completed)
+          .toList();
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};
       _isLoading = false;
@@ -61,9 +65,13 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
   }
 
   void _openMatch(ScorerMatch match) {
+    if (match.status == MatchStatus.completed) {
+      // A completed match has no active live session — show its final summary.
+      context.push('/scorer/match-summary?matchId=${match.id}');
+      return;
+    }
     if (match.status == MatchStatus.inProgress ||
-        match.status == MatchStatus.live ||
-        match.status == MatchStatus.completed) {
+        match.status == MatchStatus.live) {
       context.push('/scorer/live-scoring');
     } else {
       context.push('/scorer/matches/${match.id}/squad');

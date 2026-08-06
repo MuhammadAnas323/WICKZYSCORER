@@ -97,23 +97,52 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
 
     liveRepo.recordBall(event);
 
-    // Check innings completion
+    // Check innings completion / match result
     final updatedMatch = liveRepo.activeMatch;
     if (updatedMatch != null) {
       final updatedInn = updatedMatch.currentInningsData;
       if (updatedInn != null) {
-        final isAllOut = updatedInn.wickets >= 10;
-        final isOversComplete =
-            updatedInn.legalBallsDelivered >= (updatedMatch.overs * 6);
+        final inningsCount = updatedMatch.currentInnings;
+        final isSuperOver = inningsCount >= 3;
+        final isFinalInnings = inningsCount == 2 || inningsCount == 4;
+        // A super over is a single over: two wickets ends it.
+        final isAllOut =
+            isSuperOver ? updatedInn.wickets >= 2 : updatedInn.wickets >= 10;
+        final isOversComplete = updatedInn.legalBallsDelivered >=
+            (isSuperOver ? 6 : updatedMatch.overs * 6);
+        final target = isFinalInnings
+            ? ((inningsCount == 2
+                        ? updatedMatch.innings1?.totalRuns
+                        : updatedMatch.superOverInnings1?.totalRuns) ??
+                    0) +
+                1
+            : null;
+        final chasedTarget =
+            isFinalInnings && updatedInn.totalRuns >= (target ?? 0);
 
-        if ((isAllOut || isOversComplete) && updatedMatch.currentInnings == 1) {
+        if ((isAllOut || isOversComplete) &&
+            (inningsCount == 1 || inningsCount == 3)) {
           // Save the completed innings as a draft and let the scorer start
-          // the 2nd innings manually.
+          // the next innings manually (banner + Start button).
           liveRepo.completeCurrentInnings();
-        } else if ((isAllOut || isOversComplete) &&
-            updatedMatch.currentInnings == 2) {
-          WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _showMatchSummaryDialog(updatedMatch));
+        } else if (isFinalInnings &&
+            (isAllOut || isOversComplete || chasedTarget)) {
+          // Final innings is over — mark it complete so tie detection and the
+          // summary reflect the finished state.
+          liveRepo.completeCurrentInnings();
+          // Match decided. A tie on the main innings offers a super over.
+          final isMainTie = inningsCount == 2 &&
+              !updatedMatch.superOverPlayed &&
+              updatedInn.totalRuns ==
+                  (updatedMatch.innings1?.totalRuns ?? 0);
+          if (isMainTie) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _showTieDialog(updatedMatch);
+            });
+          } else {
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => _goToMatchSummary());
+          }
         }
       }
     }
@@ -135,19 +164,113 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   void _showInningsBreakDialog(ScorerMatch match) {
+    final isSuperOver = match.currentInnings == 3;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => _InningsBreakDialog(
         match: match,
+        isSuperOver: isSuperOver,
         onContinue: (strikerId, nonStrikerId, bowlerId) {
           Navigator.pop(ctx);
-          ref.read(scorerLiveMatchRepositoryProvider).switchInnings(
-                newBattingTeamId: match.team2Id == match.innings1?.battingTeamId
-                    ? match.team1Id
-                    : match.team2Id,
-                newBowlingTeamId:
-                    match.innings1?.battingTeamId ?? match.team1Id,
+          if (isSuperOver) {
+            final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+            final so1 = match.superOverInnings1;
+            liveRepo.completeSuperOverToInnings2(
+              battingTeamId: so1?.bowlingTeamId ?? match.team1Id,
+              bowlingTeamId: so1?.battingTeamId ?? match.team2Id,
+              strikerId: strikerId,
+              nonStrikerId: nonStrikerId,
+              bowlerId: bowlerId,
+            );
+          } else {
+            ref.read(scorerLiveMatchRepositoryProvider).switchInnings(
+                  newBattingTeamId: match.team2Id == match.innings1?.battingTeamId
+                      ? match.team1Id
+                      : match.team2Id,
+                  newBowlingTeamId:
+                      match.innings1?.battingTeamId ?? match.team1Id,
+                  strikerId: strikerId,
+                  nonStrikerId: nonStrikerId,
+                  bowlerId: bowlerId,
+                );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showTieDialog(ScorerMatch match) {
+    final l10n = AppLocalizations.of(context);
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        title: Text(
+          '🤝 ${l10n.translate('match_tied')}',
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          l10n.translate('super_over_question'),
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx, false);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _goToMatchSummary();
+              });
+            },
+            child: Text(
+              l10n.translate('no'),
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.pitchGreen,
+              foregroundColor: Colors.white,
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx, true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _showSuperOverSetup(match);
+              });
+            },
+            child: Text(
+              l10n.translate('yes'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuperOverSetup(ScorerMatch match) {
+    final inn1 = match.innings1;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SuperOverSetupDialog(
+        team1Id: match.team1Id,
+        team2Id: match.team2Id,
+        initialBattingTeamId:
+            inn1 != null ? (match.team2Id == inn1.battingTeamId
+                ? match.team1Id
+                : match.team2Id) : match.team1Id,
+        onStart: (battingTeamId, bowlingTeamId, strikerId, nonStrikerId,
+            bowlerId) {
+          Navigator.pop(ctx);
+          ref.read(scorerLiveMatchRepositoryProvider).startSuperOver(
+                battingTeamId: battingTeamId,
+                bowlingTeamId: bowlingTeamId,
                 strikerId: strikerId,
                 nonStrikerId: nonStrikerId,
                 bowlerId: bowlerId,
@@ -157,42 +280,75 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  void _showMatchSummaryDialog(ScorerMatch match) {
-    showDialog(
+  void _goToMatchSummary() {
+    if (!mounted) return;
+    // Replace the live-scoring route so the scorer cannot fall back into
+    // a finished match and keep counting runs.
+    final match = ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
+    // A genuine main-innings tie should always offer the super over instead of
+    // declaring a winner, even when the scorer taps "End Match" directly.
+    if (match != null && _isMainInningsTie(match)) {
+      _showTieDialog(match);
+      return;
+    }
+    context.pushReplacement('/scorer/match-summary?matchId=${match?.id}');
+  }
+
+  /// Pauses the current match: the draft is already saved on every ball, so
+  /// pausing just leaves the live session. The scorer can reopen the match the
+  /// next day from the Matches tab and continue exactly where they left off.
+  void _pauseMatch() {
+    final l10n = AppLocalizations.of(context);
+    showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _MatchSummaryDialog(
-        match: match,
-        onClose: () {
-          Navigator.pop(ctx);
-          // Persist as completed and clear the active draft.
-          final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
-          final inn1 = match.innings1;
-          final inn2 = match.innings2;
-          final target = (inn1?.totalRuns ?? 0) + 1;
-          final inn2Runs = inn2?.totalRuns ?? 0;
-          final inn2Wickets = inn2?.wickets ?? 0;
-          final winnerId = inn2Runs >= target ? match.team2Id : match.team1Id;
-          final margin = inn2Runs >= target
-              ? '${10 - inn2Wickets} wickets'
-              : '${(target - 1) - inn2Runs} runs';
-          liveRepo.endMatch(
-              winnerTeamId: winnerId, summary: '$winnerId won by $margin');
-          liveRepo.setActiveMatch(null);
-          // Auto-advance the tournament schedule (if one exists for this match).
-          final loserId =
-              winnerId == match.team2Id ? match.team1Id : match.team2Id;
-          ref.read(scorerRepositoryProvider).applyScheduleResult(
-                tournamentId: match.tournamentId,
-                winnerTeamId: winnerId,
-                loserTeamId: loserId,
-                matchTeam1Id: match.team1Id,
-                matchTeam2Id: match.team2Id,
-              );
-          context.go('/scorer/dashboard');
-        },
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        title: Text(
+          l10n.translate('pause_match'),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          l10n.translate('pause_match_confirm'),
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.translate('cancel'),
+                style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.translate('confirm'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
-    );
+    ).then((confirmed) {
+      if (confirmed != true || !mounted) return;
+      context.go('/scorer/matches');
+    });
+  }
+
+  /// True when the main two innings have both finished on equal totals and a
+  /// super over has not yet been played — i.e. a genuine tie worth offering a
+  /// super over for.
+  bool _isMainInningsTie(ScorerMatch match) {
+    if (match.superOverPlayed || match.currentInnings >= 3) return false;
+    final i1 = match.innings1;
+    final i2 = match.innings2;
+    if (i1 == null || i2 == null) return false;
+    if (!i1.isComplete || !i2.isComplete) return false;
+    return i1.totalRuns == i2.totalRuns;
   }
 
   void _showWicketModal(
@@ -412,10 +568,20 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     final nonStriker = findPlayer(nonStrikerId);
     final bowler = findPlayer(bowlerId);
 
-    // Target for 2nd innings
-    final target =
-        match.currentInnings == 2 ? (match.innings1?.totalRuns ?? 0) + 1 : null;
+    // Target for 2nd innings / super over chase
+    final isSuperOverInnings = match.currentInnings >= 3;
+    final target = match.currentInnings == 2
+        ? (match.innings1?.totalRuns ?? 0) + 1
+        : match.currentInnings == 4
+            ? (match.superOverInnings1?.totalRuns ?? 0) + 1
+            : null;
     final runsNeeded = target != null ? target - totalRuns : null;
+    final ballsLeft = target != null
+        ? ((isSuperOverInnings ? 6 : match.overs * 6)) -
+            (inn?.legalBallsDelivered ?? 0)
+        : null;
+    final thisOverRuns =
+        currentOverBalls.fold<int>(0, (sum, b) => sum + b.totalRuns);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -465,7 +631,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => _showMatchSummaryDialog(match),
+            onPressed: _pauseMatch,
+            child: Text(l10n.translate('pause_match'),
+                style: const TextStyle(color: Colors.orangeAccent)),
+          ),
+          TextButton(
+            onPressed: _goToMatchSummary,
             child: Text(l10n.translate('end_match'),
                 style: const TextStyle(color: Colors.redAccent)),
           ),
@@ -510,7 +681,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
-                          '(${overs.toStringAsFixed(1)})',
+                          '(${overs.toStringAsFixed(1)}/${isSuperOverInnings ? 1 : match.overs})',
                           style: TextStyle(
                               color: colorScheme.onSurface.withOpacity(0.7),
                               fontSize: 20,
@@ -520,13 +691,26 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     ],
                   ),
                 ),
-                if (target != null)
+                const Gap(6),
+                Text(
+                  '${l10n.translate('this_over')}: $thisOverRuns',
+                  style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold),
+                ),
+                if (target != null) ...[
+                  const Gap(4),
                   Text(
-                    '${l10n.translate('target')}: $target | ${l10n.translate('runs_needed')} $runsNeeded',
+                    '${l10n.translate('target')}: $target | '
+                    '${l10n.translate('runs_needed')}: $runsNeeded | '
+                    '${l10n.translate('balls_left')}: $ballsLeft',
                     style: const TextStyle(
                         color: AppColors.floodlightGold,
                         fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
+                ],
                 const Gap(8),
                 // Current over balls — flex-wrap layout so an over with any
                 // number of wides/no-balls (extra deliveries) plus the 6 legal
@@ -575,9 +759,11 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
                 children: [
-                  // ── 2nd Innings ready banner ─────────────────────────────
-                  if (match.currentInnings == 1 &&
-                      match.innings1?.isComplete == true) ...[
+                  // ── 2nd innings / super-over innings ready banner ─────────
+                  if ((match.currentInnings == 1 &&
+                          match.innings1?.isComplete == true) ||
+                      (match.currentInnings == 3 &&
+                          match.superOverInnings1?.isComplete == true)) ...[
                     _secondInningsBanner(match),
                     const Gap(12),
                   ],
@@ -730,26 +916,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     ],
                   ),
                   const Gap(12),
-                  // Overs & substitution row
+                  // Adjust overs & substitution row
                   Row(
                     children: [
                       Expanded(
                         child: _miniControl(
-                          label: '- ${l10n.translate('overs')}',
-                          icon: Icons.remove_rounded,
+                          label: l10n.translate('adjust_overs'),
+                          icon: Icons.tune_rounded,
                           color: colorScheme.onBackground.withOpacity(0.7),
-                          onTap: () => _changeOvers(-1),
-                        ),
-                      ),
-                      const Gap(6),
-                      _oversBadge(match.overs),
-                      const Gap(6),
-                      Expanded(
-                        child: _miniControl(
-                          label: '+ ${l10n.translate('overs')}',
-                          icon: Icons.add_rounded,
-                          color: colorScheme.onBackground.withOpacity(0.7),
-                          onTap: () => _changeOvers(1),
+                          onTap: () => _showAdjustOversDialog(match),
                         ),
                       ),
                       const Gap(8),
@@ -895,6 +1070,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isSuperOver = match.currentInnings == 3;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -920,14 +1096,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.translate('innings_break'),
+                  isSuperOver
+                      ? '⚡ ${l10n.translate('super_over_banner')}'
+                      : l10n.translate('innings_break'),
                   style: TextStyle(
                       color: colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                       fontSize: 13),
                 ),
                 Text(
-                  'Innings saved. Start the 2nd innings when ready.',
+                  isSuperOver
+                      ? 'Super over innings saved. Start the chase when ready.'
+                      : 'Innings saved. Start the 2nd innings when ready.',
                   style: TextStyle(
                       color: colorScheme.onSurface.withOpacity(0.7),
                       fontSize: 11),
@@ -945,9 +1125,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => _showInningsBreakDialog(match),
-            child: Text(l10n.translate('start_second_innings'),
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(
+              isSuperOver
+                  ? l10n.translate('start_match')
+                  : l10n.translate('start_second_innings'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -1154,34 +1338,82 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  void _changeOvers(int delta) {
-    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
-    final m = liveRepo.activeMatch;
-    if (m == null) return;
-    liveRepo.setOvers(m.overs + delta);
-  }
-
-  Widget _oversBadge(int overs) {
+  void _showAdjustOversDialog(ScorerMatch match) {
     final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.onSurface.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$overs',
-              style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16)),
-          Text(l10n.translate('overs'),
-              style: const TextStyle(color: Colors.grey, fontSize: 9)),
-        ],
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+    var overs = match.overs;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: colorScheme.surface,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            title: Text(l10n.translate('adjust_overs'),
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$overs',
+                    style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 32)),
+                Text(l10n.translate('overs'),
+                    style:
+                        const TextStyle(color: Colors.grey, fontSize: 12)),
+                const Gap(16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton.filled(
+                      style: IconButton.styleFrom(
+                          backgroundColor:
+                              AppColors.liveRed.withOpacity(0.15)),
+                      icon: const Icon(Icons.remove),
+                      color: Colors.redAccent,
+                      onPressed: () =>
+                          setDialogState(() => overs = (overs - 1).clamp(1, 50)),
+                    ),
+                    const Gap(24),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(
+                          backgroundColor:
+                              AppColors.pitchGreen.withOpacity(0.15)),
+                      icon: const Icon(Icons.add),
+                      color: AppColors.pitchGreenLight,
+                      onPressed: () =>
+                          setDialogState(() => overs = (overs + 1).clamp(1, 50)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.translate('cancel')),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.pitchGreen,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  liveRepo.setOvers(overs);
+                  Navigator.pop(ctx);
+                },
+                child: Text(l10n.translate('confirm')),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1667,10 +1899,12 @@ class _WicketModalState extends ConsumerState<_WicketModal> {
 
 class _InningsBreakDialog extends ConsumerStatefulWidget {
   final ScorerMatch match;
+  final bool isSuperOver;
   final void Function(String strikerId, String nonStrikerId, String bowlerId)
       onContinue;
 
-  const _InningsBreakDialog({required this.match, required this.onContinue});
+  const _InningsBreakDialog(
+      {required this.match, this.isSuperOver = false, required this.onContinue});
 
   @override
   ConsumerState<_InningsBreakDialog> createState() =>
@@ -1692,6 +1926,18 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
 
   Future<void> _loadPlayers() async {
     final repo = ref.read(scorerRepositoryProvider);
+    if (widget.isSuperOver) {
+      // Super over chase: the team that bowled in super over innings 1 bats.
+      final so1 = widget.match.superOverInnings1;
+      if (so1 == null) return;
+      final batting = await repo.getPlayersByTeam(so1.bowlingTeamId);
+      final bowling = await repo.getPlayersByTeam(so1.battingTeamId);
+      setState(() {
+        _battingPlayers = batting;
+        _bowlingPlayers = bowling;
+      });
+      return;
+    }
     // Second innings batting team = first innings bowling team
     final inn1 = widget.match.innings1;
     if (inn1 == null) return;
@@ -1707,16 +1953,21 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
 
-    final inn1 = widget.match.innings1;
+    final isSuperOver = widget.isSuperOver;
+    final inn1 = isSuperOver
+        ? widget.match.superOverInnings1
+        : widget.match.innings1;
     final score = inn1 != null ? '${inn1.totalRuns}/${inn1.wickets}' : '';
     final target = (inn1?.totalRuns ?? 0) + 1;
 
     return AlertDialog(
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text('⏸️ ${l10n.translate('innings_break')}',
+      title: Text(
+          isSuperOver
+              ? '⚡ ${l10n.translate('super_over_banner')}'
+              : '⏸️ ${l10n.translate('innings_break')}',
           style: TextStyle(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.bold,
@@ -1726,9 +1977,10 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('1st Innings: $score',
-                style:
-                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7))),
+            Text(
+                isSuperOver ? 'Super Over: $score' : '1st Innings: $score',
+                style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.7))),
             Text('${l10n.translate('target')}: $target runs',
                 style: const TextStyle(
                     color: AppColors.floodlightGold,
@@ -1754,13 +2006,19 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _miniPill('Strike', _strikerId == p.id, Colors.blueAccent,
-                          () => setState(() => _strikerId = p.id)),
+                          () => setState(() {
+                            _strikerId = p.id;
+                            if (_nonStrikerId == p.id) _nonStrikerId = null;
+                          })),
                       const Gap(6),
                       _miniPill(
                           'Non-S',
                           _nonStrikerId == p.id,
                           AppColors.pitchGreenLight,
-                          () => setState(() => _nonStrikerId = p.id)),
+                          () => setState(() {
+                            _nonStrikerId = p.id;
+                            if (_strikerId == p.id) _strikerId = null;
+                          })),
                     ],
                   ),
                 )),
@@ -1812,7 +2070,10 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
               ? null
               : () =>
                   widget.onContinue(_strikerId!, _nonStrikerId!, _bowlerId!),
-          child: Text(l10n.translate('start_second_innings'),
+          child: Text(
+              isSuperOver
+                  ? l10n.translate('start_match')
+                  : l10n.translate('start_second_innings'),
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
@@ -1851,115 +2112,279 @@ class _InningsBreakDialogState extends ConsumerState<_InningsBreakDialog> {
   }
 }
 
-// ── Match Summary Dialog ───────────────────────────────────────────────────────
+class _SuperOverSetupDialog extends ConsumerStatefulWidget {
+  final String team1Id;
+  final String team2Id;
+  final String initialBattingTeamId;
+  final void Function(
+      String battingTeamId, String bowlingTeamId, String strikerId,
+      String nonStrikerId, String bowlerId) onStart;
 
-class _MatchSummaryDialog extends StatelessWidget {
-  final ScorerMatch match;
-  final VoidCallback onClose;
+  const _SuperOverSetupDialog({
+    required this.team1Id,
+    required this.team2Id,
+    required this.initialBattingTeamId,
+    required this.onStart,
+  });
 
-  const _MatchSummaryDialog({required this.match, required this.onClose});
+  @override
+  ConsumerState<_SuperOverSetupDialog> createState() =>
+      _SuperOverSetupDialogState();
+}
+
+class _SuperOverSetupDialogState extends ConsumerState<_SuperOverSetupDialog> {
+  late String _battingTeamId;
+  List<ScorerPlayer> _battingPlayers = [];
+  List<ScorerPlayer> _bowlingPlayers = [];
+  String _battingTeamName = '';
+  String _bowlingTeamName = '';
+  String? _strikerId;
+  String? _nonStrikerId;
+  String? _bowlerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _battingTeamId = widget.initialBattingTeamId;
+    _loadPlayers();
+  }
+
+  Future<void> _loadPlayers() async {
+    final repo = ref.read(scorerRepositoryProvider);
+    final batting = await repo.getPlayersByTeam(_battingTeamId);
+    final bowlingTeamId = _bowlingTeamId();
+    final bowling = await repo.getPlayersByTeam(bowlingTeamId);
+    final battingTeam = await repo.getTeam(_battingTeamId);
+    final bowlingTeam = await repo.getTeam(bowlingTeamId);
+    if (!mounted) return;
+    setState(() {
+      _battingPlayers = batting;
+      _bowlingPlayers = bowling;
+      _battingTeamName = battingTeam?.name ?? _battingTeamId;
+      _bowlingTeamName = bowlingTeam?.name ?? bowlingTeamId;
+      _strikerId = null;
+      _nonStrikerId = null;
+      _bowlerId = null;
+    });
+  }
+
+  String _bowlingTeamId() =>
+      _battingTeamId == widget.team1Id ? widget.team2Id : widget.team1Id;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final inn1 = match.innings1;
-    final inn2 = match.innings2;
-    final target = (inn1?.totalRuns ?? 0) + 1;
-    final inn2Runs = inn2?.totalRuns ?? 0;
-    final inn2Wickets = inn2?.wickets ?? 0;
-
-    String result;
-    if (inn2Runs >= target) {
-      final wicketsLeft = 10 - inn2Wickets;
-      result = '${match.team2Id} won by $wicketsLeft wickets!';
-    } else {
-      final margin = target - 1 - inn2Runs;
-      result = '${match.team1Id} won by $margin runs!';
-    }
-
     return AlertDialog(
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Center(
-          child: Text('🏆 ${l10n.translate('match_summary')}',
-              style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 22))),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.pitchGreen.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: AppColors.pitchGreenLight.withOpacity(0.5)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      title: Text(
+        '⚡ ${l10n.translate('super_over_setup')}',
+        style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 20),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.translate('who_bats_first'),
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold)),
+            const Gap(8),
+            Row(
+              children: [
+                Expanded(
+                  child: _teamPick(
+                      label: _battingTeamName,
+                      active: _battingTeamId == widget.team1Id,
+                      onTap: () {
+                        if (_battingTeamId != widget.team1Id) {
+                          setState(() => _battingTeamId = widget.team1Id);
+                          _loadPlayers();
+                        }
+                      }),
+                ),
+                const Gap(8),
+                Expanded(
+                  child: _teamPick(
+                      label: _bowlingTeamName,
+                      active: _battingTeamId != widget.team1Id,
+                      onTap: () {
+                        if (_battingTeamId != widget.team2Id) {
+                          setState(() => _battingTeamId = widget.team2Id);
+                          _loadPlayers();
+                        }
+                      }),
+                ),
+              ],
             ),
-            child: Text(result,
-                style: const TextStyle(
-                    color: AppColors.pitchGreenLight,
+            const Gap(16),
+            Text('🏏 ${_battingTeamName}',
+                style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16),
-                textAlign: TextAlign.center),
-          ),
-          const Gap(20),
-          if (inn1 != null)
-            _scoreRow(
-                '1st Innings',
-                inn1.battingTeamId,
-                '${inn1.totalRuns}/${inn1.wickets}',
-                '(${inn1.overs.toStringAsFixed(1)} ov)',
-                colorScheme),
-          const Gap(8),
-          if (inn2 != null)
-            _scoreRow(
-                '2nd Innings',
-                inn2.battingTeamId,
-                '${inn2.totalRuns}/${inn2.wickets}',
-                '(${inn2.overs.toStringAsFixed(1)} ov)',
-                colorScheme),
-        ],
+                    fontSize: 13)),
+            const Gap(4),
+            ..._battingPlayers.take(6).map((p) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
+                    child: Text('${p.jerseyNumber ?? '?'}',
+                        style: const TextStyle(
+                            color: AppColors.pitchGreenLight, fontSize: 11)),
+                  ),
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _miniPill2('Strike', _strikerId == p.id,
+                          Colors.blueAccent, () => setState(() {
+                        _strikerId = p.id;
+                        if (_nonStrikerId == p.id) _nonStrikerId = null;
+                      })),
+                      const Gap(6),
+                      _miniPill2(
+                          'Non-S',
+                          _nonStrikerId == p.id,
+                          AppColors.pitchGreenLight,
+                          () => setState(() {
+                            _nonStrikerId = p.id;
+                            if (_strikerId == p.id) _strikerId = null;
+                          })),
+                    ],
+                  ),
+                )),
+            if (_battingPlayers.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                    'No players available to bat. Add players to this team first.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
+            const Gap(16),
+            Text('🎯 ${_bowlingTeamName}',
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
+            const Gap(4),
+            ..._bowlerCandidates().map((p) => RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: p.id,
+                  groupValue: _bowlerId,
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  activeColor: Colors.redAccent,
+                  onChanged: (val) => setState(() => _bowlerId = val),
+                )),
+            if (_bowlerCandidates().isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                    'No players available to bowl. Add players to this team first.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
+            if (_strikerId == null ||
+                _nonStrikerId == null ||
+                _bowlerId == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(l10n.translate('select_openers'),
+                    style: const TextStyle(
+                        color: Colors.orangeAccent, fontSize: 12)),
+              ),
+          ],
+        ),
       ),
       actions: [
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.floodlightGold,
-            foregroundColor: Colors.black,
+            backgroundColor: AppColors.pitchGreen,
+            foregroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
           ),
-          onPressed: onClose,
-          child: Text(l10n.translate('confirm'),
+          onPressed: (_strikerId == null ||
+                  _nonStrikerId == null ||
+                  _bowlerId == null)
+              ? null
+              : () => widget.onStart(_battingTeamId, _bowlingTeamId(),
+                  _strikerId!, _nonStrikerId!, _bowlerId!),
+          child: Text(l10n.translate('start_match'),
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 
-  Widget _scoreRow(String label, String teamId, String score, String overs,
-      ColorScheme colorScheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          Text(teamId.toUpperCase(),
-              style: TextStyle(
-                  color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
-        ]),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(score,
-              style: const TextStyle(
-                  color: AppColors.pitchGreenLight,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20)),
-          Text(overs, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-        ]),
-      ],
+  List<ScorerPlayer> _bowlerCandidates() {
+    final styled = _bowlingPlayers
+        .where((p) => p.bowlingStyle != BowlingStyle.none)
+        .toList();
+    if (styled.isNotEmpty) return styled;
+    return _bowlingPlayers;
+  }
+
+  Widget _teamPick(
+      {required String label,
+      required bool active,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.pitchGreen.withOpacity(0.2)
+              : Colors.white10,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+              color: active ? AppColors.pitchGreen : Colors.transparent),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: active ? AppColors.pitchGreenLight : Colors.grey,
+                fontSize: 12,
+                fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniPill2(String label, bool isActive, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? color.withOpacity(0.2) : Colors.white10,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: isActive ? color : Colors.transparent),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: isActive ? color : Colors.grey,
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }

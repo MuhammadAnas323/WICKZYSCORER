@@ -23,6 +23,15 @@ class AppColors {
   static const Color floodlightGold = Color(0xFFFFB300);
   static const Color floodlightGoldLight = Color(0xFFFFD54F);
 
+  // ── Vibrant Theme Colors (Requested by User) ─────────────────────────────
+  static const Color vibrantBlue = Color(0xFF2196F3);
+  static const Color vibrantCyan = Color(0xFF00BCD4);
+  static const Color vibrantYellow = Color(0xFFFFEB3B);
+  static const Color vibrantRed = Color(0xFFF44336);
+  static const Color vibrantGreen = Color(0xFF4CAF50);
+  static const Color vibrantPurple = Color(0xFF9C27B0);
+  static const Color vibrantOrange = Color(0xFFFF9800);
+
   // ── Neutral / Charcoal ──────────────────────────────────────────────────
   static const Color charcoal900 = Color(0xFF121212);
   static const Color charcoal800 = Color(0xFF1E1E1E);

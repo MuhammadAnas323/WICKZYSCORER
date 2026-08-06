@@ -14,16 +14,26 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
 
-class SpectatorMatchDetailScreen extends ConsumerWidget {
+class SpectatorMatchDetailScreen extends ConsumerStatefulWidget {
   final String matchId;
   const SpectatorMatchDetailScreen({super.key, required this.matchId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SpectatorMatchDetailScreen> createState() =>
+      _SpectatorMatchDetailScreenState();
+}
+
+class _SpectatorMatchDetailScreenState
+    extends ConsumerState<SpectatorMatchDetailScreen> {
+  String? _selectedTeamId;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(spectatorHomeViewModelProvider);
     final cs = Theme.of(context).colorScheme;
 
-    final match = state.matches.where((m) => m.id == matchId).firstOrNull;
+    final match =
+        state.matches.where((m) => m.id == widget.matchId).firstOrNull;
 
     if (state.isLoading) {
       return Scaffold(appBar: AppBar(), body: const MatchListSkeleton());
@@ -34,6 +44,12 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         appBar: AppBar(),
         body: const Center(child: Text('Match not found')),
       );
+    }
+
+    // Keep the filter valid if teams change; default to team 1.
+    if (_selectedTeamId == null ||
+        (_selectedTeamId != match.team1Id && _selectedTeamId != match.team2Id)) {
+      _selectedTeamId = match.team1Id;
     }
 
     final liveData = state.liveDataFor(match.id);
@@ -61,18 +77,18 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
             const Gap(16),
             _infoCard(context, match, state, tournament?.name),
             const Gap(16),
-            if (match.innings1 != null || match.innings2 != null) ...[
+            if (match.status == MatchStatus.completed)
+              _awardsCard(context, state, match),
+            const Gap(16),
+            if (match.innings1 != null ||
+                match.innings2 != null ||
+                match.superOverInnings1 != null) ...[
               Text('Full Scorecard',
                   style: AppTextStyles.titleLarge(cs.onSurface)),
               const Gap(8),
-              if (match.innings1 != null) ...[
-                _inningsSection(context, state, match.innings1!, '1st Innings'),
-                const Gap(16),
-              ],
-              if (match.innings2 != null) ...[
-                _inningsSection(context, state, match.innings2!, '2nd Innings'),
-                const Gap(16),
-              ],
+              _teamFilterChips(context, state, match),
+              const Gap(12),
+              ..._filteredInnings(context, state, match),
             ],
             Text('Squads', style: AppTextStyles.titleLarge(cs.onSurface)),
             const Gap(8),
@@ -109,6 +125,175 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Innings where the selected team batted — including any super over.
+  List<Widget> _filteredInnings(
+      BuildContext context, SpectatorHomeState st, ScorerMatch match) {
+    final selected = _selectedTeamId ?? match.team1Id;
+    final innings = <Innings>[
+      if (match.innings1 != null &&
+          match.innings1!.battingTeamId == selected)
+        match.innings1!,
+      if (match.innings2 != null &&
+          match.innings2!.battingTeamId == selected)
+        match.innings2!,
+      if (match.superOverInnings1 != null &&
+          match.superOverInnings1!.battingTeamId == selected)
+        match.superOverInnings1!,
+      if (match.superOverInnings2 != null &&
+          match.superOverInnings2!.battingTeamId == selected)
+        match.superOverInnings2!,
+    ];
+    return innings
+        .map((inn) => _inningsSection(context, st, inn,
+            _inningsLabel(inn, match.innings1, match.innings2)))
+        .toList();
+  }
+
+  String _inningsLabel(Innings inn, Innings? inn1, Innings? inn2) {
+    if (inn1 != null && inn.id == inn1.id) return '1st Innings';
+    if (inn2 != null && inn.id == inn2.id) return '2nd Innings';
+    return '⚡ Super Over';
+  }
+
+  Widget _teamFilterChips(
+      BuildContext context, SpectatorHomeState st, ScorerMatch match) {
+    return Row(
+      children: [
+        Expanded(
+          child: _filterChip(context,
+              label: st.teamName(match.team1Id),
+              selected: (_selectedTeamId ?? match.team1Id) == match.team1Id,
+              onTap: () => setState(() => _selectedTeamId = match.team1Id)),
+        ),
+        const Gap(8),
+        Expanded(
+          child: _filterChip(context,
+              label: st.teamName(match.team2Id),
+              selected: (_selectedTeamId ?? match.team1Id) == match.team2Id,
+              onTap: () => setState(() => _selectedTeamId = match.team2Id)),
+        ),
+      ],
+    );
+  }
+
+  Widget _filterChip(BuildContext context,
+      {required String label,
+      required bool selected,
+      required VoidCallback onTap}) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.pitchGreen.withOpacity(0.25)
+              : cs.surface,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+              color: selected ? AppColors.pitchGreen : cs.outline),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: selected ? AppColors.pitchGreenLight : cs.onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Awarded players (Player of the Match / Best Batsman / Best Bowler) that
+  /// belong to the selected team, with their optional prize text.
+  Widget _awardsCard(
+      BuildContext context, SpectatorHomeState st, ScorerMatch match) {
+    final cs = Theme.of(context).colorScheme;
+    final selected = _selectedTeamId ?? match.team1Id;
+    final awards = <({String title, String? playerId, String? prize})>[
+      (title: 'Player of the Match', playerId: match.playerOfTheMatchId, prize: match.playerOfTheMatchPrize),
+      (title: 'Best Batsman', playerId: match.bestBatsmanId, prize: match.bestBatsmanPrize),
+      (title: 'Best Bowler', playerId: match.bestBowlerId, prize: match.bestBowlerPrize),
+    ];
+    final visible =
+        awards.where((a) => a.playerId != null && _playerTeamId(st, match, a.playerId!) == selected).toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.floodlightGold.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: AppColors.floodlightGold.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.emoji_events_rounded,
+                  color: AppColors.floodlightGold, size: 18),
+              const Gap(8),
+              Text('Awards',
+                  style: AppTextStyles.titleSmall(cs.onSurface)
+                      .copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const Gap(10),
+          for (final a in visible) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(a.title,
+                      style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(st.playerName(a.playerId!),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                        if (a.prize != null && a.prize!.isNotEmpty)
+                          Text(a.prize!,
+                              style: const TextStyle(
+                                  color: AppColors.floodlightGold,
+                                  fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String? _playerTeamId(
+      SpectatorHomeState st, ScorerMatch match, String playerId) {
+    if (st.playersForTeam(match.team1Id).any((p) => p.id == playerId)) {
+      return match.team1Id;
+    }
+    if (st.playersForTeam(match.team2Id).any((p) => p.id == playerId)) {
+      return match.team2Id;
+    }
+    return null;
   }
 
   // ── Hero scoreboard ────────────────────────────────────────────────────
@@ -301,6 +486,8 @@ class SpectatorMatchDetailScreen extends ConsumerWidget {
           if (match.tossWinnerId != null)
             _infoRow(cs, Icons.adjust_rounded, 'Toss',
                 '${st.teamName(match.tossWinnerId!)} won the toss'),
+          if (match.note != null && match.note!.isNotEmpty)
+            _infoRow(cs, Icons.notes_rounded, 'Note', match.note!),
         ],
       ),
     );

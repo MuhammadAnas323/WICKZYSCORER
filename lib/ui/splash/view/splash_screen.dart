@@ -1,16 +1,16 @@
-// lib/ui/splash/view/splash_screen.dart
-// CRIXORA premium animated splash screen — a single full-bleed animated photo
-// with a slow Ken Burns drift, dark gradient, wordmark reveal and progress bar.
-
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:sportyapp/theme/app_colors.dart';
-import 'package:sportyapp/core/providers/auth_provider.dart';
-import 'package:sportyapp/ui/splash/viewmodel/splash_viewmodel.dart';
+
+import '../widgets/animated_background.dart';
+import '../widgets/particle_system.dart';
+import '../widgets/light_rays.dart';
+import '../widgets/glass_overlay.dart';
+import '../widgets/animated_logo.dart';
+import '../widgets/wordmark.dart';
+import '../widgets/loading_indicator.dart';
+import '../viewmodel/splash_viewmodel.dart';
+import '../../../core/providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -20,334 +20,95 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
-    with TickerProviderStateMixin {
-  static const String _photoAsset = 'assets/images/Crixora.png';
-  static const String _wordmark = 'CRIXORA';
-
-  late final AnimationController _photoController;
-  late final AnimationController _textController;
-  late final AnimationController _progressController;
-
-  late final Animation<double> _photoZoom;
-  late final Animation<Offset> _photoPan;
-
-  bool _navigated = false;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _masterController;
 
   @override
   void initState() {
     super.initState();
-
-    // One slow, continuous drift for the single photo.
-    _photoController = AnimationController(
+    
+    // The master timeline is exactly 3.0 seconds as specified.
+    _masterController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat(reverse: true);
-
-    _textController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..forward();
-
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..forward();
-
-    _photoZoom = Tween<double>(begin: 1.0, end: 1.25).animate(
-      CurvedAnimation(parent: _photoController, curve: Curves.easeInOut),
+      duration: const Duration(seconds: 3),
     );
 
-    _photoPan = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-0.06, -0.04),
-    ).animate(
-      CurvedAnimation(parent: _photoController, curve: Curves.easeInOut),
-    );
+    // Start the timeline
+    _masterController.forward();
   }
 
   @override
   void dispose() {
-    _photoController.dispose();
-    _textController.dispose();
-    _progressController.dispose();
+    _masterController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Navigate only when BOTH the minimum splash time has passed AND the auth
-    // session has been restored. This prevents flashing the sign-in / role
-    // selection screen for a user who is already logged in.
-    void maybeNavigate() {
-      if (_navigated) return;
-      if (ref.read(splashViewModelProvider).isLoading) return;
-      if (!ref.read(authReadyProvider)) return;
-      _navigated = true;
-      final user = ref.read(currentUserProvider);
-      if (user != null) {
-        context.go(user.isScorer ? '/scorer/dashboard' : '/home');
-      } else {
-        context.go('/role-selection');
+    // Listen to ViewModel state changes for navigation
+    ref.listen<SplashState>(splashViewModelProvider, (previous, next) {
+      if (next == SplashState.complete) {
+        // Timeline should also be complete, navigate to the correct shell based
+        // on the restored session's role.
+        if (context.mounted) {
+          final user = ref.read(currentUserProvider);
+          if (user == null) {
+            context.go('/signin');
+          } else if (user.isScorer) {
+            context.go('/scorer/dashboard');
+          } else {
+            context.go('/home');
+          }
+        }
       }
-    }
-
-    ref.listen<bool>(authReadyProvider, (prev, next) => maybeNavigate());
-    ref.listen<SplashState>(splashViewModelProvider, (prev, next) {
-      if (!next.isLoading) maybeNavigate();
     });
 
     return Scaffold(
+      // Matches the native splash background (@color/launch_background) so the
+      // handoff from the Android splash to Flutter's first frame is seamless.
+      backgroundColor: const Color(0xFF0D2818),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildAnimatedPhoto(),
-          _buildScrim(),
-          _buildCenterContent(),
-          _buildProgressBar(),
-        ],
-      ),
-    );
-  }
-
-  // ── The single animated photo ──────────────────────────────────────────
-  Widget _buildAnimatedPhoto() {
-    return AnimatedBuilder(
-      animation: _photoController,
-      builder: (context, _) {
-        return FractionalTranslation(
-          translation: _photoPan.value,
-          child: Transform.scale(
-            scale: _photoZoom.value,
-            child: Image.asset(
-              _photoAsset,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (_, __, ___) => _photoFallback(),
-            ),
+          // 1. Ken Burns Animated Background
+          const AnimatedBackground(
+            child: SizedBox.expand(),
           ),
-        );
-      },
-    );
-  }
 
-  Widget _photoFallback() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1A7A3E), Color(0xFF0D2818)],
-        ),
-      ),
-      child: const Center(
-        child: Icon(Icons.sports_cricket, color: Colors.white, size: 96),
-      ),
-    );
-  }
+          // 2. Glassmorphism overlay + vignette
+          const GlassOverlay(),
 
-  // ── Dark gradient scrim for legibility ─────────────────────────────────
-  Widget _buildScrim() {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: [0.0, 0.5, 1.0],
-          colors: [
-            Color(0x66000000),
-            Color(0x33000000),
-            Color(0xCC0A0A0A),
-          ],
-        ),
-      ),
-    );
-  }
+          // 3. Volumetric Light Rays
+          const LightRays(),
 
-  // ── Center: wordmark + tagline over the photo ──────────────────────────
-  Widget _buildCenterContent() {
-    return SafeArea(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildWordmark(),
-          const SizedBox(height: 12),
-          _buildTagline(),
-        ],
-      ),
-    );
-  }
+          // 4. Particle System
+          const ParticleSystem(),
 
-  Widget _buildWordmark() {
-    return AnimatedBuilder(
-      animation: _textController,
-      builder: (context, child) {
-        return ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, AppColors.floodlightGoldLight],
-          ).createShader(bounds),
-          blendMode: BlendMode.srcIn,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < _wordmark.length; i++)
-                _AnimatedLetter(
-                  controller: _textController,
-                  index: i,
-                  letter: _wordmark[i],
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTagline() {
-    return AnimatedBuilder(
-      animation: _textController,
-      builder: (context, _) {
-        final t = ((_textController.value - 0.55) / 0.45).clamp(0.0, 1.0);
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, 14 * (1 - t)),
-            child: Text(
-              'LIVE CRICKET · EVERY BALL',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withOpacity(0.85),
-                letterSpacing: 3.5,
+          // 5. Main Content: Logo, Wordmark, and Loading
+          SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 3),
+                  
+                  AnimatedLogo(masterController: _masterController),
+                  
+                  const SizedBox(height: 40),
+                  
+                  Wordmark(masterController: _masterController),
+                  
+                  const Spacer(flex: 2),
+                  
+                  SplashLoadingIndicator(masterController: _masterController),
+                  
+                  const Spacer(flex: 1),
+                ],
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-
-  // ── Bottom loading bar ─────────────────────────────────────────────────
-  Widget _buildProgressBar() {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 56),
-          child: AnimatedBuilder(
-            animation: _progressController,
-            builder: (context, _) {
-              return Container(
-                width: 140,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: _progressController.value,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
-                      gradient: const LinearGradient(
-                        colors: [
-                          AppColors.pitchGreenLight,
-                          AppColors.floodlightGoldLight,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.floodlightGold.withOpacity(0.7),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-// ── Letter-by-letter wordmark reveal ─────────────────────────────────────
-class _AnimatedLetter extends StatefulWidget {
-  final String letter;
-  final Animation<double> controller;
-  final int index;
-
-  const _AnimatedLetter({
-    required this.letter,
-    required this.controller,
-    required this.index,
-  });
-
-  @override
-  State<_AnimatedLetter> createState() => _AnimatedLetterState();
-}
-
-class _AnimatedLetterState extends State<_AnimatedLetter> {
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = _buildAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedLetter oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller ||
-        oldWidget.index != widget.index) {
-      _anim = _buildAnimation();
-    }
-  }
-
-  Animation<double> _buildAnimation() {
-    final start = widget.index * 0.07;
-    return CurvedAnimation(
-      parent: widget.controller,
-      curve: Interval(
-        start,
-        math.min(start + 0.75, 1.0),
-        curve: Curves.easeOutBack,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, _) {
-        final v = _anim.value;
-        return Opacity(
-          opacity: v.clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(0, 30 * (1 - v)),
-            child: Transform.rotate(
-              angle: (1 - v) * 0.25,
-              child: Text(
-                widget.letter,
-                style: GoogleFonts.poppins(
-                  fontSize: 44,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

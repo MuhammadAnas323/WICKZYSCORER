@@ -26,6 +26,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
   final _teamBController = TextEditingController();
   final _venueController = TextEditingController();
   final _oversController = TextEditingController(text: '20');
+  final _noteController = TextEditingController();
 
   MatchFormat _format = MatchFormat.t20;
   DateTime? _dateTime;
@@ -45,6 +46,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
     _teamBController.dispose();
     _venueController.dispose();
     _oversController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -129,6 +131,9 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
         dateTime: _dateTime ?? DateTime.now(),
         format: _format,
         overs: int.tryParse(_oversController.text) ?? 20,
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
         status: MatchStatus.scheduled,
         playingXI1: const [],
         playingXI2: const [],
@@ -279,6 +284,20 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
                       filled: true,
                       fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
                       border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const Gap(20),
+                  TextFormField(
+                    controller: _noteController,
+                    style: TextStyle(color: colorScheme.onBackground),
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: l10n.translate('note_optional'),
+                      labelStyle: TextStyle(color: colorScheme.onBackground.withOpacity(0.7)),
+                      filled: true,
+                      fillColor: theme.inputDecorationTheme.fillColor ?? colorScheme.surfaceVariant,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.notes_rounded, color: AppColors.pitchGreenLight),
                     ),
                   ),
                   const Gap(32),

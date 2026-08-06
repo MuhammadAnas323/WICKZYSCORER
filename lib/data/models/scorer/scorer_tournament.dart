@@ -40,6 +40,9 @@ class ScorerTournament {
   /// UID of the user who created this tournament (set once).
   final String createdBy;
 
+  /// Display name of the tournament organizer.
+  final String organizer;
+
   const ScorerTournament({
     required this.id,
     required this.name,
@@ -61,6 +64,7 @@ class ScorerTournament {
     this.tournamentRules,
     this.tournamentRequirements,
     this.createdBy = '',
+    this.organizer = '',
   });
 
   int get numberOfTeams => numTeams;
@@ -88,6 +92,7 @@ class ScorerTournament {
     String? tournamentRules,
     String? tournamentRequirements,
     String? createdBy,
+    String? organizer,
   }) {
     return ScorerTournament(
       id: id ?? this.id,
@@ -110,6 +115,7 @@ class ScorerTournament {
       tournamentRules: tournamentRules ?? this.tournamentRules,
       tournamentRequirements: tournamentRequirements ?? this.tournamentRequirements,
       createdBy: createdBy ?? this.createdBy,
+      organizer: organizer ?? this.organizer,
     );
   }
 }

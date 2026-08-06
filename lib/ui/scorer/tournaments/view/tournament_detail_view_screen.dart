@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
+import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
@@ -329,219 +330,118 @@ class _TournamentDetailViewScreenState
               const Gap(16),
 
               // Match Schedule Card
-              GestureDetector(
+              _InfoCardButton(
+                title: 'Match Schedule',
+                subtitle: 'Stages, fixtures & auto-advancement',
+                icon: Icons.calendar_month,
+                gradient: LinearGradient(
+                  colors: [AppColors.pitchGreen.withOpacity(0.8), AppColors.pitchGreen.withOpacity(0.5)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 onTap: () async {
                   await context.push('/scorer/tournaments/${t.id}/schedule');
                   _loadData();
                 },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
+                cs: theme.colorScheme,
+              ),
+              const Gap(16),
+
+              // Rules, Requirements & Description Buttons
+              if ((t.description != null && t.description!.isNotEmpty) ||
+                  (t.tournamentRules != null && t.tournamentRules!.isNotEmpty) ||
+                  (t.tournamentRequirements != null && t.tournamentRequirements!.isNotEmpty)) ...[
+                if (t.description != null && t.description!.isNotEmpty) ...[
+                  _InfoCardButton(
+                    title: 'Description',
+                    subtitle: 'About this tournament',
+                    icon: Icons.description,
                     gradient: LinearGradient(
-                      colors: [
-                        AppColors.pitchGreen.withOpacity(0.18),
-                        surfaceColor
-                      ],
+                      colors: [AppColors.vibrantBlue.withOpacity(0.8), AppColors.vibrantBlue.withOpacity(0.5)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: AppColors.pitchGreen.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_month_outlined,
-                          color: AppColors.pitchGreenLight, size: 26),
-                      const Gap(12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.translate('manual_schedule'),
-                                style: TextStyle(
-                                    color: textColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15)),
-                            const Gap(2),
-                            Text('Stages, fixtures & auto-advancement',
-                                style: TextStyle(
-                                    color: subTextColor, fontSize: 11)),
-                          ],
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Description'),
+                          content: SingleChildScrollView(child: Text(t.description!)),
+                          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
                         ),
-                      ),
-                      Icon(Icons.chevron_right, color: subTextColor.withOpacity(0.5)),
-                    ],
+                      );
+                    },
+                    cs: theme.colorScheme,
                   ),
-                ),
-              ),
-              const Gap(24),
-
-              // Teams Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('${l10n.translate('teams')} (${_teams.length})',
-                      style: AppTextStyles.titleLarge(textColor)),
+                  const Gap(8),
                 ],
-              ),
-              const Gap(12),
+                if (t.tournamentRules != null && t.tournamentRules!.isNotEmpty) ...[
+                  _InfoCardButton(
+                    title: 'Rules',
+                    subtitle: 'Tournament rules & guidelines',
+                    icon: Icons.gavel,
+                    gradient: LinearGradient(
+                      colors: [AppColors.vibrantRed.withOpacity(0.8), AppColors.vibrantRed.withOpacity(0.5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Rules'),
+                          content: SingleChildScrollView(child: Text(t.tournamentRules!)),
+                          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+                        ),
+                      );
+                    },
+                    cs: theme.colorScheme,
+                  ),
+                  const Gap(8),
+                ],
+                if (t.tournamentRequirements != null && t.tournamentRequirements!.isNotEmpty) ...[
+                  _InfoCardButton(
+                    title: 'Requirements',
+                    subtitle: 'Eligibility & requirements',
+                    icon: Icons.assignment,
+                    gradient: LinearGradient(
+                      colors: [AppColors.vibrantCyan.withOpacity(0.8), AppColors.vibrantCyan.withOpacity(0.5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Requirements'),
+                          content: SingleChildScrollView(child: Text(t.tournamentRequirements!)),
+                          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+                        ),
+                      );
+                    },
+                    cs: theme.colorScheme,
+                  ),
+                  const Gap(8),
+                ],
+                const Gap(16),
+              ],
 
-              if (_teams.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: surfaceColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.groups_outlined,
-                          size: 48, color: subTextColor),
-                      const Gap(12),
-                      Text(
-                        l10n.translate('no_matches'),
-                        style: TextStyle(
-                            color: textColor.withOpacity(0.7),
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      const Gap(4),
-                      Text(
-                        l10n.translate('create_match_squads'),
-                        style: TextStyle(color: subTextColor, fontSize: 12),
-                      ),
-                      const Gap(16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.pitchGreen,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          await context
-                              .push('/scorer/teams?tournamentId=${t.id}');
-                          _loadData();
-                        },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Team'),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _teams.length,
-                  separatorBuilder: (_, __) => const Gap(10),
-                  itemBuilder: (ctx, i) {
-                    final team = _teams[i];
-                    return GestureDetector(
-                      onTap: () async {
-                        await context.push('/scorer/teams/${team.id}/players');
-                        _loadData();
-                      },
-                      onLongPress: () => _deleteTeam(team),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor:
-                                  AppColors.pitchGreen.withOpacity(0.2),
-                              child: Text(
-                                team.shortCode.isNotEmpty
-                                    ? team.shortCode
-                                    : 'T',
-                                style: const TextStyle(
-                                    color: AppColors.pitchGreenLight,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
-                              ),
-                            ),
-                            const Gap(12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(team.name,
-                                      style: TextStyle(
-                                          color: textColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15)),
-                                  Text('${team.playerIds.length} Squad Players',
-                                      style: TextStyle(
-                                          color: subTextColor, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                            // Payment Toggle Chip
-                            GestureDetector(
-                              onTap: () => _togglePayment(team),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: team.isEntryFeePaid
-                                      ? AppColors.pitchGreen.withOpacity(0.2)
-                                      : Colors.red.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: team.isEntryFeePaid
-                                        ? AppColors.pitchGreenLight
-                                        : Colors.redAccent,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      team.isEntryFeePaid
-                                          ? Icons.check_circle
-                                          : Icons.pending,
-                                      color: team.isEntryFeePaid
-                                          ? AppColors.pitchGreenLight
-                                          : Colors.redAccent,
-                                      size: 14,
-                                    ),
-                                    const Gap(4),
-                                    Text(
-                                      team.isEntryFeePaid ? l10n.translate('paid') : l10n.translate('unpaid'),
-                                      style: TextStyle(
-                                        color: team.isEntryFeePaid
-                                            ? AppColors.pitchGreenLight
-                                            : Colors.redAccent,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.edit_outlined,
-                                  color: subTextColor.withOpacity(0.7), size: 20),
-                              tooltip: 'Team Details',
-                              onPressed: () async {
-                                await context
-                                    .push('/scorer/teams/${team.id}/edit');
-                                _loadData();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+              // Teams Button
+              _InfoCardButton(
+                title: '${l10n.translate('teams')} & Squads',
+                subtitle: '${_teams.length} team${_teams.length == 1 ? '' : 's'} registered',
+                icon: Icons.groups_rounded,
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.floodlightGold.withOpacity(0.85),
+                    AppColors.floodlightGold.withOpacity(0.55),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                onTap: () => _showTeamsSheet(context, t, l10n),
+                cs: theme.colorScheme,
+              ),
 
               const Gap(80),
             ],
@@ -550,6 +450,302 @@ class _TournamentDetailViewScreenState
       ),
     );
   }
+
+  void _showTeamsSheet(
+    BuildContext context,
+    dynamic t,
+    dynamic l10n,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final theme = Theme.of(context);
+            final textColor = theme.colorScheme.onSurface;
+            final subTextColor = theme.colorScheme.onSurfaceVariant;
+            final surfaceColor = theme.colorScheme.surface;
+            final cs = theme.colorScheme;
+            return DraggableScrollableSheet(
+              initialChildSize: 0.75,
+              minChildSize: 0.4,
+              maxChildSize: 0.95,
+              builder: (_, scrollCtrl) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Handle bar
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: subTextColor.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.floodlightGold.withOpacity(0.85),
+                                    AppColors.pitchGreen.withOpacity(0.7),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.groups_rounded,
+                                  color: Colors.white, size: 20),
+                            ),
+                            const Gap(12),
+                            Text(
+                              'Teams & Squads',
+                              style: AppTextStyles.titleLarge(textColor)
+                                  .copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            // Add team button
+                            TextButton.icon(
+                              onPressed: () async {
+                                Navigator.of(ctx).pop();
+                                await context.push(
+                                    '/scorer/teams?tournamentId=${t.id}');
+                                _loadData();
+                              },
+                              icon: const Icon(Icons.add,
+                                  size: 16, color: AppColors.pitchGreenLight),
+                              label: const Text('Add',
+                                  style: TextStyle(
+                                      color: AppColors.pitchGreenLight,
+                                      fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Divider(color: cs.outlineVariant, height: 1),
+                      // Teams list
+                      Expanded(
+                        child: _teams.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.group_off_outlined,
+                                        size: 56,
+                                        color: subTextColor.withOpacity(0.3)),
+                                    const Gap(12),
+                                    Text('No teams added yet.',
+                                        style: AppTextStyles.bodyMedium(
+                                            subTextColor)),
+                                    const Gap(16),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.pitchGreen,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () async {
+                                        Navigator.of(ctx).pop();
+                                        await context.push(
+                                            '/scorer/teams?tournamentId=${t.id}');
+                                        _loadData();
+                                      },
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('Add Team'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollCtrl,
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                                itemCount: _teams.length,
+                                itemBuilder: (_, i) {
+                                  final team = _teams[i];
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          AppColors.floodlightGold
+                                              .withOpacity(0.08),
+                                          surfaceColor,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                          color: AppColors.floodlightGold
+                                              .withOpacity(0.25)),
+                                    ),
+                                    child: ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 6),
+                                      onTap: () async {
+                                        Navigator.of(ctx).pop();
+                                        await context.push(
+                                            '/scorer/teams/${team.id}/players');
+                                        _loadData();
+                                      },
+                                      onLongPress: () {
+                                        Navigator.of(ctx).pop();
+                                        _deleteTeam(team);
+                                      },
+                                      leading: Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              AppColors.floodlightGold,
+                                              AppColors.pitchGreen,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          team.shortCode.isNotEmpty
+                                              ? team.shortCode
+                                                  .substring(
+                                                      0,
+                                                      team.shortCode.length > 3
+                                                          ? 3
+                                                          : team
+                                                              .shortCode.length)
+                                                  .toUpperCase()
+                                              : 'T',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800),
+                                        ),
+                                      ),
+                                      title: Text(team.name,
+                                          style: TextStyle(
+                                              color: textColor,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15)),
+                                      subtitle: Text(
+                                          '${team.playerIds.length} squad players',
+                                          style: TextStyle(
+                                              color: subTextColor,
+                                              fontSize: 11)),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Payment badge
+                                          GestureDetector(
+                                            onTap: () {
+                                              _togglePayment(team);
+                                              setSheetState(() {});
+                                            },
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: team.isEntryFeePaid
+                                                    ? AppColors.pitchGreen
+                                                        .withOpacity(0.2)
+                                                    : Colors.red
+                                                        .withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: team.isEntryFeePaid
+                                                      ? AppColors.pitchGreenLight
+                                                      : Colors.redAccent,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    team.isEntryFeePaid
+                                                        ? Icons.check_circle
+                                                        : Icons.pending,
+                                                    color: team.isEntryFeePaid
+                                                        ? AppColors
+                                                            .pitchGreenLight
+                                                        : Colors.redAccent,
+                                                    size: 12,
+                                                  ),
+                                                  const Gap(3),
+                                                  Text(
+                                                    team.isEntryFeePaid
+                                                        ? l10n.translate('paid')
+                                                        : l10n.translate(
+                                                            'unpaid'),
+                                                    style: TextStyle(
+                                                      color: team.isEntryFeePaid
+                                                          ? AppColors
+                                                              .pitchGreenLight
+                                                          : Colors.redAccent,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          // Edit button
+                                          IconButton(
+                                            icon: Icon(Icons.edit_outlined,
+                                                color: subTextColor
+                                                    .withOpacity(0.7),
+                                                size: 18),
+                                            tooltip: 'Edit Team',
+                                            onPressed: () async {
+                                              Navigator.of(ctx).pop();
+                                              await context.push(
+                                                  '/scorer/teams/${team.id}/edit');
+                                              _loadData();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   Widget _prizeTile(String label, String value, Color color, Color surfaceColor, Color subTextColor) {
     return Expanded(
@@ -568,6 +764,71 @@ class _TournamentDetailViewScreenState
             Text(label,
                 style: TextStyle(color: subTextColor, fontSize: 10),
                 textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoCardButton extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Gradient gradient;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  const _InfoCardButton({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.gradient,
+    required this.onTap,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const Gap(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.titleSmall(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                  const Gap(2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant).copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white70),
           ],
         ),
       ),

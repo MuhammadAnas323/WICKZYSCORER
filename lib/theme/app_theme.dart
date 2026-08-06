@@ -15,15 +15,15 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.pitchGreen,
+        primary: AppColors.vibrantBlue,
         onPrimary: Colors.white,
-        primaryContainer: Color(0xFFB8F0CE),
-        onPrimaryContainer: AppColors.pitchGreenDark,
-        secondary: AppColors.willowBrown,
+        primaryContainer: AppColors.vibrantCyan,
+        onPrimaryContainer: AppColors.charcoal900,
+        secondary: AppColors.vibrantGreen,
         onSecondary: Colors.white,
-        tertiary: AppColors.floodlightGold,
+        tertiary: AppColors.vibrantYellow,
         onTertiary: Colors.black,
-        error: AppColors.error,
+        error: AppColors.vibrantRed,
         surface: AppColors.lightSurface,
         surfaceContainerHighest: AppColors.lightSurfaceVariant,
         onSurface: AppColors.charcoal900,
@@ -55,9 +55,9 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.pitchGreen,
+          backgroundColor: AppColors.vibrantBlue,
           foregroundColor: Colors.white,
-          elevation: 0,
+          elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -94,7 +94,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.lightSurfaceVariant,
-        selectedColor: AppColors.pitchGreen,
+        selectedColor: AppColors.vibrantCyan,
         labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: RoundedRectangleBorder(
@@ -103,15 +103,15 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.lightSurface,
-        selectedItemColor: AppColors.pitchGreen,
+        selectedItemColor: AppColors.vibrantBlue,
         unselectedItemColor: AppColors.charcoal400,
         elevation: 8,
         type: BottomNavigationBarType.fixed,
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: AppColors.pitchGreen,
+        labelColor: AppColors.vibrantBlue,
         unselectedLabelColor: AppColors.charcoal400,
-        indicatorColor: AppColors.pitchGreen,
+        indicatorColor: AppColors.vibrantBlue,
         labelStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
         unselectedLabelStyle:
             GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),

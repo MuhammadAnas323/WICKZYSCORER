@@ -100,10 +100,9 @@ void main() {
 
     expect(find.text('Create Team'), findsOneWidget);
 
-    // Fill in the team name + short code so validation passes.
+    // Fill in the team name so validation passes.
     await tester.enterText(
         find.widgetWithText(TextFormField, 'Team Name'), 'Kings XI');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Code'), 'KX');
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
