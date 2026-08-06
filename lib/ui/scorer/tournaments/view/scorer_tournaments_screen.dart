@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
-import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/shared_widgets/tournament_card.dart';
 
 class ScorerTournamentsScreen extends ConsumerWidget {
   const ScorerTournamentsScreen({super.key});
@@ -64,17 +64,14 @@ class ScorerTournamentsScreen extends ConsumerWidget {
         },
         child: tournaments.isEmpty
             ? _emptyState(context, ref, l10n)
-            : GridView.builder(
-                padding: const EdgeInsets.all(16),
+            : ListView.builder(
+                padding: const EdgeInsets.only(bottom: 24, top: 4),
                 physics: const AlwaysScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.95,
-                ),
                 itemCount: tournaments.length,
-                itemBuilder: (ctx, i) => _tournamentCard(context, tournaments[i], l10n),
+                itemBuilder: (ctx, i) => TournamentCard(
+                  tournament: tournaments[i],
+                  onTap: () => context.push('/scorer/tournaments/${tournaments[i].id}'),
+                ),
               ),
       ),
     );
@@ -131,73 +128,6 @@ class ScorerTournamentsScreen extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _tournamentCard(BuildContext context, ScorerTournament t, AppLocalizations l10n) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: () => context.push('/scorer/tournaments/${t.id}'),
-      borderRadius: BorderRadius.circular(5),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text('🏆', style: TextStyle(fontSize: 22)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.pitchGreen.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    t.format.name.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9, 
-                      fontWeight: FontWeight.bold, 
-                      color: isDark ? AppColors.pitchGreenLight : AppColors.pitchGreen
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Gap(8),
-            Text(
-              t.name,
-              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold, fontSize: 14),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            Text(
-              '${t.teamIds.length} ${l10n.translate('teams')}',
-              style: TextStyle(
-                color: isDark ? AppColors.pitchGreenLight : AppColors.pitchGreen, 
-                fontWeight: FontWeight.w600, 
-                fontSize: 12
-              ),
-            ),
-            const Gap(2),
-            Text(
-              t.venue,
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

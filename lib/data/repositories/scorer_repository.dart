@@ -520,6 +520,83 @@ class ScorerRepository {
     _bumpVersion();
   }
 
+  /// Returns the [ScorerMatch] backing a schedule [fixture] — either an
+  /// existing one (linked by id, or matching the two resolved teams) or a newly
+  /// created one.
+  ///
+  /// Creating a match from a fixture is the "start scoring" entry point for a
+  /// scheduled fixture: it snapshots the resolved teams, venue and date into a
+  /// real match and links the fixture so a completed result can auto-advance
+  /// the schedule. Returns null when the fixture's teams are not yet resolved.
+  Future<ScorerMatch?> findOrCreateMatchForFixture({
+    required String tournamentId,
+    required ScheduleFixture fixture,
+  }) async {
+    await _ensureLoaded();
+    if (fixture.linkedMatchId != null) {
+      final linked = _matches.where((m) => m.id == fixture.linkedMatchId).firstOrNull;
+      if (linked != null) return linked;
+    }
+    final teamA = fixture.resolvedTeamAId;
+    final teamB = fixture.resolvedTeamBId;
+    if (teamA == null || teamB == null) return null;
+    for (final m in _matches) {
+      if (m.tournamentId == tournamentId &&
+          ((m.team1Id == teamA && m.team2Id == teamB) ||
+              (m.team1Id == teamB && m.team2Id == teamA))) {
+        return m;
+      }
+    }
+    final tournament = _tournaments.where((t) => t.id == tournamentId).firstOrNull;
+    final match = ScorerMatch(
+      id: 'm_${DateTime.now().microsecondsSinceEpoch}',
+      tournamentId: tournamentId,
+      team1Id: teamA,
+      team2Id: teamB,
+      venue: fixture.venue ?? tournament?.venue ?? 'TBD',
+      dateTime: fixture.scheduledDateTime ?? DateTime.now(),
+      format: tournament?.format ?? MatchFormat.t20,
+      overs: tournament == null
+          ? 20
+          : tournament.format == MatchFormat.t20
+              ? 20
+              : tournament.format == MatchFormat.odi
+                  ? 50
+                  : tournament.customOvers,
+      status: MatchStatus.scheduled,
+      playingXI1: const [],
+      playingXI2: const [],
+      currentInnings: 1,
+    );
+    await saveMatch(match);
+    await _linkFixtureToMatch(tournamentId, fixture.id, match.id);
+    return match;
+  }
+
+  /// Records that a match was created from a schedule fixture so future lookups
+  /// reuse it instead of creating duplicates.
+  Future<void> _linkFixtureToMatch(
+    String tournamentId,
+    String fixtureId,
+    String matchId,
+  ) async {
+    final stages = _schedules[tournamentId];
+    if (stages == null) return;
+    for (var s = 0; s < stages.length; s++) {
+      final stage = stages[s];
+      final fxIndex = stage.fixtures.indexWhere((fx) => fx.id == fixtureId);
+      if (fxIndex < 0) continue;
+      final fx = stage.fixtures[fxIndex];
+      if (fx.linkedMatchId == matchId) return;
+      final fixtures = List<ScheduleFixture>.from(stage.fixtures);
+      fixtures[fxIndex] = fx.copyWith(linkedMatchId: matchId);
+      final updated = List<ScheduleStage>.from(stages);
+      updated[s] = stage.copyWith(fixtures: fixtures);
+      await saveSchedule(tournamentId, updated);
+      return;
+    }
+  }
+
   /// Auto-advancement: called after a match is completed.
   ///
   /// Finds the fixture (matched by link, or by the two team ids) and:

@@ -32,6 +32,22 @@ class ScorerLiveMatchRepository {
     }
   }
 
+  /// Returns a copy of [match] with [updatedInnings] written into whichever
+  /// slot `currentInnings` refers to (1/2 for the main match, 3/4 for the
+  /// super-over decider).
+  ScorerMatch _withInnings(ScorerMatch match, Innings updatedInnings) {
+    return match.copyWith(
+      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
+      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
+      superOverInnings1: match.currentInnings == 3
+          ? updatedInnings
+          : match.superOverInnings1,
+      superOverInnings2: match.currentInnings == 4
+          ? updatedInnings
+          : match.superOverInnings2,
+    );
+  }
+
   void recordBall(BallEvent event) {
     if (_activeMatch == null) return;
     final match = _activeMatch!;
@@ -87,10 +103,7 @@ class ScorerLiveMatchRepository {
       nonStrikerId: newNonStriker,
     );
 
-    final updatedMatch = match.copyWith(
-      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
-      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
-    );
+    final updatedMatch = _withInnings(match, updatedInnings);
 
     setActiveMatch(updatedMatch);
   }
@@ -123,10 +136,7 @@ class ScorerLiveMatchRepository {
       bowlingOrder: snap.bowlingOrder,
       isComplete: snap.isComplete,
     );
-    final updatedMatch = match.copyWith(
-      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
-      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
-    );
+    final updatedMatch = _withInnings(match, updatedInnings);
 
     setActiveMatch(updatedMatch);
   }
@@ -142,10 +152,7 @@ class ScorerLiveMatchRepository {
       nonStrikerId: inn.strikerId,
     );
 
-    final updatedMatch = match.copyWith(
-      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
-      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
-    );
+    final updatedMatch = _withInnings(match, updatedInnings);
 
     setActiveMatch(updatedMatch);
   }
@@ -166,10 +173,7 @@ class ScorerLiveMatchRepository {
       bowlingOrder: updatedBowlingOrder,
     );
 
-    final updatedMatch = match.copyWith(
-      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
-      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
-    );
+    final updatedMatch = _withInnings(match, updatedInnings);
 
     setActiveMatch(updatedMatch);
   }
@@ -191,10 +195,7 @@ class ScorerLiveMatchRepository {
       battingOrder: updatedBattingOrder,
     );
 
-    final updatedMatch = match.copyWith(
-      innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
-      innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
-    );
+    final updatedMatch = _withInnings(match, updatedInnings);
 
     setActiveMatch(updatedMatch);
   }
@@ -249,6 +250,10 @@ class ScorerLiveMatchRepository {
       playingXI2: isTeam1 ? match.playingXI2 : xi,
       innings1: match.currentInnings == 1 ? updatedInn : match.innings1,
       innings2: match.currentInnings == 2 ? updatedInn : match.innings2,
+      superOverInnings1:
+          match.currentInnings == 3 ? updatedInn : match.superOverInnings1,
+      superOverInnings2:
+          match.currentInnings == 4 ? updatedInn : match.superOverInnings2,
     );
 
     setActiveMatch(updatedMatch);
@@ -300,6 +305,85 @@ class ScorerLiveMatchRepository {
     final updatedMatch = match.copyWith(
       innings1: match.currentInnings == 1 ? updatedInnings : match.innings1,
       innings2: match.currentInnings == 2 ? updatedInnings : match.innings2,
+      superOverInnings1: match.currentInnings == 3
+          ? updatedInnings
+          : match.superOverInnings1,
+      superOverInnings2: match.currentInnings == 4
+          ? updatedInnings
+          : match.superOverInnings2,
+    );
+
+    setActiveMatch(updatedMatch);
+  }
+
+  /// Starts a 1-over-per-side super-over decider after a tied match. The first
+  /// super-over innings is scored as `currentInnings` 3; the second as 4.
+  void startSuperOver({
+    required String battingTeamId,
+    required String bowlingTeamId,
+    required String strikerId,
+    required String nonStrikerId,
+    required String bowlerId,
+  }) {
+    if (_activeMatch == null) return;
+    final match = _activeMatch!;
+
+    final inn1 = Innings(
+      id: 'super_over_1',
+      battingTeamId: battingTeamId,
+      bowlingTeamId: bowlingTeamId,
+      inningsNumber: 3,
+      balls: const [],
+      battingOrder: [strikerId, nonStrikerId],
+      bowlingOrder: [bowlerId],
+      isComplete: false,
+      strikerId: strikerId,
+      nonStrikerId: nonStrikerId,
+      currentBowlerId: bowlerId,
+    );
+
+    final updatedMatch = match.copyWith(
+      superOverPlayed: true,
+      superOverInnings1: inn1,
+      superOverInnings2: null,
+      currentInnings: 3,
+      status: MatchStatus.inProgress,
+    );
+
+    setActiveMatch(updatedMatch);
+  }
+
+  /// Marks the first super-over innings complete and opens the second one
+  /// (`currentInnings` 4) with the provided openers/bowler.
+  void completeSuperOverToInnings2({
+    required String battingTeamId,
+    required String bowlingTeamId,
+    required String strikerId,
+    required String nonStrikerId,
+    required String bowlerId,
+  }) {
+    if (_activeMatch == null) return;
+    final match = _activeMatch!;
+    final inn1 = match.superOverInnings1;
+
+    final inn2 = Innings(
+      id: 'super_over_2',
+      battingTeamId: battingTeamId,
+      bowlingTeamId: bowlingTeamId,
+      inningsNumber: 4,
+      balls: const [],
+      battingOrder: [strikerId, nonStrikerId],
+      bowlingOrder: [bowlerId],
+      isComplete: false,
+      strikerId: strikerId,
+      nonStrikerId: nonStrikerId,
+      currentBowlerId: bowlerId,
+    );
+
+    final updatedMatch = match.copyWith(
+      superOverInnings1: inn1?.copyWith(isComplete: true) ?? inn1,
+      superOverInnings2: inn2,
+      currentInnings: 4,
     );
 
     setActiveMatch(updatedMatch);
@@ -317,7 +401,18 @@ class ScorerLiveMatchRepository {
     }
   }
 
-  void endMatch({required String winnerTeamId, required String summary}) {
+  void endMatch({
+    String? winnerTeamId,
+    required String summary,
+    String? playerOfTheMatchId,
+    String? bestBatsmanId,
+    String? bestBowlerId,
+    String? playerOfTheMatchPrize,
+    String? bestBatsmanPrize,
+    String? bestBowlerPrize,
+    Map<String, String>? customAwards,
+    Map<String, String>? customAwardsPrizes,
+  }) {
     if (_activeMatch == null) return;
     final match = _activeMatch!;
 
@@ -325,6 +420,14 @@ class ScorerLiveMatchRepository {
       status: MatchStatus.completed,
       winnerTeamId: winnerTeamId,
       resultSummary: summary,
+      playerOfTheMatchId: playerOfTheMatchId,
+      bestBatsmanId: bestBatsmanId,
+      bestBowlerId: bestBowlerId,
+      playerOfTheMatchPrize: playerOfTheMatchPrize,
+      bestBatsmanPrize: bestBatsmanPrize,
+      bestBowlerPrize: bestBowlerPrize,
+      customAwards: customAwards ?? match.customAwards,
+      customAwardsPrizes: customAwardsPrizes ?? match.customAwardsPrizes,
     );
 
     setActiveMatch(updatedMatch);

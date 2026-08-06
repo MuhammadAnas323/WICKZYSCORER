@@ -117,8 +117,10 @@ class _TossScreenState extends ConsumerState<TossScreen> {
       );
       return;
     }
-    final battingPlayers = _squadPlayers(_battingPlayers(), _battingTeamId == match.team1Id ? _squad1 : _squad2);
-    final bowlingPlayers = _squadPlayers(_bowlingPlayers(), _battingTeamId == match.team1Id ? _squad1 : _squad2);
+    final battingSquad = _battingTeamId == match.team1Id ? _squad1 : _squad2;
+    final bowlingSquad = _battingTeamId == match.team1Id ? _squad2 : _squad1;
+    final battingPlayers = _squadPlayers(_battingPlayers(), battingSquad);
+    final bowlingPlayers = _squadPlayers(_bowlingPlayers(), bowlingSquad);
     if (battingPlayers.isEmpty || bowlingPlayers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.translate('select_min_player')), backgroundColor: Colors.red),
@@ -126,6 +128,12 @@ class _TossScreenState extends ConsumerState<TossScreen> {
       return;
     }
     if (_openingStrikerId == null || _openingNonStrikerId == null || _openingBowlerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.translate('select_openers')), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_openingStrikerId == _openingNonStrikerId) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.translate('select_openers')), backgroundColor: Colors.red),
       );
@@ -377,8 +385,14 @@ class _TossScreenState extends ConsumerState<TossScreen> {
             player: p,
             isStriker: _openingStrikerId == p.id,
             isNonStriker: _openingNonStrikerId == p.id,
-            onTapStriker: () => setState(() => _openingStrikerId = p.id),
-            onTapNonStriker: () => setState(() => _openingNonStrikerId = p.id),
+            onTapStriker: () => setState(() {
+              _openingStrikerId = p.id;
+              if (_openingNonStrikerId == p.id) _openingNonStrikerId = null;
+            }),
+            onTapNonStriker: () => setState(() {
+              _openingNonStrikerId = p.id;
+              if (_openingStrikerId == p.id) _openingStrikerId = null;
+            }),
           )),
         const Gap(20),
         Text('$bowlingName — ${l10n.translate('opening_bowler')}', style: TextStyle(color: colorScheme.onBackground, fontWeight: FontWeight.bold, fontSize: 15)),

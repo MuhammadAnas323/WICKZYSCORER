@@ -24,7 +24,6 @@ class TeamSetupScreen extends ConsumerStatefulWidget {
 class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _shortCodeController = TextEditingController();
   final _ownerNameController = TextEditingController();
   final _whatsappController = TextEditingController();
   List<ScorerPlayer> _players = [];
@@ -46,7 +45,6 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
     final team = await repo.getTeam(widget.teamId!);
     if (team != null) {
       _nameController.text = team.name;
-      _shortCodeController.text = team.shortCode;
       _ownerNameController.text = team.ownerName ?? '';
       _whatsappController.text = team.whatsappNumber ?? '';
       _resolvedTournamentId = team.tournamentId;
@@ -60,7 +58,6 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _shortCodeController.dispose();
     _ownerNameController.dispose();
     _whatsappController.dispose();
     super.dispose();
@@ -71,10 +68,14 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
     final repo = ref.read(scorerRepositoryProvider);
     final id = widget.teamId ?? 'team_${DateTime.now().millisecondsSinceEpoch}';
 
+    final trimmed = _nameController.text.trim();
+
     final team = ScorerTeam(
       id: id,
-      name: _nameController.text.trim(),
-      shortCode: _shortCodeController.text.trim().toUpperCase(),
+      name: trimmed,
+      shortCode: trimmed.length >= 3
+          ? trimmed.substring(0, 3).toUpperCase()
+          : trimmed.toUpperCase(),
       tournamentId: _resolvedTournamentId ?? '',
       playerIds: _players.map((p) => p.id).toList(),
       isEntryFeePaid: _isPaid,
@@ -179,47 +180,20 @@ class _TeamSetupScreenState extends ConsumerState<TeamSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Team basic info
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _nameController,
-                            style: TextStyle(color: textColor),
-                            decoration: InputDecoration(
-                              labelText: l10n.translate('team_name'),
-                              labelStyle: TextStyle(color: subTextColor),
-                              prefixIcon: const Icon(Icons.groups_rounded,
-                                  color: AppColors.pitchGreenLight),
-                              filled: true,
-                              fillColor: surfaceColor,
-                              border: const OutlineInputBorder(),
-                            ),
-                            validator: (val) =>
-                                val == null || val.isEmpty ? l10n.translate('required') : null,
-                          ),
-                        ),
-                        const Gap(12),
-                        Expanded(
-                          flex: 1,
-                          child: TextFormField(
-                            controller: _shortCodeController,
-                            style: TextStyle(color: textColor),
-                            maxLength: 4,
-                            textCapitalization: TextCapitalization.characters,
-                            decoration: InputDecoration(
-                              labelText: l10n.translate('short_code'),
-                              labelStyle: TextStyle(color: subTextColor),
-                              counterText: '',
-                              filled: true,
-                              fillColor: surfaceColor,
-                              border: const OutlineInputBorder(),
-                            ),
-                            validator: (val) =>
-                                val == null || val.isEmpty ? l10n.translate('required') : null,
-                          ),
-                        ),
-                      ],
+                    TextFormField(
+                      controller: _nameController,
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        labelText: l10n.translate('team_name'),
+                        labelStyle: TextStyle(color: subTextColor),
+                        prefixIcon: const Icon(Icons.groups_rounded,
+                            color: AppColors.pitchGreenLight),
+                        filled: true,
+                        fillColor: surfaceColor,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? l10n.translate('required') : null,
                     ),
                     const Gap(12),
                     TextFormField(

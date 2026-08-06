@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
@@ -38,6 +40,28 @@ class EventDetailScreen extends ConsumerWidget {
     final matches = state.matchesForTournament(tournamentId);
     final completed = matches.where((m) => m.status.name == 'completed').length;
     final live = matches.where((m) => m.status.name == 'inProgress' || m.status.name == 'live').length;
+
+    // Scheduled / upcoming matches shown in the "Match Schedule" section.
+    final upcoming = matches
+        .where((m) =>
+            m.status == MatchStatus.upcoming ||
+            m.status == MatchStatus.scheduled)
+        .toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final liveCompleted = matches.where((m) =>
+        m.status == MatchStatus.inProgress ||
+        m.status == MatchStatus.live ||
+        m.status == MatchStatus.completed).toList();
+
+    // Stage-wise schedule built by the organizer. The schedule itself is shown
+    // on its own screen (TournamentScheduleScreen) via the button below.
+    final scheduleStages = state.scheduleForTournament(tournamentId)
+        .where((s) => s.fixtures.isNotEmpty)
+        .toList();
+    final scheduledCount = scheduleStages.fold<int>(
+            0, (sum, s) => sum + s.fixtures.length) +
+        upcoming.length;
+    final hasScheduleData = scheduleStages.isNotEmpty || upcoming.isNotEmpty;
 
     return Scaffold(
       backgroundColor: cs.background,
@@ -114,11 +138,21 @@ class EventDetailScreen extends ConsumerWidget {
             ),
             const Gap(16),
 
-            // Matches section
-            if (matches.isNotEmpty) ...[
+            // Match Schedule button → dedicated schedule screen.
+            if (hasScheduleData) ...[
+              _ScheduleButton(
+                scheduledCount: scheduledCount,
+                onTap: () => context.push('/events/$tournamentId/schedule'),
+                cs: cs,
+              ),
+              const Gap(16),
+            ],
+
+            // Live & completed matches section
+            if (liveCompleted.isNotEmpty) ...[
               _sectionHeader(cs, 'Matches'),
               const Gap(8),
-              ...matches.map((m) => Container(
+              ...liveCompleted.map((m) => Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -168,6 +202,25 @@ class EventDetailScreen extends ConsumerWidget {
                       ],
                     ),
                   )),
+              const Gap(16),
+            ],
+
+            // Tournament rules (if the organizer provided any)
+            if ((tournament.tournamentRules ?? '').trim().isNotEmpty) ...[
+              _sectionHeader(cs, 'Rules'),
+              const Gap(8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+                ),
+                child: Text(
+                  tournament.tournamentRules!,
+                  style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
+                ),
+              ),
               const Gap(16),
             ],
 
@@ -238,6 +291,67 @@ class EventDetailScreen extends ConsumerWidget {
         const Gap(8),
         Text(title, style: AppTextStyles.titleLarge(cs.onSurface)),
       ],
+    );
+  }
+}
+
+class _ScheduleButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final int scheduledCount;
+  final ColorScheme cs;
+
+  const _ScheduleButton({
+    required this.onTap,
+    required this.scheduledCount,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          border: Border.all(color: AppColors.pitchGreen.withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.pitchGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.calendar_month,
+                  color: AppColors.pitchGreen, size: 22),
+            ),
+            const Gap(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Match Schedule',
+                    style: AppTextStyles.titleSmall(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const Gap(2),
+                  Text(
+                    '$scheduledCount scheduled matches',
+                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
     );
   }
 }

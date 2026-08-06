@@ -24,6 +24,7 @@ import 'package:sportyapp/ui/live_matches/view/test_video_page.dart';
 import 'package:sportyapp/ui/live_matches/view/m3u_channels_screen.dart';
 import 'package:sportyapp/ui/events/view/events_screen.dart';
 import 'package:sportyapp/ui/events/view/event_detail_screen.dart';
+import 'package:sportyapp/ui/events/view/tournament_schedule_screen.dart';
 import 'package:sportyapp/ui/spectator/match_detail/view/spectator_match_detail_screen.dart';
 import 'package:sportyapp/ui/shell/spectator_shell.dart';
 import 'package:sportyapp/ui/matches/view/matches_screen.dart';
@@ -57,6 +58,7 @@ import 'package:sportyapp/ui/scorer/teams/view/team_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/teams/view/team_players_view_screen.dart';
 import 'package:sportyapp/ui/scorer/match_setup/view/match_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/live_scoring/view/live_scoring_screen.dart';
+import 'package:sportyapp/ui/scorer/live_scoring/view/match_summary_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/start_scoring_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/friendly_matches_hub_screen.dart';
 import 'package:sportyapp/ui/scorer/start_scoring/view/schedule_match_screen.dart';
@@ -291,6 +293,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'event-detail',
         builder: (context, state) => EventDetailScreen(
             tournamentId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'schedule',
+            name: 'event-schedule',
+            builder: (context, state) => TournamentScheduleScreen(
+                tournamentId: state.pathParameters['id']!),
+          ),
+        ],
       ),
       GoRoute(
         path: '/spectator/match/:id',
@@ -326,6 +336,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/scorer/live-scoring',
         name: 'scorer-live-scoring',
         builder: (context, state) => const LiveScoringScreen(),
+      ),
+      GoRoute(
+        path: '/scorer/match-summary',
+        name: 'scorer-match-summary',
+        builder: (context, state) => const MatchSummaryScreen(),
       ),
       GoRoute(
         path: '/scorer/tournaments/create',
@@ -408,7 +423,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scorer/tournament-upcoming-matches',
         name: 'scorer-tournament-upcoming-matches',
-        builder: (context, state) => const TournamentUpcomingMatchesScreen(),
+        builder: (context, state) => TournamentUpcomingMatchesScreen(
+          tournamentId: state.uri.queryParameters['tournamentId'],
+        ),
       ),
       GoRoute(
         path: '/scorer/schedule-match',

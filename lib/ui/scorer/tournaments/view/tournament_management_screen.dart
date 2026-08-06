@@ -20,6 +20,7 @@ class TournamentManagementScreen extends ConsumerStatefulWidget {
 class _TournamentManagementScreenState extends ConsumerState<TournamentManagementScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _organizerController;
   late TextEditingController _venueController;
   late TextEditingController _customOversController;
   late TextEditingController _entryFeeController;
@@ -39,6 +40,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _organizerController = TextEditingController();
     _venueController = TextEditingController();
     _customOversController = TextEditingController(text: '20');
     _entryFeeController = TextEditingController();
@@ -59,6 +61,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     if (tournament != null) {
       setState(() {
         _nameController.text = tournament.name;
+        _organizerController.text = tournament.organizer;
         _venueController.text = tournament.venue;
 
         _customOversController.text = tournament.customOvers.toString();
@@ -78,6 +81,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   @override
   void dispose() {
     _nameController.dispose();
+    _organizerController.dispose();
     _venueController.dispose();
     _customOversController.dispose();
     _entryFeeController.dispose();
@@ -88,6 +92,25 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _rulesController.dispose();
     _requirementsController.dispose();
     super.dispose();
+  }
+
+  /// Converts free-form multiline text into a numbered points list
+  /// (e.g. "1- Rule one\n2- Rule two\n3- Rule three"). Any existing
+  /// "N-" / "N." prefixes are stripped first so numbering is always clean.
+  String _formatAsPoints(String text) {
+    final lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (var i = 0; i < lines.length; i++) {
+      final cleaned =
+          lines[i].replaceFirst(RegExp(r'^\d+\s*[-.]\s*'), '');
+      buffer.writeln('${i + 1}- $cleaned');
+    }
+    return buffer.toString().trim();
   }
 
   Future<void> _save() async {
@@ -103,6 +126,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         name: _nameController.text.trim(),
         ownerId: user?.id ?? 'user_1',
         createdBy: user?.id ?? '',
+        organizer: _organizerController.text.trim(),
         format: _defaultFormat,
         customOvers: int.tryParse(_customOversController.text) ?? 20,
         startDate: DateTime.now(),
@@ -115,8 +139,8 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         winnerPrize: _winnerPrizeController.text.isNotEmpty ? double.tryParse(_winnerPrizeController.text) : null,
         runnerUpPrize: _runnerUpPrizeController.text.isNotEmpty ? double.tryParse(_runnerUpPrizeController.text) : null,
         description: _descriptionController.text.isNotEmpty ? _descriptionController.text.trim() : null,
-        tournamentRules: _rulesController.text.isNotEmpty ? _rulesController.text.trim() : null,
-        tournamentRequirements: _requirementsController.text.isNotEmpty ? _requirementsController.text.trim() : null,
+        tournamentRules: _rulesController.text.isNotEmpty ? _formatAsPoints(_rulesController.text) : null,
+        tournamentRequirements: _requirementsController.text.isNotEmpty ? _formatAsPoints(_requirementsController.text) : null,
       );
 
       await repo.saveTournament(tournament);
@@ -183,6 +207,20 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                     border: const OutlineInputBorder(),
                   ),
                   validator: (val) => val == null || val.isEmpty ? l10n.translate('required') : null,
+                ),
+                const Gap(16),
+
+                TextFormField(
+                  controller: _organizerController,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: l10n.translate('organizer'),
+                    labelStyle: TextStyle(color: subTextColor),
+                    prefixIcon: const Icon(Icons.person_outline, color: AppColors.pitchGreenLight),
+                    filled: true,
+                    fillColor: surfaceColor,
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
                 const Gap(16),
 

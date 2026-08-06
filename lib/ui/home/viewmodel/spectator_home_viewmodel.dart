@@ -4,6 +4,7 @@ import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
+import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
@@ -20,6 +21,7 @@ class SpectatorHomeState {
   final List<ScorerTeam> teams;
   final List<ScorerPlayer> players;
   final List<ScorerMatch> matches;
+  final Map<String, List<ScheduleStage>> schedules;
   final Map<String, LiveMatchData> liveMatchData;
   final int topTab; // 0 = Tournaments, 1 = Friendly Matches
   final String tournamentSubFilter; // 'all', 'live', 'upcoming', 'completed'
@@ -33,6 +35,7 @@ class SpectatorHomeState {
     this.teams = const [],
     this.players = const [],
     this.matches = const [],
+    this.schedules = const {},
     this.liveMatchData = const {},
     this.topTab = 0,
     this.tournamentSubFilter = 'all',
@@ -79,7 +82,14 @@ class SpectatorHomeState {
 
   // ── Spectator Filtered Friendly Matches ────────────────────────────────
   List<ScorerMatch> get filteredFriendlyMatches {
-    var list = matches.where((m) => m.tournamentId == null || m.tournamentId!.isEmpty).toList();
+    // Friendly/local matches are stored under the pseudo-tournament 't_custom'
+    // (see scorer create-local-match), so treat it as a friendly match too.
+    var list = matches
+        .where((m) =>
+            m.tournamentId == null ||
+            m.tournamentId!.isEmpty ||
+            m.tournamentId == 't_custom')
+        .toList();
 
     if (searchQuery.trim().isNotEmpty) {
       final q = searchQuery.trim().toLowerCase();
@@ -113,6 +123,10 @@ class SpectatorHomeState {
   List<ScorerMatch> matchesForTournament(String tournamentId) =>
       matches.where((m) => m.tournamentId == tournamentId).toList();
 
+  /// Stage-wise schedule for a tournament (empty when none was built).
+  List<ScheduleStage> scheduleForTournament(String tournamentId) =>
+      schedules[tournamentId] ?? const [];
+
   String teamName(String teamId) {
     for (final t in teams) {
       if (t.id == teamId) return t.name;
@@ -145,6 +159,7 @@ class SpectatorHomeState {
     List<ScorerTeam>? teams,
     List<ScorerPlayer>? players,
     List<ScorerMatch>? matches,
+    Map<String, List<ScheduleStage>>? schedules,
     Map<String, LiveMatchData>? liveMatchData,
     int? topTab,
     String? tournamentSubFilter,
@@ -158,6 +173,7 @@ class SpectatorHomeState {
       teams: teams ?? this.teams,
       players: players ?? this.players,
       matches: matches ?? this.matches,
+      schedules: schedules ?? this.schedules,
       liveMatchData: liveMatchData ?? this.liveMatchData,
       topTab: topTab ?? this.topTab,
       tournamentSubFilter: tournamentSubFilter ?? this.tournamentSubFilter,
@@ -214,12 +230,17 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
       final teams = await repo.getAllTeams();
       final players = await repo.getAllPlayers();
       final matches = await repo.getMatches();
+      final schedules = <String, List<ScheduleStage>>{};
+      for (final t in tournaments) {
+        schedules[t.id] = await repo.getSchedule(t.id);
+      }
       state = state.copyWith(
         isLoading: false,
         tournaments: tournaments,
         teams: teams,
         players: players,
         matches: matches,
+        schedules: schedules,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Failed to load data.');

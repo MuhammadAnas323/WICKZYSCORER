@@ -127,6 +127,22 @@ Map<String, dynamic> scorerMatchToJson(ScorerMatch m) => {
       'resultSummary': m.resultSummary,
       'specialInstructions': m.specialInstructions,
       'createdBy': m.createdBy,
+      'playerOfTheMatchId': m.playerOfTheMatchId,
+      'bestBatsmanId': m.bestBatsmanId,
+      'bestBowlerId': m.bestBowlerId,
+      'playerOfTheMatchPrize': m.playerOfTheMatchPrize,
+      'bestBatsmanPrize': m.bestBatsmanPrize,
+      'bestBowlerPrize': m.bestBowlerPrize,
+      'customAwards': m.customAwards,
+      'customAwardsPrizes': m.customAwardsPrizes,
+      'note': m.note,
+      'superOverPlayed': m.superOverPlayed,
+      'superOverInnings1': m.superOverInnings1 == null
+          ? null
+          : inningsToJson(m.superOverInnings1!),
+      'superOverInnings2': m.superOverInnings2 == null
+          ? null
+          : inningsToJson(m.superOverInnings2!),
     };
 
 ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
@@ -161,6 +177,24 @@ ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
       resultSummary: json['resultSummary'],
       specialInstructions: json['specialInstructions'],
       createdBy: json['createdBy'] ?? '',
+      playerOfTheMatchId: json['playerOfTheMatchId'],
+      bestBatsmanId: json['bestBatsmanId'],
+      bestBowlerId: json['bestBowlerId'],
+      playerOfTheMatchPrize: json['playerOfTheMatchPrize'],
+      bestBatsmanPrize: json['bestBatsmanPrize'],
+      bestBowlerPrize: json['bestBowlerPrize'],
+      customAwards:
+          Map<String, String>.from(json['customAwards'] as Map? ?? const {}),
+      customAwardsPrizes: Map<String, String>.from(
+          json['customAwardsPrizes'] as Map? ?? const {}),
+      note: json['note'],
+      superOverPlayed: json['superOverPlayed'] ?? false,
+      superOverInnings1: json['superOverInnings1'] == null
+          ? null
+          : inningsFromJson(json['superOverInnings1'] as Map<String, dynamic>),
+      superOverInnings2: json['superOverInnings2'] == null
+          ? null
+          : inningsFromJson(json['superOverInnings2'] as Map<String, dynamic>),
     );
 
 // ─── ScorerTournament ──────────────────────────────────────────────────────
@@ -192,6 +226,7 @@ Map<String, dynamic> scorerTournamentToJson(ScorerTournament t) => {
       'tournamentRules': t.tournamentRules,
       'tournamentRequirements': t.tournamentRequirements,
       'createdBy': t.createdBy,
+      'organizer': t.organizer,
     };
 
 ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
@@ -223,6 +258,7 @@ ScorerTournament scorerTournamentFromJson(Map<String, dynamic> json) {
     tournamentRules: json['tournamentRules'],
     tournamentRequirements: json['tournamentRequirements'],
     createdBy: json['createdBy'] ?? '',
+    organizer: json['organizer'] ?? '',
   );
 }
 

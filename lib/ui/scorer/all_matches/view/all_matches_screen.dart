@@ -279,11 +279,17 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                                         teamName: _teamName,
                                         onTap: () {
                                           if (match.status ==
+                                                  MatchStatus.completed) {
+                                            // A completed match has no active
+                                            // live session — show its summary.
+                                            context.push(
+                                                '/scorer/match-summary?matchId=${match.id}');
+                                            return;
+                                          }
+                                          if (match.status ==
                                                   MatchStatus.inProgress ||
                                               match.status ==
-                                                  MatchStatus.live ||
-                                              match.status ==
-                                                  MatchStatus.completed) {
+                                                  MatchStatus.live) {
                                             context
                                                 .push('/scorer/live-scoring');
                                           } else {

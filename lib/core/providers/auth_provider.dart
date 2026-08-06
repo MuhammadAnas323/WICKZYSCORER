@@ -30,6 +30,11 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
   bool _initialized = false;
   bool _resolving = false;
 
+  /// Upper bound for the Firestore-backed profile refresh during startup. If a
+  /// flaky/offline network makes the `.get()` hang, we still want the splash to
+  /// navigate instead of getting stuck forever.
+  static const _kAuthRefreshTimeout = Duration(seconds: 4);
+
   CurrentUserNotifier(this._auth, this._ready) : super(null) {
     _sub = _auth.authStateChanges().listen((fa.User? fbUser) {
       debugPrint('[DEBUG] authStateChanges fired — fbUser == null: ${fbUser == null}, _isAuthenticating: $_isAuthenticating, _initialized: $_initialized');
@@ -37,13 +42,20 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     }, onError: (Object e) {
       debugPrint('[DEBUG] authStateChanges onError: $e');
       state = null;
-      _initialized = true;
-      _ready.markReady();
+      _markReady();
     });
 
     // The authStateChanges stream emits the restored session, but be defensive:
     // kick off the same resolution straight away for already-restored sessions.
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureInitialized());
+  }
+
+  /// Flipped exactly once so the splash can never wait on the session forever.
+  /// Safe to call from any resolution path (idempotent).
+  void _markReady() {
+    if (_initialized) return;
+    _initialized = true;
+    _ready.markReady();
   }
 
   /// Resolves the current user if the stream has not fired yet (e.g. session
@@ -54,8 +66,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     if (fbUser != null) {
       _onAuthChanged(fbUser);
     } else {
-      _initialized = true;
-      _ready.markReady();
+      _markReady();
     }
   }
 
@@ -71,12 +82,12 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
           final cached = await _readCachedUser();
           if (cached != null && cached.id == fbUser.uid && !_initialized) {
             state = cached;
-            _initialized = true;
-            _ready.markReady();
+            _markReady();
           }
-          // Refresh from Firestore in the background (never blocks startup).
+          // Refresh from Firestore in the background (never blocks startup),
+          // bounded so a hanging network call can't strand the splash.
           try {
-            await _auth.loadCurrentUser();
+            await _auth.loadCurrentUser().timeout(_kAuthRefreshTimeout);
             if (_auth.currentUser != null) {
               state = _auth.currentUser;
               await _cacheUser(_auth.currentUser!);
@@ -85,27 +96,24 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
             // Keep the cached profile; network failure shouldn't log the user out.
           }
           if (!_initialized) {
-            if (_auth.currentUser != null) {
-              state = _auth.currentUser;
-              await _cacheUser(_auth.currentUser!);
-            } else {
-              state = null;
-            }
-            _initialized = true;
-            _ready.markReady();
+            state = _auth.currentUser ?? state;
+            _markReady();
           }
         } catch (_) {
           state = null;
-          _initialized = true;
-          _ready.markReady();
+          _markReady();
         }
       } else if (fa.FirebaseAuth.instance.currentUser == null) {
         state = null;
-        _initialized = true;
-        _ready.markReady();
+        _markReady();
       }
     } finally {
       _resolving = false;
+      // Safety net: a cold-start resolution (no sign-in in flight) must always
+      // flip the ready flag so the splash can move on.
+      if (!_initialized && !_isAuthenticating) {
+        _markReady();
+      }
     }
   }
 

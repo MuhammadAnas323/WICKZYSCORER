@@ -32,6 +32,32 @@ class ScorerMatch {
   /// UID of the user who created this match (set once).
   final String createdBy;
 
+  final String? playerOfTheMatchId;
+  final String? bestBatsmanId;
+  final String? bestBowlerId;
+
+  /// Optional free-text prize/note for each award (shown with the award).
+  final String? playerOfTheMatchPrize;
+  final String? bestBatsmanPrize;
+  final String? bestBowlerPrize;
+
+  /// Custom award categories chosen by the scorer (category → player id).
+  /// An empty-string value means the category exists but no winner is picked.
+  final Map<String, String> customAwards;
+
+  /// Optional prize text for each custom award category.
+  final Map<String, String> customAwardsPrizes;
+
+  /// Optional note captured when creating a friendly match.
+  final String? note;
+
+  /// Super over tie-breaker state. When the main innings tie, the scorer can
+  /// opt into a 1-over-per-side decider stored in [superOverInnings1]/[superOverInnings2]
+  /// (scored as `currentInnings` 3 and 4).
+  final bool superOverPlayed;
+  final Innings? superOverInnings1;
+  final Innings? superOverInnings2;
+
   const ScorerMatch({
     required this.id,
     required this.tournamentId,
@@ -56,16 +82,46 @@ class ScorerMatch {
     this.resultSummary,
     this.specialInstructions,
     this.createdBy = '',
+    this.playerOfTheMatchId,
+    this.bestBatsmanId,
+    this.bestBowlerId,
+    this.playerOfTheMatchPrize,
+    this.bestBatsmanPrize,
+    this.bestBowlerPrize,
+    this.customAwards = const {},
+    this.customAwardsPrizes = const {},
+    this.note,
+    this.superOverPlayed = false,
+    this.superOverInnings1,
+    this.superOverInnings2,
   });
 
   String? get battingTeamId {
-    if (currentInnings == 1) return innings1?.battingTeamId;
-    if (currentInnings == 2) return innings2?.battingTeamId;
-    return null;
+    if (currentInnings <= 2) {
+      return currentInnings == 1 ? innings1?.battingTeamId : innings2?.battingTeamId;
+    }
+    return currentInnings == 3
+        ? superOverInnings1?.battingTeamId
+        : superOverInnings2?.battingTeamId;
   }
 
   Innings? get currentInningsData {
-    return currentInnings == 1 ? innings1 : innings2;
+    if (currentInnings == 1) return innings1;
+    if (currentInnings == 2) return innings2;
+    if (currentInnings == 3) return superOverInnings1;
+    if (currentInnings == 4) return superOverInnings2;
+    return null;
+  }
+
+  /// True while the super-over decider is being scored (innings 3 or 4).
+  bool get isSuperOverInnings => currentInnings >= 3;
+
+  /// True when the main two innings have finished on equal totals.
+  bool get isTie {
+    final i1 = innings1;
+    final i2 = innings2;
+    if (i1 == null || i2 == null) return false;
+    return i1.isComplete && i2.isComplete && i1.totalRuns == i2.totalRuns;
   }
 
   DateTime get scheduledDate => dateTime;
@@ -97,6 +153,18 @@ class ScorerMatch {
     String? resultSummary,
     String? specialInstructions,
     String? createdBy,
+    String? playerOfTheMatchId,
+    String? bestBatsmanId,
+    String? bestBowlerId,
+    String? playerOfTheMatchPrize,
+    String? bestBatsmanPrize,
+    String? bestBowlerPrize,
+    Map<String, String>? customAwards,
+    Map<String, String>? customAwardsPrizes,
+    String? note,
+    bool? superOverPlayed,
+    Innings? superOverInnings1,
+    Innings? superOverInnings2,
   }) {
     return ScorerMatch(
       id: id ?? this.id,
@@ -122,6 +190,18 @@ class ScorerMatch {
       resultSummary: resultSummary ?? this.resultSummary,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       createdBy: createdBy ?? this.createdBy,
+      playerOfTheMatchId: playerOfTheMatchId ?? this.playerOfTheMatchId,
+      bestBatsmanId: bestBatsmanId ?? this.bestBatsmanId,
+      bestBowlerId: bestBowlerId ?? this.bestBowlerId,
+      playerOfTheMatchPrize: playerOfTheMatchPrize ?? this.playerOfTheMatchPrize,
+      bestBatsmanPrize: bestBatsmanPrize ?? this.bestBatsmanPrize,
+      bestBowlerPrize: bestBowlerPrize ?? this.bestBowlerPrize,
+      customAwards: customAwards ?? this.customAwards,
+      customAwardsPrizes: customAwardsPrizes ?? this.customAwardsPrizes,
+      note: note ?? this.note,
+      superOverPlayed: superOverPlayed ?? this.superOverPlayed,
+      superOverInnings1: superOverInnings1 ?? this.superOverInnings1,
+      superOverInnings2: superOverInnings2 ?? this.superOverInnings2,
     );
   }
 }
