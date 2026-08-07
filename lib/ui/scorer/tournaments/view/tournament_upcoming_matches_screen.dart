@@ -62,25 +62,19 @@ class _TournamentUpcomingMatchesScreenState
     final tournaments = await repo.getTournaments();
     final teams = await repo.getAllTeams();
 
-    // Owned tournaments (a user always sees the ones they created; empty
-    // createdBy entries are legacy drafts and remain visible).
+    // Owned tournaments only — a scorer always sees the ones they created and
+    // nothing from other users (legacy/empty createdBy entries are excluded).
     final myTournaments = tournaments.where((t) {
-      if (uid != null &&
-          uid.isNotEmpty &&
-          t.createdBy.isNotEmpty &&
-          t.createdBy != uid) {
-        return false;
+      if (uid != null && uid.isNotEmpty) {
+        return t.createdBy == uid || t.ownerId == uid;
       }
       return true;
     }).toList();
 
-    // Only tournament matches that are upcoming/scheduled and created by the
-    // current user (standalone friendly matches use the pseudo 't_custom' id).
+    // Only the current user's upcoming/scheduled tournament matches
+    // (standalone friendly matches use the pseudo 't_custom' id).
     final matches = allMatches.where((m) {
-      if (uid != null &&
-          uid.isNotEmpty &&
-          m.createdBy.isNotEmpty &&
-          m.createdBy != uid) {
+      if (uid != null && uid.isNotEmpty && m.createdBy != uid) {
         return false;
       }
       return m.tournamentId != 't_custom' &&

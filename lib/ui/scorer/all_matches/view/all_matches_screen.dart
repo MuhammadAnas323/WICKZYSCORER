@@ -54,9 +54,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
 
     final matches = (uid == null || uid.isEmpty)
         ? allMatches
-        : allMatches
-            .where((m) => m.createdBy == uid || m.createdBy.isEmpty)
-            .toList();
+        : allMatches.where((m) => m.createdBy == uid).toList();
 
     if (!mounted) return;
     setState(() {

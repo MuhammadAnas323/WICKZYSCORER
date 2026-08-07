@@ -199,21 +199,6 @@ class FirestoreScorerService {
     await _rtdb.deleteLiveMatch(matchId).catchError((_) {});
   }
 
-  /// Deletes every scorer document from all collections. Used by the
-  /// "Clear all data" developer utility.
-  Future<void> clearAll() async {
-    final batch = _firestore.batch();
-    for (final ref in [
-      _tournaments, _teams, _players, _matches, _schedules,
-    ]) {
-      final snap = await ref.get();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
-      }
-    }
-    await batch.commit();
-  }
-
   // ── Live scoring helpers (Realtime Database broadcast) ─────────────────
 
   Future<void> startMatch(ScorerMatch match) async {
@@ -242,6 +227,20 @@ class FirestoreScorerService {
 
   Future<void> saveMatchDoc(ScorerMatch match) async {
     await _matches.doc(match.id).set(scorerMatchToJson(match));
+  }
+
+  /// Streams a single match document so spectators can watch live, ball-by-ball
+  /// scoring updates (player runs, balls, wickets) without re-pulling the whole
+  /// scorer data set. Emits null when the document does not exist.
+  Stream<ScorerMatch?> watchMatch(String matchId) {
+    return _matches.doc(matchId).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      try {
+        return scorerMatchFromJson(snap.data() as Map<String, dynamic>);
+      } catch (_) {
+        return null;
+      }
+    });
   }
 
   Future<void> endMatchDoc(

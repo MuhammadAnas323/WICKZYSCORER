@@ -19,9 +19,6 @@ import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/ui/home/view/home_screen.dart';
 import 'package:sportyapp/ui/live_matches/view/live_matches_screen.dart';
-import 'package:sportyapp/ui/live_matches/view/live_video_player_screen.dart';
-import 'package:sportyapp/ui/live_matches/view/test_video_page.dart';
-import 'package:sportyapp/ui/live_matches/view/m3u_channels_screen.dart';
 import 'package:sportyapp/ui/events/view/events_screen.dart';
 import 'package:sportyapp/ui/events/view/event_detail_screen.dart';
 import 'package:sportyapp/ui/events/view/tournament_schedule_screen.dart';
@@ -31,8 +28,6 @@ import 'package:sportyapp/ui/matches/view/matches_screen.dart';
 import 'package:sportyapp/ui/tournaments/view/tournaments_screen.dart';
 import 'package:sportyapp/ui/tournaments/view/tournament_detail_screen.dart';
 import 'package:sportyapp/ui/profile/view/profile_screen.dart';
-import 'package:sportyapp/ui/profile/view/video_source_settings_screen.dart';
-import 'package:sportyapp/ui/profile/view/iptv_management_screen.dart';
 import 'package:sportyapp/ui/match_details/view/match_details_screen.dart';
 import 'package:sportyapp/ui/teams/view/team_profile_screen.dart';
 import 'package:sportyapp/ui/players/view/player_profile_screen.dart';
@@ -42,8 +37,6 @@ import 'package:sportyapp/ui/notifications/view/notifications_screen.dart';
 import 'package:sportyapp/ui/streaming/go_live/view/go_live_screen.dart';
 import 'package:sportyapp/ui/streaming/live_viewer/view/live_viewer_screen.dart';
 import 'package:sportyapp/ui/settings/view/settings_screen.dart';
-import 'package:sportyapp/ui/settings/view/cricket_api_settings_screen.dart';
-import 'package:sportyapp/ui/settings/admin_settings_screen.dart';
 import 'package:sportyapp/ui/about/view/about_screen.dart';
 import 'package:sportyapp/ui/support/view/support_screen.dart';
 import 'package:sportyapp/features/admin/view/admin_dashboard_screen.dart';
@@ -203,58 +196,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             LiveViewerScreen(streamId: state.pathParameters['streamId']!),
       ),
       GoRoute(
-        path: '/admin-video',
-        name: 'admin-video',
-        builder: (context, state) {
-          // Prefer extra map (raw, unencoded) over query params
-          String? url;
-          String? title;
-
-          if (state.extra is Map<String, dynamic>) {
-            final map = state.extra as Map<String, dynamic>;
-            url = map['url'] as String?;
-            title = map['title'] as String?;
-          } else if (state.extra is String) {
-            url = state.extra as String;
-          }
-
-          // Fallback to query parameters (handles deep-link / web refresh)
-          url ??= state.uri.queryParameters['url'];
-          title ??= state.uri.queryParameters['title'];
-
-          return LiveVideoPlayerScreen(
-            url: url,
-            title: title,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/test-video',
-        name: 'test-video',
-        builder: (context, state) => const TestVideoPage(),
-      ),
-      GoRoute(
-        path: '/m3u-channels',
-        name: 'm3u-channels',
-        builder: (context, state) {
-          final url = state.uri.queryParameters['url'] ?? '';
-          return M3uChannelsScreen(playlistUrl: url);
-        },
-      ),
-      GoRoute(
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/cricket-api-settings',
-        name: 'cricket-api-settings',
-        builder: (context, state) => const CricketApiSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/admin-settings',
-        name: 'admin-settings',
-        builder: (context, state) => const AdminSettingsScreen(),
       ),
       GoRoute(
         path: '/about',
@@ -265,16 +209,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/support',
         name: 'support',
         builder: (context, state) => const SupportScreen(),
-      ),
-      GoRoute(
-        path: '/video-source-settings',
-        name: 'video-source-settings',
-        builder: (context, state) => const VideoSourceSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/iptv-management',
-        name: 'iptv-management',
-        builder: (context, state) => const IptvManagementScreen(),
       ),
       // â”€â”€ Admin routes (no shell) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       GoRoute(

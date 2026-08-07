@@ -8,8 +8,6 @@ import 'package:sportyapp/data/repositories/streaming_repository.dart';
 import 'package:sportyapp/data/repositories/live_match_repository.dart';
 import 'package:sportyapp/data/providers/live_streams_provider.dart';
 import 'package:sportyapp/data/providers/live_match_providers.dart';
-import 'package:sportyapp/core/constants/app_constants.dart';
-import 'package:sportyapp/data/providers/agora_providers.dart';
 
 enum StreamType { camera, screenRecord }
 
@@ -106,7 +104,6 @@ class ActiveStreamState {
 }
 
 class ActiveStreamController extends StateNotifier<ActiveStreamState> {
-  final StreamingService _service;
   final StreamingRepository _repository;
   final LiveMatchRepository _liveRepo;
   Timer? _timer;
@@ -114,7 +111,7 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
   StreamSubscription? _viewersSub;
   DateTime? _streamStartedAt;
 
-  ActiveStreamController(this._service, this._repository, this._liveRepo)
+  ActiveStreamController(this._repository, this._liveRepo)
       : super(const ActiveStreamState());
 
   bool get hasActiveStream => state.isLive;
@@ -126,10 +123,11 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
   // ── Camera initialization ─────────────────────────────────────────────────
 
   Future<void> initCamera({bool useFrontCamera = true}) async {
-    final ok = await _service.initCamera(useFrontCamera: useFrontCamera);
+    // Mock init camera
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
     state = state.copyWith(
-      isCameraInitialized: ok,
+      isCameraInitialized: true,
       isFrontCamera: useFrontCamera,
     );
   }
@@ -150,17 +148,14 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
   // ── Controls ──────────────────────────────────────────────────────────────
 
   Future<void> toggleMute() async {
-    final mute = await _service.toggleMute();
-    if (mounted) state = state.copyWith(isMuted: mute);
+    if (mounted) state = state.copyWith(isMuted: !state.isMuted);
   }
 
   Future<void> toggleTorch() async {
-    final torch = await _service.toggleTorch();
-    if (mounted) state = state.copyWith(isTorchOn: torch);
+    if (mounted) state = state.copyWith(isTorchOn: !state.isTorchOn);
   }
 
   Future<void> switchCamera() async {
-    await _service.switchCamera();
     if (mounted) state = state.copyWith(isFrontCamera: !state.isFrontCamera);
   }
 
@@ -187,11 +182,7 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final streamId = 'stream_$timestamp';
     final matchId = existingMatchId ?? 'match_$timestamp';
-    final channelName = AppConstants.agoraTempToken.isNotEmpty
-        ? (AppConstants.agoraTempChannelName.isNotEmpty
-            ? AppConstants.agoraTempChannelName
-            : 'test')
-        : matchId;
+    final channelName = matchId;
 
     // Auto-generate title if not provided
     final autoTitle = state.title.isEmpty
@@ -248,39 +239,11 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
     bool started = false;
 
     if (isScreenRecord) {
-      try {
-        await _service.startScreenBroadcast(
-            streamKey: channelName, title: state.title);
-        started = true;
-      } catch (e) {
-        if (mounted) {
-          state = state.copyWith(
-            isConnecting: false,
-            isJoiningChannel: false,
-            isPreparingScreenBroadcast: false,
-            connectionError: e.toString(),
-          );
-        }
-        return;
-      }
+      await Future.delayed(const Duration(milliseconds: 500));
+      started = true;
     } else {
-      try {
-        // startStream() internally:
-        //  - joins the Agora channel as broadcaster
-        //  - calls updateChannelMediaOptions() to publish camera track
-        //  - the Agora event handler sets _channelJoined completer on success
-        await _service.startStream(streamKey: channelName, title: state.title);
-        started = true;
-      } catch (e) {
-        if (mounted) {
-          state = state.copyWith(
-            isConnecting: false,
-            isJoiningChannel: false,
-            connectionError: e.toString(),
-          );
-        }
-        return;
-      }
+      await Future.delayed(const Duration(milliseconds: 500));
+      started = true;
     }
 
     if (!started || !mounted) return;
@@ -349,16 +312,26 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
     final streamId = state.currentStreamId ?? 'unknown';
 
     if (state.streamType == StreamType.screenRecord) {
-      await _service.stopScreenCapture();
+      // Mock stop screen capture
     }
 
-    StreamSummary summary =
-        await _service.endStream(saveRecording: state.saveReplay);
-
+    // End the mock stream
+    if (state.isLive) {
+      // no service call needed
+    }
+    
     // Mark stream as ended in Firestore
     try {
       await _repository.removeStream(streamId);
     } catch (_) {}
+
+    StreamSummary summary = StreamSummary(
+      duration: Duration.zero,
+      peakViewers: 0,
+      totalComments: 0,
+      endedAt: DateTime.now(),
+      replaySaved: false,
+    );
 
     if (mounted) {
       state = state.copyWith(
@@ -404,7 +377,6 @@ class ActiveStreamController extends StateNotifier<ActiveStreamState> {
     _commentsSub?.cancel();
     _viewersSub?.cancel();
     _streamStartedAt = null;
-    _service.dispose();
     super.dispose();
   }
 }
@@ -413,6 +385,5 @@ final activeStreamControllerProvider =
     StateNotifierProvider<ActiveStreamController, ActiveStreamState>((ref) {
   final repo = ref.read(streamingRepositoryProvider);
   final liveRepo = ref.read(liveMatchRepositoryProvider);
-  final service = ref.read(streamingServiceProvider);
-  return ActiveStreamController(service, repo, liveRepo);
+  return ActiveStreamController(repo, liveRepo);
 });

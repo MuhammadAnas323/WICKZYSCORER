@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sportyapp/data/models/live_stream_model.dart';
 import 'package:sportyapp/data/repositories/live_stream_repository.dart';
-import 'package:sportyapp/data/services/agora_rtc_service.dart';
 import 'package:sportyapp/data/providers/live_providers.dart';
 
 class HostStreamState {
@@ -40,17 +39,13 @@ class HostStreamState {
 }
 
 class HostStreamViewModel extends StateNotifier<HostStreamState> {
-  final AgoraRtcService _agora;
   final LiveStreamRepository _repository;
 
   Timer? _durationTimer;
-  StreamSubscription<int>? _remoteUserSub;
-  StreamSubscription<String>? _errorSub;
 
-  HostStreamViewModel(this._agora, this._repository)
-      : super(const HostStreamState());
+  HostStreamViewModel(this._repository) : super(const HostStreamState());
 
-  /// Start a new live stream: create Firestore doc + join Agora channel.
+  /// Start a new live stream: create Firestore doc.
   Future<void> startStream({
     required String channelId,
     required String title,
@@ -58,7 +53,6 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
   }) async {
     state = state.copyWith(isConnecting: true, clearError: true);
 
-    // 1. Create Firestore document.
     final user = FirebaseAuth.instance.currentUser;
     final streamId = 'live_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -68,8 +62,7 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
       hostUid: 0,
       hostId: user?.uid ?? 'anonymous',
       hostName: user?.displayName ?? 'Anonymous',
-      hostAvatar: user?.photoURL ??
-          'https://ui-avatars.com/api/?name=Anonymous',
+      hostAvatar: user?.photoURL ?? 'https://ui-avatars.com/api/?name=Anonymous',
       title: title,
       createdAt: DateTime.now(),
     );
@@ -84,29 +77,12 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
       return;
     }
 
-    // 2. Join Agora channel as broadcaster.
-    try {
-      await _agora.startHost(
-        channelId: channelId,
-        useFrontCamera: useFrontCamera,
-      );
-    } catch (e) {
-      // Clean up the Firestore doc if Agora fails.
-      await _repository.endStream(streamId);
-      state = state.copyWith(
-        isConnecting: false,
-        error: 'Could not start stream: $e',
-      );
-      return;
-    }
-
     state = state.copyWith(
       isConnecting: false,
       isLive: true,
       channelId: streamId,
     );
 
-    // 3. Start a duration timer.
     final startedAt = DateTime.now();
     _durationTimer?.cancel();
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -120,7 +96,7 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
     debugPrint('[HostVM] Stream live: $channelId');
   }
 
-  /// End the stream: update Firestore + leave Agora channel.
+  /// End the stream: update Firestore.
   Future<void> endStream() async {
     _durationTimer?.cancel();
 
@@ -128,8 +104,6 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
     if (streamId != null) {
       await _repository.endStream(streamId);
     }
-
-    await _agora.leaveChannel();
 
     state = state.copyWith(
       isLive: false,
@@ -143,15 +117,12 @@ class HostStreamViewModel extends StateNotifier<HostStreamState> {
   @override
   void dispose() {
     _durationTimer?.cancel();
-    _remoteUserSub?.cancel();
-    _errorSub?.cancel();
     super.dispose();
   }
 }
 
 final hostStreamViewModelProvider =
     StateNotifierProvider<HostStreamViewModel, HostStreamState>((ref) {
-  final agora = ref.read(agoraRtcServiceProvider);
   final repo = ref.read(liveStreamRepositoryProvider);
-  return HostStreamViewModel(agora, repo);
+  return HostStreamViewModel(repo);
 });

@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
@@ -204,13 +205,13 @@ class _ScheduleFixtureCard extends StatelessWidget {
   Color _statusColor() {
     switch (fixture.status) {
       case FixtureStatus.ready:
-        return AppColors.vibrantBlue;
+        return AppColors.pitchGreen;
       case FixtureStatus.live:
-        return AppColors.vibrantRed;
+        return AppColors.liveRed;
       case FixtureStatus.completed:
-        return AppColors.vibrantGreen;
+        return cs.onSurfaceVariant;
       case FixtureStatus.pending:
-        return Colors.grey;
+        return cs.onSurfaceVariant;
     }
   }
 
@@ -228,54 +229,69 @@ class _ScheduleFixtureCard extends StatelessWidget {
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: AppColors.pitchGreen.withOpacity(0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.floodlightGold.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      onTap: linked != null
+          ? () => context.push('/spectator/match/$linked')
+          : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          border: Border.all(color: AppColors.pitchGreen.withOpacity(0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.floodlightGold.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Match #${fixture.order}',
+                    style: AppTextStyles.labelSmall(AppColors.floodlightGold),
+                  ),
                 ),
-                child: Text(
-                  'Match #${fixture.order}',
-                  style: AppTextStyles.labelSmall(AppColors.floodlightGold),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _statusColor().withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    _statusText(),
+                    style: AppTextStyles.labelSmall(_statusColor()),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _statusColor().withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(100),
+              ],
+            ),
+            const Gap(8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_teamLabel(fixture.resolvedTeamAId)} vs '
+                    '${_teamLabel(fixture.resolvedTeamBId)}',
+                    style: AppTextStyles.titleSmall(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: Text(
-                  _statusText(),
-                  style: AppTextStyles.labelSmall(_statusColor()),
-                ),
-              ),
-            ],
-          ),
-          const Gap(8),
-          Text(
-            '${_teamLabel(fixture.resolvedTeamAId)} vs '
-            '${_teamLabel(fixture.resolvedTeamBId)}',
-            style: AppTextStyles.titleSmall(cs.onSurface)
-                .copyWith(fontWeight: FontWeight.w700),
-            overflow: TextOverflow.ellipsis,
-          ),
+                if (linked != null) ...[
+                  const Gap(6),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: Colors.grey, size: 18),
+                ],
+              ],
+            ),
           if (local != null || fixture.venue != null) ...[
             const Gap(6),
             Row(
@@ -328,6 +344,7 @@ class _ScheduleFixtureCard extends StatelessWidget {
           ],
         ],
       ),
+      ),
     );
   }
 }
@@ -351,89 +368,94 @@ class _ScheduleMatchCard extends StatelessWidget {
     return match.status.name.toUpperCase();
   }
 
-  Color _statusColor() {
-    if (match.status == MatchStatus.inProgress || match.status == MatchStatus.live) return AppColors.vibrantRed;
-    if (match.status == MatchStatus.completed) return AppColors.vibrantGreen;
-    if (match.status == MatchStatus.upcoming || match.status == MatchStatus.scheduled) return AppColors.vibrantBlue;
-    return Colors.grey;
-  }
-
   @override
   Widget build(BuildContext context) {
     final local = match.dateTime.toLocal();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: AppColors.pitchGreen.withOpacity(0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.floodlightGold.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      onTap: () => context.push('/spectator/match/${match.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          border: Border.all(color: AppColors.pitchGreen.withOpacity(0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.floodlightGold.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Match #$matchNumber',
+                    style: AppTextStyles.labelSmall(AppColors.floodlightGold),
+                  ),
                 ),
-                child: Text(
-                  'Match #$matchNumber',
-                  style: AppTextStyles.labelSmall(AppColors.floodlightGold),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.pitchGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    _statusText(),
+                    style: AppTextStyles.labelSmall(AppColors.pitchGreenLight),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _statusColor().withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(100),
+              ],
+            ),
+            const Gap(8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${state.teamName(match.team1Id)} vs ${state.teamName(match.team2Id)}',
+                    style: AppTextStyles.titleSmall(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: Text(
-                  _statusText(),
-                  style: AppTextStyles.labelSmall(_statusColor()),
+                const Gap(6),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Colors.grey, size: 18),
+              ],
+            ),
+            const Gap(6),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined,
+                    color: Colors.grey, size: 13),
+                const Gap(4),
+                Text('${local.day}/${local.month}/${local.year}',
+                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                const Gap(12),
+                const Icon(Icons.schedule, color: Colors.grey, size: 13),
+                const Gap(4),
+                Text(
+                    '${local.hour.toString().padLeft(2, '0')}:'
+                    '${local.minute.toString().padLeft(2, '0')}',
+                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                const Gap(12),
+                const Icon(Icons.location_on, color: Colors.grey, size: 13),
+                const Gap(4),
+                Expanded(
+                  child: Text(match.venue,
+                      style: AppTextStyles.labelSmall(cs.onSurfaceVariant),
+                      overflow: TextOverflow.ellipsis),
                 ),
-              ),
-            ],
-          ),
-          const Gap(8),
-          Text(
-            '${state.teamName(match.team1Id)} vs ${state.teamName(match.team2Id)}',
-            style: AppTextStyles.titleSmall(cs.onSurface)
-                .copyWith(fontWeight: FontWeight.w700),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Gap(6),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today_outlined,
-                  color: Colors.grey, size: 13),
-              const Gap(4),
-              Text('${local.day}/${local.month}/${local.year}',
-                  style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
-              const Gap(12),
-              const Icon(Icons.schedule, color: Colors.grey, size: 13),
-              const Gap(4),
-              Text(
-                  '${local.hour.toString().padLeft(2, '0')}:'
-                  '${local.minute.toString().padLeft(2, '0')}',
-                  style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
-              const Gap(12),
-              const Icon(Icons.location_on, color: Colors.grey, size: 13),
-              const Gap(4),
-              Expanded(
-                child: Text(match.venue,
-                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant),
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

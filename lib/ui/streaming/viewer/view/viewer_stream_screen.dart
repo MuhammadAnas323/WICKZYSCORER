@@ -1,10 +1,7 @@
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sportyapp/data/providers/live_providers.dart';
-import 'package:sportyapp/data/services/agora_rtc_service.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/ui/streaming/viewer/viewmodel/viewer_stream_viewmodel.dart';
 
@@ -36,7 +33,6 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
 
     // ── Host disconnected / stream ended ────────────────────────────────
     if (state.isHostOffline) {
-      // Show a brief message then pop.
       Future.microtask(() {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -101,18 +97,17 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
       );
     }
 
-    // ── Loading: waiting for host's remoteUid ──────────────────────────
-    if (state.isLoading || state.remoteUid == null) {
+    // ── Loading ────────────────────────────────────────────────────────
+    if (state.isLoading) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // Show a placeholder while connecting.
-            Center(
+            const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 48,
                     height: 48,
                     child: CircularProgressIndicator(
@@ -120,25 +115,16 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
                       color: AppColors.pitchGreenLight,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
+                  SizedBox(height: 20),
+                  Text(
                     'Joining live stream...',
                     style: TextStyle(color: Colors.white54, fontSize: 14),
                   ),
-                  if (state.hasJoinedChannel) ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Waiting for broadcaster...',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
-                  ],
                 ],
               ),
             ),
-
-            // Back button at top.
             Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
+              top: kToolbarHeight,
               left: 12,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -150,8 +136,7 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
       );
     }
 
-    // ── Live stream (remoteUid is set) ──────────────────────────────────
-    final agora = ref.read(agoraRtcServiceProvider);
+    // ── Live stream UI ─────────────────────────────────────────────────
     final streamDoc = state.streamDoc!;
 
     return Scaffold(
@@ -159,15 +144,15 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Remote host video feed.
-          AgoraVideoView(
-            controller: agora.remoteViewController(
-              state.remoteUid!,
-              streamDoc.channelId,
+          // Video placeholder
+          Container(
+            color: Colors.black,
+            child: const Center(
+              child: Icon(Icons.live_tv, color: Colors.white12, size: 100),
             ),
           ),
 
-          // Top overlay: back + LIVE badge + host name.
+          // Top overlay
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 12,
@@ -196,7 +181,7 @@ class _ViewerStreamScreenState extends ConsumerState<ViewerStreamScreen> {
             ),
           ),
 
-          // Bottom: viewer count.
+          // Bottom: viewer count
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 16,
             left: 16,

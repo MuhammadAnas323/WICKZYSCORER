@@ -82,6 +82,19 @@ class ScorerRepository {
 
   Future<void> _ensureLoaded() => _loading ??= _loadFromDisk();
 
+  /// Re-reads the full scorer data set from Firestore (falling back to the
+  /// local cache when offline) and applies it to the in-memory lists.
+  ///
+  /// The spectator side calls this on every load/refresh so tournaments,
+  /// teams, players, matches and live results created or edited by OTHER
+  /// users become visible. It intentionally reads everything (no
+  /// currentUserId filter) so spectators see all users' data.
+  Future<void> refreshFromCloud() async {
+    await _ensureLoaded();
+    _loading = null;
+    await _ensureLoaded();
+  }
+
   Future<void> _loadFromDisk() async {
     // Always read the local cache first so a slow or unavailable network never
     // leaves the scorer staring at a blank screen.
@@ -244,20 +257,6 @@ class ScorerRepository {
       await deleteTournament(id);
     }
     return ids.length;
-  }
-
-  /// Developer utility: wipes all scorer data from memory, local cache and
-  /// Firestore. Intended for a "Clear all data" button.
-  Future<void> clearAll() async {
-    await _ensureLoaded();
-    _tournaments.clear();
-    _teams.clear();
-    _players.clear();
-    _matches.clear();
-    _schedules.clear();
-    await _cloudWrite((cloud) => cloud.clearAll());
-    await _saveToCache();
-    _bumpVersion();
   }
 
   Future<List<ScorerTournament>> getTournaments() async {
@@ -449,6 +448,15 @@ class ScorerRepository {
   Future<ScorerMatch?> getMatch(String id) async {
     await _ensureLoaded();
     return _matches.where((m) => m.id == id).firstOrNull;
+  }
+
+  /// Streams a single match document from Firestore so spectators can watch
+  /// live, ball-by-ball scoring updates. Emits nothing when no cloud is
+  /// configured (offline scorer-only mode).
+  Stream<ScorerMatch?> watchMatch(String matchId) {
+    final cloud = _cloud;
+    if (cloud == null) return const Stream.empty();
+    return cloud.watchMatch(matchId);
   }
 
   Future<void> saveMatch(ScorerMatch match) async {

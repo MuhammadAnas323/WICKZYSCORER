@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/profile/viewmodel/profile_viewmodel.dart';
-import 'package:sportyapp/ui/profile/widgets/iptv_playlist_card.dart';
 import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/app_user.dart';
@@ -17,29 +16,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  int _avatarTapCount = 0;
-  bool _developerModeUnlocked = false;
-
-  void _handleAvatarTap() {
-    setState(() {
-      _avatarTapCount++;
-      if (_avatarTapCount == 7) {
-        _developerModeUnlocked = !_developerModeUnlocked;
-        _avatarTapCount = 0;
-        final msg = _developerModeUnlocked
-            ? '🚀 Developer / Admin mode unlocked!'
-            : '🔒 Developer / Admin mode hidden.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: AppColors.pitchGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileViewModelProvider);
@@ -79,7 +55,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       const SizedBox(height: 20),
                       GestureDetector(
-                        onTap: isScorer ? _handleAvatarTap : null,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -97,19 +72,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ),
                               ),
                             ),
-                            if (isScorer && _developerModeUnlocked)
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.amber,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.code, size: 14, color: Colors.black),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -166,23 +128,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // ── Hidden Developer / Admin Section (Scorer only with 7-tap unlock) ──
-                  if (isScorer && _developerModeUnlocked) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.developer_mode, color: Colors.amber, size: 20),
-                        const SizedBox(width: 8),
-                        Text('Developer Options', style: AppTextStyles.titleLarge(cs.onBackground)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const IptvPlaylistCard(),
-                    const SizedBox(height: 8),
-                    _navTile(context, Icons.tune_rounded, 'Admin Settings', '/admin-settings'),
-                    _navTile(context, Icons.api_rounded, 'Cricket API Settings', '/cricket-api-settings'),
-                    const SizedBox(height: 24),
-                  ],
 
                   // ── Main Settings & Info Section ─────────────────────────
                   Text('Settings & Info', style: AppTextStyles.titleLarge(cs.onBackground)),

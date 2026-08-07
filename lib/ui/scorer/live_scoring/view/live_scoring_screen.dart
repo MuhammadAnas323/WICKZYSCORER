@@ -226,7 +226,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               });
             },
             child: Text(
-              l10n.translate('no'),
+              l10n.translate('complete_match'),
               style: const TextStyle(color: Colors.grey),
             ),
           ),
@@ -244,7 +244,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
               });
             },
             child: Text(
-              l10n.translate('yes'),
+              l10n.translate('start_super_over'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -2191,6 +2191,22 @@ class _SuperOverSetupDialogState extends ConsumerState<_SuperOverSetupDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.floodlightGold.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                    color: AppColors.floodlightGold.withOpacity(0.3)),
+              ),
+              child: Text(
+                l10n.translate('super_over_description'),
+                style: TextStyle(
+                    color: colorScheme.onSurfaceVariant, fontSize: 12, height: 1.4),
+              ),
+            ),
+            const Gap(12),
             Text(l10n.translate('who_bats_first'),
                 style: TextStyle(
                     color: colorScheme.onSurface,

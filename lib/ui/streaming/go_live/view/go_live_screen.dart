@@ -1,14 +1,11 @@
 // lib/ui/streaming/go_live/view/go_live_screen.dart
 
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/core/extensions/int_extensions.dart';
-import 'package:sportyapp/data/providers/agora_providers.dart';
-import 'package:sportyapp/data/services/agora_service.dart';
 import 'package:sportyapp/ui/streaming/go_live/viewmodel/active_stream_controller.dart';
 import 'package:sportyapp/ui/streaming/go_live/viewmodel/go_live_viewmodel.dart';
 
@@ -23,9 +20,6 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
     with SingleTickerProviderStateMixin {
   bool _cameraStarted = false;
   bool _streamStarted = false;
-
-  // ── Camera surface: created once, never rebuilt (prevents freeze) ─────────
-  VideoViewController? _videoViewController;
 
   // ── Zoom ─────────────────────────────────────────────────────────────────
   double _baseZoom = 1.0;
@@ -63,7 +57,6 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
 
   @override
   void dispose() {
-    _videoViewController?.dispose();
     _liveIndicatorController.dispose();
     _commentCtrl.dispose();
     _commentFocus.dispose();
@@ -81,38 +74,20 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
     final controller = ref.read(goLiveViewModelProvider);
     await controller.initCamera(useFrontCamera: true);
     if (!mounted) return;
-    // Build the video controller ONCE right after camera inits
-    _ensureVideoController();
     if (!_streamStarted) {
       _streamStarted = true;
       await controller.startStream();
     }
   }
 
-  void _ensureVideoController() {
-    if (_videoViewController != null) return;
-    final agora = ref.read(agoraServiceProvider);
-    if (!agora.isInitialized) return;
-    setState(() {
-      _videoViewController = agora.localViewController();
-    });
-  }
-
   // ── Pinch-to-zoom ─────────────────────────────────────────────────────────
 
-  void _onScaleStart(ScaleStartDetails _) {
-    _baseZoom = ref.read(agoraServiceProvider).currentZoom;
-  }
+  void _onScaleStart(ScaleStartDetails _) {}
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
     if (d.pointerCount < 2) return;
     final newZoom = (_baseZoom * d.scale).clamp(1.0, _maxZoom);
-    ref
-        .read(agoraServiceProvider)
-        .setZoom(newZoom, maxZoom: _maxZoom)
-        .then((z) {
-      if (mounted) setState(() => _currentZoom = z);
-    });
+    if (mounted) setState(() => _currentZoom = newZoom);
   }
 
   void _onScaleEnd(ScaleEndDetails _) => _baseZoom = _currentZoom;
@@ -144,7 +119,6 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(goLiveStateProvider);
-    if (_videoViewController == null) _ensureVideoController();
 
     return GestureDetector(
       onScaleStart: _onScaleStart,
@@ -216,35 +190,11 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
   // ── Camera Preview ────────────────────────────────────────────────────────
 
   Widget _buildCameraPreview() {
-    if (_videoViewController != null) {
-      return Positioned.fill(
-        child: RepaintBoundary(
-          key: const ValueKey('live_camera_surface'),
-          child: AgoraVideoView(controller: _videoViewController!),
-        ),
-      );
-    }
-
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 48,
-              height: 48,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.pitchGreenLight,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Starting camera...',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-          ],
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black,
+        child: const Center(
+          child: Icon(Icons.videocam, color: Colors.white12, size: 80),
         ),
       ),
     );
@@ -278,7 +228,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
             ),
             const SizedBox(height: 8),
             const Text(
-              'Initializing Agora & joining channel',
+              'Connecting to stream...',
               style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],
@@ -291,7 +241,6 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
 
   Widget _buildTopOverlay(BuildContext context, ActiveStreamState state) {
     final topPad = MediaQuery.of(context).padding.top;
-    final stats = ref.watch(liveStreamStatsProvider);
 
     return Positioned(
       top: topPad + 8,
@@ -324,11 +273,6 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
 
           // Viewer count
           if (state.isLive) _buildViewerCount(state),
-
-          const SizedBox(width: 8),
-
-          // Network quality indicator
-          _buildNetworkQuality(stats.networkQuality),
         ],
       ),
     );
@@ -416,33 +360,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
     );
   }
 
-  Widget _buildNetworkQuality(int quality) {
-    // quality: 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
-    final color = quality <= 2
-        ? AppColors.pitchGreenLight
-        : quality <= 3
-            ? AppColors.floodlightGold
-            : AppColors.liveRed;
-    final label = quality == 0
-        ? '●●●'
-        : quality <= 2
-            ? '●●●'
-            : quality <= 3
-                ? '●●○'
-                : '●○○';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 10, letterSpacing: 1),
-      ),
-    );
-  }
 
   // ── Bottom Controls ─────────────────────────────────────────────────────
 
@@ -486,9 +404,8 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen>
                 label: _currentZoom > 1.05 ? 'Reset' : 'Zoom',
                 onTap: () {
                   if (_currentZoom > 1.05) {
-                    ref.read(agoraServiceProvider).setZoom(1.0).then((z) {
-                      if (mounted) setState(() => _currentZoom = z);
-                    });
+                    if (mounted) setState(() => _currentZoom = 1.0);
+                    _baseZoom = 1.0;
                   }
                 },
               ),

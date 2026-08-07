@@ -12,6 +12,7 @@ import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class ScorerMatchesScreen extends ConsumerStatefulWidget {
@@ -37,15 +38,22 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
 
   Future<void> _load() async {
     final repo = ref.read(scorerRepositoryProvider);
-    final matches = await repo.getMatches();
+    final user = ref.read(currentUserProvider);
+    final uid = user?.id;
+
+    final allMatches = await repo.getMatches();
     final tournaments = await repo.getTournaments();
     final teams = await repo.getAllTeams();
     if (!mounted) return;
     setState(() {
-      // Completed matches are final results — keep the scorer portion focused
-      // on matches that still need scoring.
-      _matches = matches
-          .where((m) => m.status != MatchStatus.completed)
+      // Scorer side: only the current user's matches (no empty-createdBy
+      // fallback so other users' data never leaks in). Completed matches are
+      // final results — keep the scorer portion focused on matches that still
+      // need scoring.
+      _matches = allMatches
+          .where((m) =>
+              m.status != MatchStatus.completed &&
+              (uid == null || uid.isEmpty || m.createdBy == uid))
           .toList();
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};

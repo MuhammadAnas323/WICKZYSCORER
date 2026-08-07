@@ -54,10 +54,4 @@ class AppConstants {
   static const String statusUpcoming = 'upcoming';
   static const String statusCompleted = 'completed';
 
-  // Agora
-  static const String agoraAppId = '12982bdfadab4b378b96d4a6cb0bf604';
-  static const String agoraAppCertificate = ''; // stored server-side only
-  static const String agoraTempToken =
-      '007eJxTYEg7vFvr6Tle63WiYv7V86v3T7/N+v+A5BUun1/zmHfJR5YrMBgaWVoYJaWkJaYkJpkkGZtbJFmapZgkmiUnGSSlmRmYXM/JyGoIZGTwMrJmZmSAQBCfkyE4wD8oJNIxIICBAQDg8CAe';
-  static const String agoraTempChannelName = 'SPORTYAPP';
 }

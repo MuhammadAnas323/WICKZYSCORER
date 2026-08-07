@@ -14,6 +14,7 @@ import 'package:sportyapp/data/repositories/fixture_repository.dart';
 import 'package:sportyapp/data/repositories/notification_repository.dart';
 import 'package:sportyapp/data/services/realtime_database_service.dart';
 import 'package:sportyapp/data/services/firestore_scorer_service.dart';
+import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
@@ -45,6 +46,15 @@ final scorerDataVersionProvider = StreamProvider<int>((ref) {
     controller.close();
   });
   return controller.stream;
+});
+
+/// Streams a single scorer match document from Firestore, giving spectators a
+/// live, ball-by-ball view (player runs, balls, wickets) while a match is being
+/// scored. Falls back to whatever the cached list holds until the first
+/// snapshot arrives.
+final scorerMatchDocStreamProvider =
+    StreamProvider.family<ScorerMatch?, String>((ref, matchId) {
+  return ref.watch(scorerRepositoryProvider).watchMatch(matchId);
 });
 
 final matchRepositoryProvider = Provider<MatchRepository>((ref) {

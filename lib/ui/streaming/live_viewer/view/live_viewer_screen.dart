@@ -1,18 +1,13 @@
 // lib/ui/streaming/live_viewer/view/live_viewer_screen.dart
 //
 // Full-screen live viewer screen.
-// Shows the broadcaster's camera feed via AgoraVideoView (remote video).
-// FIX: Uses VideoSourceType.videoSourceRemote explicitly so the remote video
-// renders correctly instead of showing a black screen.
+// Shows a placeholder video area (Agora removed).
 
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/data/models/stream_model.dart';
-import 'package:sportyapp/data/providers/agora_providers.dart';
-import 'package:sportyapp/data/services/agora_service.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/ui/streaming/live_viewer/viewmodel/live_viewer_viewmodel.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
@@ -28,9 +23,7 @@ class LiveViewerScreen extends ConsumerStatefulWidget {
 class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
     with SingleTickerProviderStateMixin {
   final _commentCtrl = TextEditingController();
-  bool _statsAttached = false;
   bool _showChat = false;
-  VideoViewController? _remoteViewController;
   late AnimationController _liveIndicatorController;
   late Animation<double> _liveIndicatorAnimation;
 
@@ -38,7 +31,6 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
   void initState() {
     super.initState();
 
-    // Pulsing LIVE badge animation
     _liveIndicatorController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -48,111 +40,15 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
           parent: _liveIndicatorController, curve: Curves.easeInOut),
     );
 
-    // Full-screen immersive for better experience
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
-    _remoteViewController?.dispose();
     _commentCtrl.dispose();
     _liveIndicatorController.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
-  }
-
-  // ── Remote video view ─────────────────────────────────────────────────────
-
-  Widget _buildVideoView(LiveViewerState state) {
-    final agora = ref.read(agoraServiceProvider);
-
-    if (!_statsAttached) {
-      _statsAttached = true;
-      agora.attachStats(ref.read(liveStreamStatsProvider.notifier));
-    }
-
-    // Show the remote camera feed when broadcaster is present
-    if (state.hasJoinedAgora &&
-        state.remoteUids.isNotEmpty &&
-        state.stream?.channelName != null) {
-      final stream = state.stream!;
-
-      final sourceType = stream.videoSourceType == VideoSourceTypeEnum.screen
-          ? VideoSourceType.videoSourceScreenPrimary
-          : VideoSourceType.videoSourceRemote;
-
-      _remoteViewController ??= agora.remoteViewController(
-        state.remoteUids.first,
-        stream.channelName!,
-        sourceType: sourceType,
-      );
-
-      return Positioned.fill(
-        child: AgoraVideoView(controller: _remoteViewController!),
-      );
-    }
-
-    // Show loading / waiting state
-    return _buildWaitingView(state);
-  }
-
-  Widget _buildWaitingView(LiveViewerState state) {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (state.hasJoinedAgora) ...[
-              // Joined but no remote video yet — broadcaster is still connecting
-              SizedBox(
-                width: 56,
-                height: 56,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.pitchGreenLight,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Connecting to broadcaster...',
-                style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'The stream will begin shortly',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-            ] else if (state.isReconnecting) ...[
-              const Icon(Icons.wifi_off_rounded,
-                  color: Colors.white38, size: 48),
-              const SizedBox(height: 12),
-              const Text(
-                'Reconnecting...',
-                style: TextStyle(color: Colors.white54, fontSize: 15),
-              ),
-            ] else ...[
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.pitchGreenLight,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Joining live stream...',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -191,26 +87,25 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Full-screen video ──────────────────────────────────────────
-          _buildVideoView(state),
+          // ── Video placeholder ──────────────────────────────────────────
+          Container(
+            color: Colors.black,
+            child: const Center(
+              child: Icon(Icons.live_tv, color: Colors.white12, size: 100),
+            ),
+          ),
 
           // ── Top overlay ────────────────────────────────────────────────
-          _buildTopOverlay(context, stream, state),
+          _buildTopOverlay(context, stream),
 
-          // ── Bottom chat / controls overlay ────────────────────────────
+          // ── Bottom overlay ─────────────────────────────────────────────
           _buildBottomOverlay(context, stream, state),
-
-          // ── Reconnecting banner ────────────────────────────────────────
-          if (state.isReconnecting) _buildReconnectingBanner(),
         ],
       ),
     );
   }
 
-  // ── Top overlay ───────────────────────────────────────────────────────────
-
-  Widget _buildTopOverlay(
-      BuildContext context, StreamModel stream, LiveViewerState state) {
+  Widget _buildTopOverlay(BuildContext context, StreamModel stream) {
     final topPad = MediaQuery.of(context).padding.top;
     return Positioned(
       top: topPad + 8,
@@ -218,23 +113,20 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
       right: 12,
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.black54,
                 shape: BoxShape.circle,
               ),
-              child:
-                  const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
           const SizedBox(width: 10),
-
-          // Broadcaster avatar + name
           CircleAvatar(
             radius: 18,
             backgroundImage: NetworkImage(stream.broadcasterAvatar),
@@ -262,12 +154,8 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
             ),
           ),
           const SizedBox(width: 8),
-
-          // LIVE badge
           _buildLiveBadge(),
           const SizedBox(width: 8),
-
-          // Viewer count
           _buildViewerBadge(stream.viewerCount),
         ],
       ),
@@ -291,8 +179,7 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
           ),
           const SizedBox(width: 4),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
               color: AppColors.liveRed,
               borderRadius: BorderRadius.circular(4),
@@ -335,8 +222,6 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
     );
   }
 
-  // ── Bottom overlay ────────────────────────────────────────────────────────
-
   Widget _buildBottomOverlay(
       BuildContext context, StreamModel stream, LiveViewerState state) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
@@ -355,20 +240,16 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Comments feed
             if (_showChat) _buildCommentsFeed(state),
-
-            // Input row
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 children: [
-                  // Toggle chat
                   GestureDetector(
                     onTap: () => setState(() => _showChat = !_showChat),
                     child: Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.white12,
                         shape: BoxShape.circle,
                       ),
@@ -382,8 +263,6 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Comment input
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -392,7 +271,8 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
                       ),
                       child: TextField(
                         controller: _commentCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 14),
                         decoration: const InputDecoration(
                           hintText: 'Say something...',
                           hintStyle:
@@ -412,8 +292,6 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Send button
                   GestureDetector(
                     onTap: () {
                       ref
@@ -424,8 +302,8 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
                           colors: [Color(0xFF2ECC71), Color(0xFF1A7A3E)],
                         ),
                         shape: BoxShape.circle,
@@ -494,41 +372,6 @@ class _LiveViewerScreenState extends ConsumerState<LiveViewerScreen>
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-
-  // ── Reconnecting banner ───────────────────────────────────────────────────
-
-  Widget _buildReconnectingBanner() {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        color: AppColors.warning.withOpacity(0.9),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(width: 8),
-            Text(
-              'Reconnecting to stream...',
-              style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13),
-            ),
-          ],
         ),
       ),
     );

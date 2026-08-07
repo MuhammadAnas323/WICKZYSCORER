@@ -112,17 +112,17 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
     final allMatches = await repo.getMatches();
     final allTeams = await repo.getAllTeams();
 
+    // Scorer side: only show tournaments/matches created by the current user.
+    // No fallback to empty createdBy — other users' data must never leak here.
     final myTournaments = uid == null || uid.isEmpty
         ? allTournaments
         : allTournaments
-            .where((t) => t.createdBy == uid || t.ownerId == uid || t.createdBy.isEmpty)
+            .where((t) => t.createdBy == uid || t.ownerId == uid)
             .toList();
 
     final myMatches = uid == null || uid.isEmpty
         ? allMatches
-        : allMatches
-            .where((m) => m.createdBy == uid || m.createdBy.isEmpty)
-            .toList();
+        : allMatches.where((m) => m.createdBy == uid).toList();
 
     state = state.copyWith(
       isLoading: false,

@@ -86,10 +86,15 @@ class AppLocalizations {
       'start_second_innings': 'Start 2nd Innings',
       'match_tied': 'Match Tied!',
       'super_over_question': 'The match ended in a tie. Would you like to play a Super Over to decide the winner?',
+      'start_super_over': 'Start Super Over',
       'no': 'No',
       'yes': 'Yes',
       'super_over_setup': 'Super Over Setup',
       'who_bats_first': 'Who bats first in the Super Over?',
+      'super_over_description':
+          'Each team bats one over of 6 balls. The team with the higher score '
+          'after both overs wins the match. Choose the batting team, then tap '
+          'Strike / Non-S for the two batters and pick a bowler.',
       'start_match': 'Start Match',
       'super_over_banner': 'Super Over',
       'complete_match': 'Complete Match',
@@ -343,10 +348,15 @@ class AppLocalizations {
       'start_second_innings': 'دوسری اننگز شروع کریں',
       'match_tied': 'میچ برابر ہو گیا!',
       'super_over_question': 'میچ برابر رہا۔ کیا آپ سپر اوور کھیل کر فاتح کا فیصلہ کرنا چاہیں گے؟',
+      'start_super_over': 'سپر اوور شروع کریں',
       'no': 'نہیں',
       'yes': 'ہاں',
       'super_over_setup': 'سپر اوور سیٹ اپ',
       'who_bats_first': 'سپر اوور میں پہلے کون بیٹنگ کرے گا؟',
+      'super_over_description':
+          'ہر ٹیم 6 گیندوں کا ایک اوور کھیلتی ہے۔ دونوں اوور کے بعد جس ٹیم کے '
+          'زیادہ رنز ہوں گے وہ میچ جیت جائے گی۔ بیٹنگ ٹیم منتخب کریں، پھر دو '
+          'کھلاڑیوں کو سٹرائیک/نان سٹرائیک کے طور پر منتخب کریں اور ایک بولر چنیں۔',
       'start_match': 'میچ شروع کریں',
       'super_over_banner': 'سپر اوور',
       'complete_match': 'میچ مکمل کریں',

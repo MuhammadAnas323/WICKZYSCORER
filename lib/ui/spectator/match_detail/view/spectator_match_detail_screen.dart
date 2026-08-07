@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
-import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
@@ -30,9 +30,15 @@ class _SpectatorMatchDetailScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(spectatorHomeViewModelProvider);
+    // Live Firestore match document: reflects the scorer's ball-by-ball
+    // updates (runs, balls, wickets) in real time while the match is live.
+    // Until the first snapshot arrives it falls back to the cached list.
+    final liveMatch =
+        ref.watch(scorerMatchDocStreamProvider(widget.matchId)).valueOrNull;
     final cs = Theme.of(context).colorScheme;
 
     final match =
+        liveMatch ??
         state.matches.where((m) => m.id == widget.matchId).firstOrNull;
 
     if (state.isLoading) {
@@ -73,28 +79,28 @@ class _SpectatorMatchDetailScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _heroCard(state, match, isLive, liveData),
+            _heroCard(state, match, isLive),
             const Gap(16),
             _infoCard(context, match, state, tournament?.name),
             const Gap(16),
             if (match.status == MatchStatus.completed)
               _awardsCard(context, state, match),
             const Gap(16),
+            // Team filter — applies to both the scorecard and the squads below.
+            _teamFilterChips(context, state, match),
+            const Gap(12),
             if (match.innings1 != null ||
                 match.innings2 != null ||
                 match.superOverInnings1 != null) ...[
               Text('Full Scorecard',
                   style: AppTextStyles.titleLarge(cs.onSurface)),
               const Gap(8),
-              _teamFilterChips(context, state, match),
-              const Gap(12),
               ..._filteredInnings(context, state, match),
+              const Gap(16),
             ],
             Text('Squads', style: AppTextStyles.titleLarge(cs.onSurface)),
             const Gap(8),
-            _squadCard(context, state, match, match.team1Id),
-            const Gap(12),
-            _squadCard(context, state, match, match.team2Id),
+            _squadCard(context, state, match, _selectedTeamId ?? match.team1Id),
             const Gap(16),
             if (match.status == MatchStatus.completed &&
                 match.resultSummary != null)
@@ -298,8 +304,7 @@ class _SpectatorMatchDetailScreenState
 
   // ── Hero scoreboard ────────────────────────────────────────────────────
 
-  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive,
-      LiveMatchData? liveData) {
+  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -326,14 +331,8 @@ class _SpectatorMatchDetailScreenState
                 child: _heroTeam(
                   short: st.teamShort(match.team1Id),
                   name: st.teamName(match.team1Id),
-                  score: liveData != null
-                      ? '${liveData.score.runs}/${liveData.score.wickets} (${liveData.score.oversLabel})'
-                      : _scoreLine(match.innings1),
-                  sub: isLive && liveData != null
-                      ? 'RR ${liveData.currentRunRate.toStringAsFixed(2)}'
-                      : (isLive && match.battingTeamId == match.team1Id
-                          ? 'RR ${_runRateLabel(match.innings1)}'
-                          : null),
+                  score: _heroScore(match, match.team1Id),
+                  sub: _heroSub(match, match.team1Id),
                   isBatting: isLive && match.battingTeamId == match.team1Id,
                   isRight: false,
                 ),
@@ -343,14 +342,8 @@ class _SpectatorMatchDetailScreenState
                 child: _heroTeam(
                   short: st.teamShort(match.team2Id),
                   name: st.teamName(match.team2Id),
-                  score: liveData != null
-                      ? '${liveData.score.runs}/${liveData.score.wickets} (${liveData.score.oversLabel})'
-                      : _scoreLine(match.innings2),
-                  sub: isLive && liveData != null
-                      ? 'RR ${liveData.currentRunRate.toStringAsFixed(2)}'
-                      : (isLive && match.battingTeamId == match.team2Id
-                          ? 'RR ${_runRateLabel(match.innings2)}'
-                          : null),
+                  score: _heroScore(match, match.team2Id),
+                  sub: _heroSub(match, match.team2Id),
                   isBatting: isLive && match.battingTeamId == match.team2Id,
                   isRight: true,
                 ),
@@ -454,9 +447,32 @@ class _SpectatorMatchDetailScreenState
     }
   }
 
-  String _scoreLine(Innings? inn) {
-    if (inn == null) return '—';
-    return '${inn.totalRuns}/${inn.wickets} (${inn.overs.toStringAsFixed(1)} ov)';
+  /// Best available score line for [teamId]: the innings (main or super over)
+  /// where that team batted, read from the freshest live match document.
+  String _heroScore(ScorerMatch match, String teamId) {
+    for (final inn in [
+      match.innings1,
+      match.innings2,
+      match.superOverInnings1,
+      match.superOverInnings2,
+    ]) {
+      if (inn != null && inn.battingTeamId == teamId) {
+        return '${inn.totalRuns}/${inn.wickets} (${inn.overs.toStringAsFixed(1)})';
+      }
+    }
+    return '—';
+  }
+
+  /// Current run rate while [teamId] is batting (live matches only).
+  String? _heroSub(ScorerMatch match, String teamId) {
+    if (match.status != MatchStatus.inProgress &&
+        match.status != MatchStatus.live) {
+      return null;
+    }
+    if (match.battingTeamId != teamId) return null;
+    final inn = match.currentInningsData;
+    if (inn == null || inn.legalBallsDelivered == 0) return null;
+    return 'RR ${(inn.totalRuns * 6 / inn.legalBallsDelivered).toStringAsFixed(2)}';
   }
 
   String _runRateLabel(Innings? inn) {

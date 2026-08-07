@@ -219,13 +219,28 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
       final liveMatchData = raw.map(
           (matchId, data) => MapEntry(matchId, LiveMatchData.fromJson(data)));
       state = state.copyWith(liveMatchData: liveMatchData);
+
+      // A brand-new match went live (created by another user after our last
+      // Firestore sync) — pull its document so it appears for every spectator.
+      // This only fires when an unknown match id shows up, so constant score
+      // updates during a match never trigger a reload.
+      final known = state.matches.map((m) => m.id).toSet();
+      if (raw.keys.any((id) => !known.contains(id))) {
+        load(showLoading: false);
+      }
     });
   }
 
-  Future<void> load() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> load({bool showLoading = true}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true, error: null);
+    }
     try {
       final repo = ref.read(scorerRepositoryProvider);
+      // Pull the freshest data from Firestore so matches/tournaments created
+      // or edited by other users (new players, live sessions, results) show up
+      // for every spectator. No currentUserId filtering — spectators see all.
+      await repo.refreshFromCloud();
       final tournaments = await repo.getTournaments();
       final teams = await repo.getAllTeams();
       final players = await repo.getAllPlayers();

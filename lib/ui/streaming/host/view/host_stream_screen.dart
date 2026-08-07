@@ -1,9 +1,6 @@
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sportyapp/data/providers/live_providers.dart';
-import 'package:sportyapp/data/services/agora_rtc_service.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/streaming/host/viewmodel/host_stream_viewmodel.dart';
@@ -23,18 +20,14 @@ class HostStreamScreen extends ConsumerStatefulWidget {
 }
 
 class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
-  bool _useFrontCamera = true;
-  bool _isMuted = false;
-
   @override
   void initState() {
     super.initState();
-    // Kick off the stream connection.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(hostStreamViewModelProvider.notifier).startStream(
             channelId: widget.channelId,
             title: widget.title,
-            useFrontCamera: _useFrontCamera,
+            useFrontCamera: true,
           );
     });
   }
@@ -42,7 +35,6 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(hostStreamViewModelProvider);
-    final agora = ref.read(agoraRtcServiceProvider);
 
     // ── Connecting overlay ──────────────────────────────────────────────
     if (state.isConnecting) {
@@ -52,12 +44,10 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(
-                color: AppColors.pitchGreenLight,
-              ),
+              const CircularProgressIndicator(color: AppColors.pitchGreenLight),
               const SizedBox(height: 24),
               Text(
-                'Connecting your stream...',
+                'Starting stream...',
                 style: AppTextStyles.bodyMedium(Colors.white70),
               ),
               const SizedBox(height: 8),
@@ -109,22 +99,23 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
     return PopScope(
       canPop: !state.isLive,
       onPopInvokedWithResult: (didPop, _) {
-        if (state.isLive && !didPop) {
-          _showEndStreamDialog();
-        }
+        if (state.isLive && !didPop) _showEndStreamDialog();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // Local camera preview.
+            // Camera preview placeholder
             if (state.isLive)
-              AgoraVideoView(
-                controller: agora.localViewController(),
+              Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Icon(Icons.videocam, color: Colors.white24, size: 80),
+                ),
               ),
 
-            // Top overlay: back button, LIVE badge, duration, title.
+            // Top overlay
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 12,
@@ -143,7 +134,6 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
-                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
                   const Spacer(),
@@ -156,7 +146,7 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
               ),
             ),
 
-            // Bottom controls.
+            // Bottom controls
             Positioned(
               bottom: MediaQuery.of(context).padding.bottom + 24,
               left: 0,
@@ -164,23 +154,6 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _ControlButton(
-                    icon: _isMuted ? Icons.mic_off : Icons.mic,
-                    onTap: () async {
-                      // Toggle mute via Agora service.
-                      _isMuted = !_isMuted;
-                      setState(() {});
-                    },
-                  ),
-                  const SizedBox(width: 24),
-                  _ControlButton(
-                    icon: Icons.switch_camera,
-                    onTap: () async {
-                      _useFrontCamera = !_useFrontCamera;
-                      // Switch camera via Agora.
-                    },
-                  ),
-                  const SizedBox(width: 24),
                   _ControlButton(
                     icon: Icons.stop_rounded,
                     color: AppColors.liveRed,
@@ -230,8 +203,6 @@ class _HostStreamScreenState extends ConsumerState<HostStreamScreen> {
     return '${s}s';
   }
 }
-
-// ── Small widgets ─────────────────────────────────────────────────────────
 
 class _LiveBadge extends StatelessWidget {
   @override
