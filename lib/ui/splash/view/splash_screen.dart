@@ -27,10 +27,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
     
-    // The master timeline is exactly 3.0 seconds as specified.
+    // The master timeline is exactly 5.0 seconds: the logo spins fast and
+    // decelerates to a stop at ~5s, then the ViewModel navigates away.
     _masterController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 5),
     );
 
     // Start the timeline

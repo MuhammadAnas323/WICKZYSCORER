@@ -28,7 +28,6 @@ final realtimeDatabaseProvider = Provider<RealtimeDatabaseService>((ref) {
 final firestoreScorerServiceProvider = Provider<FirestoreScorerService>((ref) {
   return FirestoreScorerService(
     ref.watch(firestoreProvider),
-    ref.watch(realtimeDatabaseProvider),
   );
 });
 

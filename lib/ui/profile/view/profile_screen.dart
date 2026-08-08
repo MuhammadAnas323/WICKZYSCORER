@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/profile/viewmodel/profile_viewmodel.dart';
@@ -27,10 +28,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final displayName = fbUser?.displayName ?? (state.displayName.isNotEmpty ? state.displayName : (appUser?.name ?? 'User'));
     final email = fbUser?.email ?? (appUser?.email.isNotEmpty == true ? appUser!.email : 'user@crixora.com');
     final isScorer = appUser?.role == AppUserRole.scorer;
-    final switchTarget = isScorer ? 'Spectator' : 'Scorer';
+    final l10n = AppLocalizations.of(context);
+    final switchTarget = isScorer ? l10n.translate('spectator') : l10n.translate('scorer');
     final switchSubtitle = isScorer
-        ? 'Switch to watching matches'
-        : 'Switch to scoring matches';
+        ? l10n.translate('switch_to_spectator_subtitle')
+        : l10n.translate('switch_to_scorer_subtitle');
 
     return Scaffold(
       backgroundColor: cs.background,
@@ -97,12 +99,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Mode Switch Tile ─────────────────────────────────────
-                  Text('Mode', style: AppTextStyles.titleLarge(cs.onBackground)),
+                  Text(l10n.translate('mode'), style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 8),
                   _actionTile(
                     context,
                     Icons.swap_horiz_rounded,
-                    'Switch to $switchTarget',
+                    '${l10n.translate('switch_to')} $switchTarget',
                     switchSubtitle,
                     AppColors.pitchGreen,
                     () async {
@@ -130,11 +132,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 24),
 
                   // ── Main Settings & Info Section ─────────────────────────
-                  Text('Settings & Info', style: AppTextStyles.titleLarge(cs.onBackground)),
+                  Text(l10n.translate('settings_and_info'), style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 12),
-                  _navTile(context, Icons.settings_rounded, 'Settings', '/settings'),
-                  _navTile(context, Icons.info_rounded, 'About CRIXORA', '/about'),
-                  _navTile(context, Icons.support_agent_rounded, 'Contact Support', '/support'),
+                  _navTile(context, Icons.settings_rounded, l10n.translate('settings'), '/settings'),
+                  _navTile(context, Icons.info_rounded, l10n.translate('about_crixora'), '/about'),
+                  _navTile(context, Icons.support_agent_rounded, l10n.translate('contact_support'), '/support'),
                   const SizedBox(height: 16),
 
                   // ── Sign Out Button ─────────────────────────────────────
@@ -146,12 +148,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         builder: (ctx) => AlertDialog(
                           backgroundColor: isDark ? const Color(0xFF222222) : Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                          title: Text('Sign Out', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold)),
-                          content: Text('Are you sure you want to sign out?', style: TextStyle(color: cs.onSurfaceVariant)),
+                          title: Text(l10n.translate('sign_out'), style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold)),
+                          content: Text(l10n.translate('sign_out_confirm'), style: TextStyle(color: cs.onSurfaceVariant)),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                              child: Text(l10n.translate('cancel'), style: const TextStyle(color: Colors.grey)),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
@@ -160,7 +162,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                               ),
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Sign Out'),
+                              child: Text(l10n.translate('sign_out')),
                             ),
                           ],
                         ),
@@ -189,12 +191,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: const Icon(Icons.logout_rounded, color: Colors.red, size: 20),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-                                Text('Log out and return to sign in', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                Text(l10n.translate('sign_out'), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                                Text(l10n.translate('sign_out_subtitle'), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                               ],
                             ),
                           ),

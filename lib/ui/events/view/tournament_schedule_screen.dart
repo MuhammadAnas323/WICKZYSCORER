@@ -14,6 +14,7 @@ import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class TournamentScheduleScreen extends ConsumerWidget {
   final String tournamentId;
@@ -21,6 +22,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(spectatorHomeViewModelProvider);
     final cs = Theme.of(context).colorScheme;
     final tournament = state.tournamentById(tournamentId);
@@ -34,7 +36,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
     if (tournament == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: Text('Tournament not found')),
+        body: Center(child: Text(l10n.translate('tournament_not_found'))),
       );
     }
 
@@ -66,7 +68,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Match Schedule',
+              l10n.translate('match_schedule'),
               style: AppTextStyles.titleMedium(cs.onSurface)
                   .copyWith(fontWeight: FontWeight.bold),
             ),
@@ -82,17 +84,17 @@ class TournamentScheduleScreen extends ConsumerWidget {
         onRefresh: () =>
             ref.read(spectatorHomeViewModelProvider.notifier).refresh(),
         child: !hasContent
-            ? _empty(cs)
+            ? _empty(cs, l10n)
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   for (final stage in scheduleStages)
-                    _buildStageSection(stage, state, cs),
+                    _buildStageSection(stage, state, cs, l10n),
                   if (standalone.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       child: Text(
-                        'Other Upcoming',
+                        l10n.translate('other_upcoming'),
                         style: AppTextStyles.titleSmall(cs.onSurface)
                             .copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -111,7 +113,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
     );
   }
 
-  Widget _empty(ColorScheme cs) {
+  Widget _empty(ColorScheme cs, AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -120,7 +122,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
               size: 64, color: AppColors.charcoal400),
           const Gap(16),
           Text(
-            'No schedule yet',
+            l10n.translate('no_schedule_yet'),
             style: AppTextStyles.titleMedium(cs.onSurface)
                 .copyWith(fontWeight: FontWeight.bold),
           ),
@@ -128,7 +130,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'The organizer has not built a match schedule for this tournament.',
+              l10n.translate('organizer_no_schedule'),
               textAlign: TextAlign.center,
               style: AppTextStyles.bodySmall(cs.onSurfaceVariant),
             ),
@@ -139,7 +141,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
   }
 
   Widget _buildStageSection(
-      ScheduleStage stage, SpectatorHomeState state, ColorScheme cs) {
+      ScheduleStage stage, SpectatorHomeState state, ColorScheme cs, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -162,7 +164,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
                     .copyWith(fontWeight: FontWeight.w700),
               ),
             ),
-            Text('${stage.fixtures.length} Matches',
+            Text('${stage.fixtures.length} ${l10n.translate('matches')}',
                 style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
           ],
         ),
@@ -186,19 +188,19 @@ class _ScheduleFixtureCard extends StatelessWidget {
     required this.cs,
   });
 
-  String _teamLabel(String? id) =>
-      id == null ? 'Awaiting Result' : state.teamName(id);
+  String _teamLabel(String? id, AppLocalizations l10n) =>
+      id == null ? l10n.translate('awaiting_result') : state.teamName(id);
 
-  String _statusText() {
+  String _statusText(AppLocalizations l10n) {
     switch (fixture.status) {
       case FixtureStatus.pending:
-        return 'AWAITING';
+        return l10n.translate('awaiting');
       case FixtureStatus.ready:
-        return 'UPCOMING';
+        return l10n.translate('upcoming');
       case FixtureStatus.live:
-        return 'LIVE';
+        return l10n.translate('live');
       case FixtureStatus.completed:
-        return 'COMPLETED';
+        return l10n.translate('completed');
     }
   }
 
@@ -217,6 +219,7 @@ class _ScheduleFixtureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final local = fixture.scheduledDateTime?.toLocal();
     final linked = fixture.linkedMatchId;
     String? result;
@@ -254,7 +257,7 @@ class _ScheduleFixtureCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'Match #${fixture.order}',
+                    '${l10n.translate('match_number')} #${fixture.order}',
                     style: AppTextStyles.labelSmall(AppColors.floodlightGold),
                   ),
                 ),
@@ -267,7 +270,7 @@ class _ScheduleFixtureCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
-                    _statusText(),
+                    _statusText(l10n),
                     style: AppTextStyles.labelSmall(_statusColor()),
                   ),
                 ),
@@ -278,8 +281,8 @@ class _ScheduleFixtureCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${_teamLabel(fixture.resolvedTeamAId)} vs '
-                    '${_teamLabel(fixture.resolvedTeamBId)}',
+                    '${_teamLabel(fixture.resolvedTeamAId, l10n)} vs '
+                    '${_teamLabel(fixture.resolvedTeamBId, l10n)}',
                     style: AppTextStyles.titleSmall(cs.onSurface)
                         .copyWith(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
@@ -362,14 +365,15 @@ class _ScheduleMatchCard extends StatelessWidget {
     required this.cs,
   });
 
-  String _statusText() {
-    if (match.status == MatchStatus.upcoming) return 'UPCOMING';
-    if (match.status == MatchStatus.scheduled) return 'SCHEDULED';
+  String _statusText(AppLocalizations l10n) {
+    if (match.status == MatchStatus.upcoming) return l10n.translate('upcoming');
+    if (match.status == MatchStatus.scheduled) return l10n.translate('scheduled');
     return match.status.name.toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final local = match.dateTime.toLocal();
     return GestureDetector(
       onTap: () => context.push('/spectator/match/${match.id}'),
@@ -394,7 +398,7 @@ class _ScheduleMatchCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'Match #$matchNumber',
+                    '${l10n.translate('match_number')} #$matchNumber',
                     style: AppTextStyles.labelSmall(AppColors.floodlightGold),
                   ),
                 ),
@@ -407,7 +411,7 @@ class _ScheduleMatchCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
-                    _statusText(),
+                    _statusText(l10n),
                     style: AppTextStyles.labelSmall(AppColors.pitchGreenLight),
                   ),
                 ),

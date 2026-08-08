@@ -258,3 +258,10 @@ final currentUserProvider = StateNotifierProvider<CurrentUserNotifier, AppUser?>
     ref.read(authReadyProvider.notifier),
   ),
 );
+
+/// The signed-in user's id (null when signed out). Kept as a separate, cheap
+/// provider so long-lived services (e.g. the match alert listener) can watch
+/// just the uid without depending on the whole [currentUserProvider] notifier.
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(currentUserProvider)?.id,
+);

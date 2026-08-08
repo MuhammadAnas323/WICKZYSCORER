@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
@@ -9,6 +9,10 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 
 /// International-broadcast style match card for scorer-created matches.
 /// Shows team short codes, innings scores, format, venue and live/result status.
+///
+/// While a match is live, an optional [live] payload (streamed from the
+/// Realtime Database) overrides the innings scores so the card always shows the
+/// latest ball, never a stale Firestore snapshot.
 class SpectatorMatchCard extends StatelessWidget {
   final ScorerMatch match;
   final String Function(String teamId) teamName;
@@ -16,6 +20,7 @@ class SpectatorMatchCard extends StatelessWidget {
   final String Function(String tournamentId) tournamentName;
   final VoidCallback onTap;
   final bool compact;
+  final LiveMatchData? live;
 
   const SpectatorMatchCard({
     super.key,
@@ -25,6 +30,7 @@ class SpectatorMatchCard extends StatelessWidget {
     required this.tournamentName,
     required this.onTap,
     this.compact = false,
+    this.live,
   });
 
   bool get isLive =>
@@ -48,6 +54,13 @@ class SpectatorMatchCard extends StatelessWidget {
     return '${inn.totalRuns}/${inn.wickets} (${inn.overs.toStringAsFixed(1)})';
   }
 
+  /// The RTDB score line for [teamId] while that team is batting live.
+  String? _liveScoreLine(String teamId) {
+    final l = live;
+    if (l == null || l.battingTeamId != teamId) return null;
+    return '${l.score.runs}/${l.score.wickets} (${l.score.overs}.${l.score.balls})';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -55,6 +68,8 @@ class SpectatorMatchCard extends StatelessWidget {
 
     final hero1 = isLive && match.battingTeamId == match.team1Id;
     final hero2 = isLive && match.battingTeamId == match.team2Id;
+    final liveScore1 = _liveScoreLine(match.team1Id);
+    final liveScore2 = _liveScoreLine(match.team2Id);
 
     return GestureDetector(
       onTap: onTap,
@@ -133,7 +148,7 @@ class SpectatorMatchCard extends StatelessWidget {
                     child: _TeamColumn(
                       name: teamName(match.team1Id),
                       short: teamShort(match.team1Id),
-                      score: _scoreLine(match.innings1),
+                      score: liveScore1 ?? _scoreLine(match.innings1),
                       isBatting: hero1,
                       isRight: false,
                     ),
@@ -149,7 +164,7 @@ class SpectatorMatchCard extends StatelessWidget {
                     child: _TeamColumn(
                       name: teamName(match.team2Id),
                       short: teamShort(match.team2Id),
-                      score: _scoreLine(match.innings2),
+                      score: liveScore2 ?? _scoreLine(match.innings2),
                       isBatting: hero2,
                       isRight: true,
                     ),
@@ -180,6 +195,10 @@ class SpectatorMatchCard extends StatelessWidget {
 
   String _footerText() {
     if (isLive) {
+      final l = live;
+      if (l != null && l.battingTeamId.isNotEmpty) {
+        return '${teamShort(l.battingTeamId)} batting • ${match.venue}';
+      }
       final inn = match.currentInningsData;
       if (inn != null) {
         return '${teamShort(inn.battingTeamId)} batting • ${match.venue}';

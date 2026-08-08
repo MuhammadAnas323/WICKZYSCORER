@@ -89,7 +89,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     return tournament?.name ??
         (tournamentId == 't_custom'
             ? l10n.translate('local_match')
-            : 'Unknown');
+            : l10n.translate('unknown'));
   }
 
   List<_TournamentGroup> get _groups {
@@ -156,8 +156,8 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     await repo.deleteMatch(match.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Match deleted'), backgroundColor: AppColors.liveRed),
+      SnackBar(
+          content: Text(l10n.translate('match_deleted')), backgroundColor: AppColors.liveRed),
     );
   }
 

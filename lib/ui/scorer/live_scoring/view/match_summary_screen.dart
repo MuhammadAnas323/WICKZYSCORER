@@ -110,7 +110,7 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     // 1. Persist the completed match. This is the critical step — if it fails,
     // stay on this screen and let the scorer retry.
     try {
-      liveRepo.endMatch(
+      final completed = liveRepo.endMatch(
         winnerTeamId: result.winnerId,
         summary: result.isTie
             ? '${data.team1Name} vs ${data.team2Name} — ${l10n.translate('match_tied')}'
@@ -131,6 +131,12 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
         customAwardsPrizes: _customAwardsPrizes,
       );
       liveRepo.setActiveMatch(null);
+      // Explicitly await the persistence (cache + Firestore) so the completed
+      // match with its full innings/ball data is saved before leaving the
+      // screen — otherwise spectators could read a stale draft with no balls.
+      if (completed != null) {
+        await ref.read(scorerRepositoryProvider).saveMatch(completed);
+      }
     } catch (e) {
       debugPrint('[MatchSummary] endMatch failed: $e');
       if (!mounted) return;

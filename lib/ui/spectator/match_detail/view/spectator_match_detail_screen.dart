@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
+import 'package:sportyapp/data/models/scorer/dismissal.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/providers/live_match_providers.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
+import 'package:sportyapp/ui/spectator/match_detail/viewmodel/match_notification_prefs_provider.dart';
 
 class SpectatorMatchDetailScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -52,17 +58,33 @@ class _SpectatorMatchDetailScreenState
       );
     }
 
-    // Keep the filter valid if teams change; default to team 1.
+    // Keep the filter valid if teams change; default to the active batting team if live, otherwise team 1.
     if (_selectedTeamId == null ||
         (_selectedTeamId != match.team1Id && _selectedTeamId != match.team2Id)) {
-      _selectedTeamId = match.team1Id;
+      _selectedTeamId = (match.status == MatchStatus.inProgress || match.status == MatchStatus.live)
+          ? (match.battingTeamId ?? match.team1Id)
+          : match.team1Id;
     }
 
-    final liveData = state.liveDataFor(match.id);
-    final isLive = liveData != null ||
-        match.status == MatchStatus.inProgress ||
+    // Live transport: RTDB carries the real-time live state (score, strikers,
+    // bowler, this over) written by the scorer on every ball. Until the first
+    // snapshot arrives, or for matches created by older scorer builds, fall
+    // back to deriving the panel from the Firestore match document. Once the
+    // match is completed the RTDB node is removed, so the panel switches to the
+    // permanent Firestore history — it can never show a stale live score.
+    final isLive = match.status == MatchStatus.inProgress ||
         match.status == MatchStatus.live;
+    final rtdbLive =
+        ref.watch(liveMatchDataProvider(widget.matchId)).valueOrNull;
+    final liveData =
+        isLive ? (rtdbLive ?? liveMatchDataFromMatch(match)) : null;
     final tournament = state.tournamentById(match.tournamentId);
+
+    // Resolve real player names from the self-contained RTDB live payload
+    // first (published with the live state), falling back to the spectator's
+    // Firestore player list. This is what lets the scorecard/squads render
+    // actual names even when this device has not synced the scorer's players.
+    final nameOf = _nameResolver(state, liveData);
 
     return Scaffold(
       backgroundColor: cs.background,
@@ -79,12 +101,19 @@ class _SpectatorMatchDetailScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _heroCard(state, match, isLive),
+            _heroCard(state, match, isLive, liveData),
             const Gap(16),
+            // ── Live players panel (Firestore match doc, real-time every ball) ──
+            if (isLive && liveData != null) ...[  
+              _livePlayersPanel(context, state, match, liveData, nameOf),
+              const Gap(16),
+            ],
             _infoCard(context, match, state, tournament?.name),
             const Gap(16),
+            _alertsCard(context),
+            const Gap(16),
             if (match.status == MatchStatus.completed)
-              _awardsCard(context, state, match),
+              _awardsCard(context, state, match, nameOf),
             const Gap(16),
             // Team filter — applies to both the scorecard and the squads below.
             _teamFilterChips(context, state, match),
@@ -95,12 +124,13 @@ class _SpectatorMatchDetailScreenState
               Text('Full Scorecard',
                   style: AppTextStyles.titleLarge(cs.onSurface)),
               const Gap(8),
-              ..._filteredInnings(context, state, match),
+              ..._filteredInnings(context, state, match, liveData, nameOf),
               const Gap(16),
             ],
             Text('Squads', style: AppTextStyles.titleLarge(cs.onSurface)),
             const Gap(8),
-            _squadCard(context, state, match, _selectedTeamId ?? match.team1Id),
+            _squadCard(
+                context, state, match, _selectedTeamId ?? match.team1Id, nameOf),
             const Gap(16),
             if (match.status == MatchStatus.completed &&
                 match.resultSummary != null)
@@ -133,27 +163,53 @@ class _SpectatorMatchDetailScreenState
     );
   }
 
-  /// Innings where the selected team batted — including any super over.
-  List<Widget> _filteredInnings(
-      BuildContext context, SpectatorHomeState st, ScorerMatch match) {
+  /// Resolves a player's real name, preferring the self-contained RTDB live
+  /// payload published by the scorer (which includes every player id → name),
+  /// and falling back to the spectator's locally-hydrated player list. This
+  /// guarantees real names on the scorecard/squads even when this device has
+  /// not synced the scorer's player records from Firestore.
+  String Function(String id) _nameResolver(
+      SpectatorHomeState st, LiveMatchData? liveData) {
+    return (String id) => resolvePlayerName(st, liveData, id);
+  }
+
+  /// Innings to display. For live matches, show ALL available innings so
+  /// the spectator always sees the current batting/bowling scorecard.
+  /// For completed matches, filter by the selected team.
+  List<Widget> _filteredInnings(BuildContext context, SpectatorHomeState st,
+      ScorerMatch match, LiveMatchData? liveData, String Function(String) nameOf) {
+    final isLive = match.status == MatchStatus.inProgress ||
+        match.status == MatchStatus.live;
     final selected = _selectedTeamId ?? match.team1Id;
-    final innings = <Innings>[
+
+    final innings = <Innings>[];
+
+    if (isLive) {
+      // Show all available innings for live matches
+      if (match.innings1 != null) innings.add(match.innings1!);
+      if (match.innings2 != null) innings.add(match.innings2!);
+      if (match.superOverInnings1 != null) innings.add(match.superOverInnings1!);
+      if (match.superOverInnings2 != null) innings.add(match.superOverInnings2!);
+    } else {
+      // Completed/upcoming: filter by selected team
       if (match.innings1 != null &&
           match.innings1!.battingTeamId == selected)
-        match.innings1!,
+        innings.add(match.innings1!);
       if (match.innings2 != null &&
           match.innings2!.battingTeamId == selected)
-        match.innings2!,
+        innings.add(match.innings2!);
       if (match.superOverInnings1 != null &&
           match.superOverInnings1!.battingTeamId == selected)
-        match.superOverInnings1!,
+        innings.add(match.superOverInnings1!);
       if (match.superOverInnings2 != null &&
           match.superOverInnings2!.battingTeamId == selected)
-        match.superOverInnings2!,
-    ];
+        innings.add(match.superOverInnings2!);
+    }
+
     return innings
-        .map((inn) => _inningsSection(context, st, inn,
-            _inningsLabel(inn, match.innings1, match.innings2)))
+        .map((inn) => _inningsSection(
+            context, st, inn, _inningsLabel(inn, match.innings1, match.innings2),
+            match, liveData, nameOf))
         .toList();
   }
 
@@ -219,8 +275,8 @@ class _SpectatorMatchDetailScreenState
 
   /// Awarded players (Player of the Match / Best Batsman / Best Bowler) that
   /// belong to the selected team, with their optional prize text.
-  Widget _awardsCard(
-      BuildContext context, SpectatorHomeState st, ScorerMatch match) {
+  Widget _awardsCard(BuildContext context, SpectatorHomeState st,
+      ScorerMatch match, String Function(String id) nameOf) {
     final cs = Theme.of(context).colorScheme;
     final selected = _selectedTeamId ?? match.team1Id;
     final awards = <({String title, String? playerId, String? prize})>[
@@ -269,7 +325,7 @@ class _SpectatorMatchDetailScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(st.playerName(a.playerId!),
+                        Text(nameOf(a.playerId!),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -302,9 +358,206 @@ class _SpectatorMatchDetailScreenState
     return null;
   }
 
+  // ── Live players panel (real-time from RTDB) ──────────────────────────
+
+  Widget _livePlayersPanel(BuildContext context, SpectatorHomeState st,
+      ScorerMatch match, LiveMatchData live, String Function(String id) nameOf) {
+    final cs = Theme.of(context).colorScheme;
+    final striker = live.striker;
+    final nonStriker = live.nonStriker;
+    final bowler = live.currentBowler;
+    final overBalls = live.thisOverBalls;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: AppColors.pitchGreen.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            decoration: BoxDecoration(
+              color: AppColors.pitchGreen.withOpacity(0.15),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.circle, color: Colors.redAccent, size: 9),
+                const SizedBox(width: 6),
+                Text('LIVE NOW',
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1)),
+                const Spacer(),
+                Text(
+                  '${live.score.runs}/${live.score.wickets}  (${live.score.overs}.${live.score.balls})',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+
+          // Target / RRR row (2nd innings)
+          if (live.target != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              child: Row(
+                children: [
+                  Text('Target: ${live.target}',
+                      style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  if (live.requiredRunRate != null)
+                    Text('RRR: ${live.requiredRunRate!.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            color: AppColors.floodlightGold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+
+          const Divider(color: Colors.white12, height: 16),
+
+          // Batters
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+            child: Column(
+              children: [
+                _livePlayerRow(
+                  name: striker.name.isNotEmpty
+                      ? striker.name
+                      : nameOf(striker.playerId),
+                  detail:
+                      '${striker.runs} (${striker.balls}) • 4s:${striker.fours} 6s:${striker.sixes}',
+                  badge: '★',
+                  badgeColor: AppColors.floodlightGold,
+                ),
+                const SizedBox(height: 6),
+                _livePlayerRow(
+                  name: nonStriker.name.isNotEmpty
+                      ? nonStriker.name
+                      : nameOf(nonStriker.playerId),
+                  detail:
+                      '${nonStriker.runs} (${nonStriker.balls}) • 4s:${nonStriker.fours} 6s:${nonStriker.sixes}',
+                  badge: '◇',
+                  badgeColor: Colors.white38,
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(color: Colors.white12, height: 14),
+
+          // Bowler
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            child: _livePlayerRow(
+              name: bowler.name.isNotEmpty
+                  ? bowler.name
+                  : nameOf(bowler.playerId),
+              detail:
+                  '${bowler.oversLabel} ov  ${bowler.runs}R  ${bowler.wickets}W  Econ:${bowler.economy.toStringAsFixed(2)}',
+              badge: '⚡',
+              badgeColor: AppColors.pitchGreenLight,
+            ),
+          ),
+
+          // This over
+          if (overBalls.isNotEmpty) ...[
+            const Divider(color: Colors.white12, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('This Over',
+                      style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: overBalls.map((label) {
+                      final isW = label == 'W';
+                      final isSix = label == '6';
+                      final isFour = label == '4';
+                      final color = isW
+                          ? Colors.redAccent
+                          : isSix
+                              ? Colors.amber
+                              : isFour
+                                  ? Colors.greenAccent
+                                  : cs.onSurface.withOpacity(0.7);
+                      return Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: color.withOpacity(0.5)),
+                        ),
+                        child: Text(label,
+                            style: TextStyle(
+                                color: color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _livePlayerRow({
+    required String name,
+    required String detail,
+    required String badge,
+    required Color badgeColor,
+  }) {
+    return Row(
+      children: [
+        Text(badge,
+            style: TextStyle(color: badgeColor, fontSize: 13)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(name,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis),
+        ),
+        Text(detail,
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ],
+    );
+  }
+
   // ── Hero scoreboard ────────────────────────────────────────────────────
 
-  Widget _heroCard(SpectatorHomeState st, ScorerMatch match, bool isLive) {
+  Widget _heroCard(
+      SpectatorHomeState st, ScorerMatch match, bool isLive, LiveMatchData? live) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -331,8 +584,8 @@ class _SpectatorMatchDetailScreenState
                 child: _heroTeam(
                   short: st.teamShort(match.team1Id),
                   name: st.teamName(match.team1Id),
-                  score: _heroScore(match, match.team1Id),
-                  sub: _heroSub(match, match.team1Id),
+                  score: _heroScore(match, match.team1Id, live),
+                  sub: _heroSub(match, match.team1Id, live),
                   isBatting: isLive && match.battingTeamId == match.team1Id,
                   isRight: false,
                 ),
@@ -342,8 +595,8 @@ class _SpectatorMatchDetailScreenState
                 child: _heroTeam(
                   short: st.teamShort(match.team2Id),
                   name: st.teamName(match.team2Id),
-                  score: _heroScore(match, match.team2Id),
-                  sub: _heroSub(match, match.team2Id),
+                  score: _heroScore(match, match.team2Id, live),
+                  sub: _heroSub(match, match.team2Id, live),
                   isBatting: isLive && match.battingTeamId == match.team2Id,
                   isRight: true,
                 ),
@@ -447,9 +700,14 @@ class _SpectatorMatchDetailScreenState
     }
   }
 
-  /// Best available score line for [teamId]: the innings (main or super over)
-  /// where that team batted, read from the freshest live match document.
-  String _heroScore(ScorerMatch match, String teamId) {
+  /// Best available score line for [teamId]: the RTDB live payload when that
+  /// team is batting, otherwise the innings (main or super over) where the team
+  /// batted, read from the freshest Firestore match document.
+  String _heroScore(ScorerMatch match, String teamId, [LiveMatchData? live]) {
+    if (live != null && live.battingTeamId == teamId) {
+      return '${live.score.runs}/${live.score.wickets} '
+          '(${live.score.overs}.${live.score.balls})';
+    }
     for (final inn in [
       match.innings1,
       match.innings2,
@@ -463,8 +721,20 @@ class _SpectatorMatchDetailScreenState
     return '—';
   }
 
-  /// Current run rate while [teamId] is batting (live matches only).
-  String? _heroSub(ScorerMatch match, String teamId) {
+  /// Current run rate (live matches only), preferring the RTDB payload.
+  String? _heroSub(ScorerMatch match, String teamId, [LiveMatchData? live]) {
+    if (live != null && live.battingTeamId == teamId) {
+      final score = live.score;
+      final parts = <String>[];
+      if (score.totalBalls > 0) {
+        parts.add(
+            'RR ${(score.runs * 6 / score.totalBalls).toStringAsFixed(2)}');
+      }
+      if (live.requiredRunRate != null) {
+        parts.add('RRR ${live.requiredRunRate!.toStringAsFixed(2)}');
+      }
+      return parts.isNotEmpty ? parts.join(' • ') : null;
+    }
     if (match.status != MatchStatus.inProgress &&
         match.status != MatchStatus.live) {
       return null;
@@ -529,10 +799,113 @@ class _SpectatorMatchDetailScreenState
     );
   }
 
+  // ── Match alerts ──────────────────────────────────────────────────────
+
+  /// Bell (ON/OFF) control for per-match push alerts. Each event type
+  /// (match start / wickets / match completed) is a separate toggle. Requires a
+  /// signed-in spectator; otherwise it offers a sign-in shortcut.
+  Widget _alertsCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final user = ref.watch(currentUserProvider);
+
+    if (user == null) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          border: Border.all(color: cs.outline.withOpacity(0.15)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.notifications_active_rounded,
+                color: AppColors.pitchGreenLight, size: 20),
+            const Gap(10),
+            const Expanded(
+              child: Text(
+                'Sign in to get match alerts.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/signin'),
+              child: const Text('Sign in'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final prefs = ref.watch(matchNotificationPrefsProvider(widget.matchId));
+    final notifier =
+        ref.read(matchNotificationPrefsProvider(widget.matchId).notifier);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: cs.outline.withOpacity(0.15)),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Row(
+              children: [
+                const Icon(Icons.notifications_active_rounded,
+                    color: AppColors.pitchGreenLight, size: 18),
+                const Gap(8),
+                Text('Match Alerts',
+                    style: AppTextStyles.titleSmall(cs.onSurface)
+                        .copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            value: prefs.enabled,
+            activeTrackColor: AppColors.pitchGreen,
+            onChanged: (_) => notifier.toggleAlerts(),
+          ),
+          if (prefs.enabled) ...[
+            const Divider(color: Colors.white12, height: 1),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match start',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              value: prefs.matchStart,
+              activeTrackColor: AppColors.pitchGreen,
+              onChanged: (_) => notifier.toggleMatchStart(),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Wickets',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              value: prefs.wicket,
+              activeTrackColor: AppColors.pitchGreen,
+              onChanged: (_) => notifier.toggleWicket(),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match completed',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              value: prefs.matchComplete,
+              activeTrackColor: AppColors.pitchGreen,
+              onChanged: (_) => notifier.toggleMatchComplete(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ── Full scorecard ─────────────────────────────────────────────────────
 
-  Widget _inningsSection(
-      BuildContext context, SpectatorHomeState st, Innings inn, String title) {
+  Widget _inningsSection(BuildContext context, SpectatorHomeState st,
+      Innings inn, String title, ScorerMatch match, LiveMatchData? liveData,
+      String Function(String id) nameOf) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -564,64 +937,206 @@ class _SpectatorMatchDetailScreenState
                 style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
           ),
           const Gap(8),
-          _battingCard(st, inn),
+          _battingCard(context, st, inn, match, liveData, nameOf),
           const Divider(color: Colors.white12, height: 12),
-          _bowlingCard(st, inn),
+          _bowlingCard(context, st, inn, match, liveData, nameOf),
           const Divider(color: Colors.white12, height: 12),
-          _commentaryCard(st, inn),
+          _commentaryCard(st, inn, nameOf),
         ],
       ),
     );
   }
 
-  Widget _battingCard(SpectatorHomeState st, Innings inn) {
+  String _formatDismissal(SpectatorHomeState st, Dismissal d, String bowlerId,
+      String Function(String id) nameOf) {
+    final type = d.type;
+    final fielder = d.fielderId != null && d.fielderId!.isNotEmpty ? nameOf(d.fielderId!) : null;
+    final bowler = bowlerId.isNotEmpty ? nameOf(bowlerId) : null;
+
+    switch (type) {
+      case DismissalType.bowled:
+        return bowler != null ? 'b $bowler' : 'bowled';
+      case DismissalType.caught:
+        if (fielder != null && bowler != null) return 'c $fielder b $bowler';
+        if (bowler != null) return 'c & b $bowler';
+        return 'caught';
+      case DismissalType.lbw:
+        return bowler != null ? 'lbw b $bowler' : 'lbw';
+      case DismissalType.runOut:
+        return fielder != null ? 'run out ($fielder)' : 'run out';
+      case DismissalType.stumped:
+        if (fielder != null && bowler != null) return 'st $fielder b $bowler';
+        return 'stumped';
+      case DismissalType.hitWicket:
+        return bowler != null ? 'hit wicket b $bowler' : 'hit wicket';
+      default:
+        return 'out';
+    }
+  }
+
+  Widget _battingCard(BuildContext context, SpectatorHomeState st, Innings inn,
+      ScorerMatch match, LiveMatchData? liveData, String Function(String) nameOf) {
+    // For the current live innings, use the self-contained scorecard that the
+    // scorer published to RTDB — it carries resolved names + stats and updates
+    // every ball with no Firestore lag.
+    if (liveData != null && match.currentInningsData?.id == inn.id) {
+      final rows = liveData.battingCard.map((b) {
+        final name = b.name.isNotEmpty ? b.name : nameOf(b.playerId);
+        return <String>[
+          b.onStrike ? '$name *' : name,
+          b.status.isEmpty ? 'batting' : b.status,
+          '${b.runs}',
+          '${b.balls}',
+          '${b.fours}',
+          '${b.sixes}',
+          b.strikeRate.toStringAsFixed(2),
+        ];
+      }).toList();
+      return _tableCard(
+        title: 'Batting',
+        headers: const ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
+        widths: [2.5, 2.0, 1, 1, 1, 1, 1.2],
+        rows: rows,
+      );
+    }
+
     final acc = <String, _BatAccum>{};
+    
+    // Initialize all batters in batting order, striker, non-striker
+    final batterIds = <String>{
+      ...inn.battingOrder,
+      if (inn.strikerId != null && inn.strikerId!.isNotEmpty) inn.strikerId!,
+      if (inn.nonStrikerId != null && inn.nonStrikerId!.isNotEmpty) inn.nonStrikerId!,
+    };
+
+    for (final id in batterIds) {
+      acc[id] = _BatAccum();
+    }
+
+    final dismissals = <String, String>{};
+
     for (final ball in inn.balls) {
-      if (ball.batsmanId.isEmpty) continue;
-      final a = acc.putIfAbsent(ball.batsmanId, () => _BatAccum());
-      if (ball.isLegalBall) {
-        a.balls++;
+      if (ball.batsmanId.isNotEmpty) {
+        final a = acc.putIfAbsent(ball.batsmanId, () => _BatAccum());
+        if (ball.isLegalBall) {
+          a.balls++;
+        }
+        // Runs off bat count for batsman on all balls (including no-balls)
         a.runs += ball.runs;
         if (ball.isBoundary && ball.runs == 4) a.fours++;
         if (ball.isSix) a.sixes++;
       }
+
+      if (ball.isWicket && ball.dismissal != null) {
+        final d = ball.dismissal!;
+        final outId = d.batsmanId.isNotEmpty ? d.batsmanId : ball.batsmanId;
+        if (outId.isNotEmpty) {
+          acc.putIfAbsent(outId, () => _BatAccum());
+          dismissals[outId] = _formatDismissal(st, d, ball.bowlerId, nameOf);
+        }
+      }
     }
-    final entries = acc.entries.toList()
-      ..sort((x, y) => y.value.runs.compareTo(x.value.runs));
+
+    final entries = acc.entries.toList();
     final rows = entries.map((e) {
+      final id = e.key;
       final a = e.value;
+      String name = nameOf(id);
+      if (id == inn.strikerId) {
+        name += ' *';
+      }
+
+      String status = 'not out';
+      if (dismissals.containsKey(id)) {
+        status = dismissals[id]!;
+      } else if (id == inn.strikerId || id == inn.nonStrikerId) {
+        status = 'batting';
+      } else if (a.balls == 0 && a.runs == 0) {
+        status = 'yet to bat';
+      }
+
       return <String>[
-        st.playerName(e.key),
+        name,
+        status,
         '${a.runs}',
         '${a.balls}',
         '${a.fours}',
         '${a.sixes}',
-        a.balls > 0 ? (a.runs * 100 / a.balls).toStringAsFixed(2) : '—',
+        a.balls > 0 ? (a.runs * 100 / a.balls).toStringAsFixed(2) : '0.00',
       ];
     }).toList();
+
     return _tableCard(
       title: 'Batting',
-      headers: const ['Batter', 'R', 'B', '4s', '6s', 'SR'],
-      widths: [3, 1, 1, 1, 1, 1.2],
+      headers: const ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
+      widths: [2.5, 2.0, 1, 1, 1, 1, 1.2],
       rows: rows,
     );
   }
 
-  Widget _bowlingCard(SpectatorHomeState st, Innings inn) {
-    final acc = <String, _BowlAccum>{};
-    for (final ball in inn.balls) {
-      final b = acc.putIfAbsent(ball.bowlerId, () => _BowlAccum());
-      b.runs += ball.totalRuns;
-      if (ball.isWicket) b.wickets++;
-      if (ball.isLegalBall) b.legalBalls++;
+  Widget _bowlingCard(BuildContext context, SpectatorHomeState st, Innings inn,
+      ScorerMatch match, LiveMatchData? liveData, String Function(String) nameOf) {
+    // Self-contained scorecard from the RTDB payload for the current live
+    // innings (see _battingCard).
+    if (liveData != null && match.currentInningsData?.id == inn.id) {
+      final rows = liveData.bowlingCard.map((b) {
+        final name = b.name.isNotEmpty ? b.name : nameOf(b.playerId);
+        return <String>[
+          b.current ? '$name *' : name,
+          b.oversLabel,
+          '${b.maidens}',
+          '${b.runs}',
+          '${b.wickets}',
+          b.economy.toStringAsFixed(2),
+        ];
+      }).toList();
+      return _tableCard(
+        title: 'Bowling',
+        headers: const ['Bowler', 'O', 'M', 'R', 'W', 'Econ'],
+        widths: [2.5, 1, 1, 1, 1, 1.2],
+        rows: rows,
+      );
     }
+
+    final acc = <String, _BowlAccum>{};
+
+    final bowlerIds = <String>{
+      ...inn.bowlingOrder,
+      if (inn.currentBowlerId != null && inn.currentBowlerId!.isNotEmpty) inn.currentBowlerId!,
+    };
+
+    for (final id in bowlerIds) {
+      acc[id] = _BowlAccum();
+    }
+
+    for (final ball in inn.balls) {
+      if (ball.bowlerId.isEmpty) continue;
+      final b = acc.putIfAbsent(ball.bowlerId, () => _BowlAccum());
+      
+      // Runs charged to bowler (runs off bat + wide/no-ball extras, excluding byes/leg-byes)
+      final runsCharged = ball.runs + (ball.extrasType == ExtrasType.wide || ball.extrasType == ExtrasType.noBall ? ball.extrasRuns : 0);
+      b.runs += runsCharged;
+
+      if (ball.isWicket && ball.dismissal?.type != DismissalType.runOut) {
+        b.wickets++;
+      }
+      if (ball.isLegalBall) {
+        b.legalBalls++;
+      }
+    }
+
     final rows = acc.entries.map((e) {
       final a = e.value;
       final balls = a.legalBalls;
       final overs = balls ~/ 6 + (balls % 6) / 10;
       final economy = balls > 0 ? (a.runs * 6) / balls : 0.0;
+      String name = nameOf(e.key);
+      if (e.key == inn.currentBowlerId) {
+        name += ' *';
+      }
+
       return <String>[
-        st.playerName(e.key),
+        name,
         overs.toStringAsFixed(1),
         '${a.maidens}',
         '${a.runs}',
@@ -629,15 +1144,17 @@ class _SpectatorMatchDetailScreenState
         economy.toStringAsFixed(2),
       ];
     }).toList();
+
     return _tableCard(
       title: 'Bowling',
       headers: const ['Bowler', 'O', 'M', 'R', 'W', 'Econ'],
-      widths: [1, 1, 1, 1, 1, 1.2],
+      widths: [2.5, 1, 1, 1, 1, 1.2],
       rows: rows,
     );
   }
 
-  Widget _commentaryCard(SpectatorHomeState st, Innings inn) {
+  Widget _commentaryCard(
+      SpectatorHomeState st, Innings inn, String Function(String id) nameOf) {
     final balls = inn.balls.reversed.toList();
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
@@ -654,13 +1171,14 @@ class _SpectatorMatchDetailScreenState
             const Text('No deliveries yet.',
                 style: TextStyle(color: Colors.white38, fontSize: 12))
           else
-            ...balls.map((b) => _commentaryRow(st, b)),
+            ...balls.map((b) => _commentaryRow(st, b, nameOf)),
         ],
       ),
     );
   }
 
-  Widget _commentaryRow(SpectatorHomeState st, BallEvent b) {
+  Widget _commentaryRow(
+      SpectatorHomeState st, BallEvent b, String Function(String id) nameOf) {
     final color = b.isWicket
         ? Colors.redAccent
         : b.isSix
@@ -688,7 +1206,7 @@ class _SpectatorMatchDetailScreenState
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${st.playerName(b.batsmanId)} — ${_ballText(b)}',
+              '${nameOf(b.batsmanId)} — ${_ballText(b)}',
               style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ),
@@ -764,7 +1282,7 @@ class _SpectatorMatchDetailScreenState
   // ── Squads ─────────────────────────────────────────────────────────────
 
   Widget _squadCard(BuildContext context, SpectatorHomeState st,
-      ScorerMatch match, String teamId) {
+      ScorerMatch match, String teamId, String Function(String id) nameOf) {
     final cs = Theme.of(context).colorScheme;
     final xi = teamId == match.team1Id ? match.playingXI1 : match.playingXI2;
     final teamPlayers = st.playersForTeam(teamId);
@@ -804,7 +1322,7 @@ class _SpectatorMatchDetailScreenState
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                      child: Text(st.playerName(id),
+                      child: Text(nameOf(id),
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 13))),
                   Text(
@@ -833,6 +1351,28 @@ class _SpectatorMatchDetailScreenState
         return 'WK';
     }
   }
+}
+
+/// Resolves a player's real name for the spectator screen.
+///
+/// Prefers the self-contained RTDB live payload published by the scorer (which
+/// carries every player id → name across all innings + both XIs), then the
+/// per-squad maps, and finally falls back to the spectator's locally-hydrated
+/// player list. This is what lets the scorecard and squads render actual names
+/// even when the spectator device has not synced the scorer's players.
+String resolvePlayerName(
+    SpectatorHomeState st, LiveMatchData? liveData, String id) {
+  if (liveData != null) {
+    final fromPayload = liveData.players[id];
+    if (fromPayload != null && fromPayload.isNotEmpty) {
+      return fromPayload;
+    }
+    final fromSquad = liveData.squad1[id] ?? liveData.squad2[id];
+    if (fromSquad != null && fromSquad.isNotEmpty && fromSquad != id) {
+      return fromSquad;
+    }
+  }
+  return st.playerName(id);
 }
 
 // Small accumulation helpers.

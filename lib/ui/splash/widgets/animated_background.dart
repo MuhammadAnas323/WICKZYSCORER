@@ -66,12 +66,7 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
         );
       },
       child: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/splash_bg.jpg'), // Assuming asset exists
-            fit: BoxFit.cover,
-          ),
-        ),
+        color: const Color(0xFF0D2818), // launch_background (matches splash_screen.dart)
         child: Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(

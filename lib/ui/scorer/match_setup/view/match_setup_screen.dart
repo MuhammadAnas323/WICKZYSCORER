@@ -143,12 +143,12 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   }
 
   Future<void> _exchangePlayers() async {
-    if (_team1Id == null || _team2Id == null) return;
+    final l10n = AppLocalizations.of(context);
     final repo = ref.read(scorerRepositoryProvider);
     final player1 = await showDialog<ScorerPlayer>(
       context: context,
       builder: (ctx) => _PlayerPickDialog(
-        title: 'Select player from ${_teamName(_team1Id)}',
+        title: '${l10n.translate('select_player_from')} ${_teamName(_team1Id, l10n)}',
         players: _team1Players,
       ),
     );
@@ -156,7 +156,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     final player2 = await showDialog<ScorerPlayer>(
       context: context,
       builder: (ctx) => _PlayerPickDialog(
-        title: 'Select player from ${_teamName(_team2Id)}',
+        title: '${l10n.translate('select_player_from')} ${_teamName(_team2Id, l10n)}',
         players: _team2Players,
       ),
     );
@@ -256,8 +256,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     setState(() => _step--);
   }
 
-  String _teamName(String? id) {
-    if (id == null) return 'Team';
+  String _teamName(String? id, AppLocalizations l10n) {
+    if (id == null) return l10n.translate('team');
     return _allTeams.firstWhere((t) => t.id == id, orElse: () => ScorerTeam(id: id, name: id, shortCode: id, tournamentId: '', playerIds: [])).name;
   }
 
@@ -388,11 +388,11 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
           const Gap(12),
           Row(
             children: [
-              Expanded(child: _teamManualField('Team 1', _team1Controller)),
+              Expanded(child: _teamManualField(l10n.translate('team_1'), _team1Controller)),
               const Gap(12),
               Text(l10n.translate('vs'), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 18)),
               const Gap(12),
-              Expanded(child: _teamManualField('Team 2', _team2Controller)),
+              Expanded(child: _teamManualField(l10n.translate('team_2'), _team2Controller)),
             ],
           ),
           const Gap(8),
@@ -535,8 +535,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final t1Name = _teamName(_team1Id);
-    final t2Name = _teamName(_team2Id);
+    final t1Name = _teamName(_team1Id, l10n);
+    final t2Name = _teamName(_team2Id, l10n);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -571,8 +571,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     
     final battingPlayers = _battingPlayers();
     final bowlingPlayers = _bowlingPlayers();
-    final battingTeamName = _teamName(_battingTeamId());
-    final bowlingTeamName = _teamName(_bowlingTeamId());
+    final battingTeamName = _teamName(_battingTeamId(), l10n);
+    final bowlingTeamName = _teamName(_bowlingTeamId(), l10n);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -586,7 +586,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.person_add_alt_1, color: AppColors.pitchGreenLight, size: 20),
-                tooltip: '${l10n.translate('add_player')} to ${_teamName(_battingTeamId())}',
+                tooltip: '${l10n.translate('add_player')} to ${_teamName(_battingTeamId(), l10n)}',
                 onPressed: () => _addPlayerToTeam(_battingTeamId()),
               ),
             ],
@@ -607,7 +607,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.person_add_alt_1, color: Colors.redAccent, size: 20),
-                tooltip: '${l10n.translate('add_player')} to ${_teamName(_bowlingTeamId())}',
+                tooltip: '${l10n.translate('add_player')} to ${_teamName(_bowlingTeamId(), l10n)}',
                 onPressed: () => _addPlayerToTeam(_bowlingTeamId()),
               ),
             ],
@@ -715,6 +715,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     required VoidCallback onTapStriker,
     required VoidCallback onTapNonStriker,
   }) {
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -727,9 +728,9 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
       child: Row(
         children: [
           Expanded(child: Text(player.name, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600))),
-          _pillButton('Striker', isStriker, onTapStriker, Colors.blueAccent),
+          _pillButton(l10n.translate('striker'), isStriker, onTapStriker, Colors.blueAccent),
           const Gap(8),
-          _pillButton('Non-Striker', isNonStriker, onTapNonStriker, AppColors.pitchGreenLight),
+          _pillButton(l10n.translate('non_striker'), isNonStriker, onTapNonStriker, AppColors.pitchGreenLight),
         ],
       ),
     );

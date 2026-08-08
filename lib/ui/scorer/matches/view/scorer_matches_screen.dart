@@ -47,13 +47,11 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     if (!mounted) return;
     setState(() {
       // Scorer side: only the current user's matches (no empty-createdBy
-      // fallback so other users' data never leaks in). Completed matches are
-      // final results — keep the scorer portion focused on matches that still
-      // need scoring.
+      // fallback so other users' data never leaks in). All statuses are kept —
+      // completed, incompleted, upcoming and live — and grouped into sections
+      // in the build below.
       _matches = allMatches
-          .where((m) =>
-              m.status != MatchStatus.completed &&
-              (uid == null || uid.isEmpty || m.createdBy == uid))
+          .where((m) => (uid == null || uid.isEmpty || m.createdBy == uid))
           .toList();
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};
@@ -69,7 +67,7 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     return tournament?.name ??
         (tournamentId == 't_custom'
             ? l10n.translate('local_match')
-            : 'Unknown');
+            : l10n.translate('unknown'));
   }
 
   void _openMatch(ScorerMatch match) {
@@ -119,8 +117,8 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     await repo.deleteMatch(match.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Match deleted'), backgroundColor: AppColors.liveRed),
+      SnackBar(
+          content: Text(l10n.translate('match_deleted')), backgroundColor: AppColors.liveRed),
     );
   }
 
@@ -154,22 +152,77 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
               : RefreshIndicator(
                   color: AppColors.pitchGreen,
                   onRefresh: _load,
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _matches.length,
-                    itemBuilder: (_, i) {
-                      final match = _matches[i];
-                      return _MatchTile(
-                        match: match,
-                        teamName: _teamName,
-                        tournamentName: (id) => _tournamentName(id, l10n),
-                        onTap: () => _openMatch(match),
-                        onDelete: () => _deleteMatch(match, l10n),
-                        l10n: l10n,
-                      );
-                    },
+                    children: [
+                      if (_liveMatches.isNotEmpty) ...[
+                        _sectionHeader(context, cs, l10n.translate('live')),
+                        ..._liveMatches.map((m) => _tile(context, m, l10n)),
+                      ],
+                      if (_upcomingMatches.isNotEmpty) ...[
+                        _sectionHeader(
+                            context, cs, l10n.translate('upcoming')),
+                        ..._upcomingMatches.map((m) => _tile(context, m, l10n)),
+                      ],
+                      if (_completedMatches.isNotEmpty) ...[
+                        _sectionHeader(
+                            context, cs, l10n.translate('completed')),
+                        ..._completedMatches.map((m) => _tile(context, m, l10n)),
+                      ],
+                    ],
                   ),
                 ),
+    );
+  }
+
+  List<ScorerMatch> get _liveMatches => _matches
+      .where((m) =>
+          m.status == MatchStatus.inProgress || m.status == MatchStatus.live)
+      .toList();
+
+  List<ScorerMatch> get _upcomingMatches => _matches
+      .where((m) =>
+          m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled)
+      .toList();
+
+  List<ScorerMatch> get _completedMatches => _matches
+      .where((m) =>
+          m.status == MatchStatus.completed ||
+          m.status == MatchStatus.abandoned)
+      .toList();
+
+  Widget _tile(BuildContext context, ScorerMatch match,
+      AppLocalizations l10n) {
+    return _MatchTile(
+      match: match,
+      teamName: _teamName,
+      tournamentName: (id) => _tournamentName(id, l10n),
+      onTap: () => _openMatch(match),
+      onDelete: () => _deleteMatch(match, l10n),
+      l10n: l10n,
+    );
+  }
+
+  Widget _sectionHeader(
+      BuildContext context, ColorScheme cs, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.pitchGreenLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Gap(8),
+          Text(title,
+              style: AppTextStyles.titleMedium(cs.onSurface)
+                  .copyWith(fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
@@ -228,6 +281,18 @@ class _MatchTile extends StatelessWidget {
     required this.onDelete,
     required this.l10n,
   });
+
+  String _formatLabel(ScorerMatch match) {
+    switch (match.format) {
+      case MatchFormat.t20:
+      case MatchFormat.custom:
+        return '${match.overs} OVER';
+      case MatchFormat.odi:
+        return 'ODI';
+      case MatchFormat.test:
+        return 'TEST';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +392,7 @@ class _MatchTile extends StatelessWidget {
                 const Gap(4),
                 Expanded(
                   child: Text(
-                    '${match.format.name.toUpperCase()} • ${match.overs} ${l10n.translate('overs')} • ${match.venue}',
+                    '${_formatLabel(match)} • ${match.venue}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

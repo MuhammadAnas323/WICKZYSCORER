@@ -14,6 +14,7 @@ import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
 import 'package:sportyapp/shared_widgets/ball_strip.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class MatchDetailsScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -45,6 +46,7 @@ class _MatchDetailsScreenState extends ConsumerState<MatchDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(matchDetailsViewModelProvider(widget.matchId));
 
     if (state.isLoading) return Scaffold(appBar: AppBar(), body: const MatchListSkeleton());
@@ -97,6 +99,7 @@ class _MatchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -137,7 +140,7 @@ class _MatchHeader extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text('vs', style: AppTextStyles.bodySmall(Colors.white54)),
+                  Text(l10n.translate('vs'), style: AppTextStyles.bodySmall(Colors.white54)),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -192,6 +195,7 @@ class _InfoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     Widget row(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -237,6 +241,7 @@ class _ScorecardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (match.innings.isEmpty && liveData == null) {
       return const EmptyState(emoji: '📊', title: 'No Scorecard Yet',
         subtitle: 'Scorecard will appear once the match starts.');
@@ -254,6 +259,7 @@ class _InningsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +287,7 @@ class _InningsCard extends StatelessWidget {
         if (innings.bowlers.isNotEmpty) ...[_tableHeader(cs, ['Bowler', 'O', 'M', 'R', 'W', 'Econ']),
           ...innings.bowlers.map((b) => _bowlerRow(cs, b))],
         const SizedBox(height: 24),
-        if (innings.fallOfWickets.isNotEmpty) ...[Text('Fall of Wickets',
+        if (innings.fallOfWickets.isNotEmpty) ...[Text(l10n.translate('fall_of_wickets'),
           style: AppTextStyles.titleSmall(cs.onSurface)),
           const SizedBox(height: 8),
           Wrap(
@@ -391,6 +397,7 @@ class _CommentaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final events = match.innings
       .expand((inn) => inn.ballEvents.reversed)
@@ -500,6 +507,7 @@ class _SquadsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     Widget playerRow(PlayerModel p) => ListTile(
       leading: CircleAvatar(
@@ -510,9 +518,9 @@ class _SquadsTab extends StatelessWidget {
         .copyWith(fontWeight: FontWeight.w600)),
       subtitle: Text(p.role.name, style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
       trailing: p.isCaptain
-        ? Text('(C)', style: AppTextStyles.labelSmall(cs.primary))
+        ? Text(l10n.translate('c'), style: AppTextStyles.labelSmall(cs.primary))
         : p.isWicketKeeper
-          ? Text('(WK)', style: AppTextStyles.labelSmall(AppColors.willowBrown))
+          ? Text(l10n.translate('wk'), style: AppTextStyles.labelSmall(AppColors.willowBrown))
           : null,
     );
 
@@ -539,6 +547,7 @@ class _StatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     Widget placeholder(String title, String icon) => Container(
       height: 180,
@@ -555,7 +564,7 @@ class _StatsTab extends StatelessWidget {
           const SizedBox(height: 8),
           Text(title, style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
           const SizedBox(height: 4),
-          Text('Chart will appear here', style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
+          Text(l10n.translate('chart_will_appear_here'), style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
         ],
       ),
     );

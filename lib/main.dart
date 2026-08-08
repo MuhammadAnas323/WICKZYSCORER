@@ -11,6 +11,8 @@ import 'package:sportyapp/theme/app_theme.dart';
 import 'package:sportyapp/ui/scorer/shared/widgets/cloud_error_toast.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/services/match_alert_service.dart';
+import 'package:sportyapp/core/services/notification_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,6 +21,10 @@ import 'package:sportyapp/firebase_options.dart';
 
 /// One-time cleanup key — set to true after the legacy data wipe has run once.
 const _kCleanupV2Done = 'scorer_cleanup_v2_done';
+
+/// One-time local cache clear key — set to true after stale SharedPreferences
+/// scorer/spectator copies have been removed once.
+const _kLocalClearDone = 'scorer_local_clear_done';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,6 +76,31 @@ void main() async {
     cleanupContainer.dispose();
   }
 
+  // One-time local cache clear: drop stale SharedPreferences copies of scorer
+  // data so BOTH the scorer and spectator portions reload purely from Firestore
+  // (which is now the single source of truth for completed/live results).
+  if (!(cleanupPrefs.getBool(_kLocalClearDone) ?? false)) {
+    final clearContainer = ProviderContainer();
+    try {
+      await clearContainer
+          .read(scorerRepositoryProvider)
+          .clearLocalCache();
+      await cleanupPrefs.setBool(_kLocalClearDone, true);
+    } catch (_) {
+      // Best-effort; never block startup on it.
+    }
+    clearContainer.dispose();
+  }
+
+  // Schedule notification setup AFTER the first frame instead of awaiting it
+  // before runApp(): creating the Android channels and requesting permission
+  // are platform-channel round-trips that otherwise block the splash from
+  // rendering. The service lazy-initializes on first use, and taps that arrive
+  // before init finishes are buffered until `onMatchTap` is set.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NotificationService.instance.init();
+  });
+
   runApp(
     const ProviderScope(
       child: SportyApp(),
@@ -86,15 +117,26 @@ class SportyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
 
+    // Keep the match-alert RTDB listener alive for the whole app lifetime.
+    ref.watch(matchAlertListenerProvider);
+
+    // Route notification taps to the tapped match. Buffered taps (e.g. when the
+    // app was opened from a terminated state) are delivered here.
+    NotificationService.instance.onMatchTap = (matchId) {
+      router.push('/spectator/match/$matchId');
+    };
+
     return MaterialApp.router(
       title: 'CRIXORA',
       debugShowCheckedModeBanner: false,
-      builder: (context, child) => Stack(
-        children: [
-          if (child != null) child,
-          const CloudErrorToast(),
-        ],
-      ),
+      builder: (context, child) {
+        return Stack(
+          children: [
+            if (child != null) child,
+            const CloudErrorToast(),
+          ],
+        );
+      },
 
       // Theme Mode configurations
       themeMode: themeMode,

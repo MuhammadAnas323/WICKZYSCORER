@@ -16,6 +16,18 @@ class TournamentCard extends StatelessWidget {
     this.headerBadge,
   });
 
+  String _formatLabel(ScorerTournament t) {
+    switch (t.format) {
+      case MatchFormat.t20:
+      case MatchFormat.custom:
+        return '${t.customOvers} OVER';
+      case MatchFormat.odi:
+        return 'ODI';
+      case MatchFormat.test:
+        return 'TEST';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -63,7 +75,7 @@ class TournamentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      tournament.format.name.toUpperCase(),
+                      _formatLabel(tournament),
                       style: const TextStyle(
                         color: AppColors.floodlightGold,
                         fontWeight: FontWeight.bold,
@@ -72,16 +84,20 @@ class TournamentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${tournament.customOvers} OVERS',
-                      style: TextStyle(
-                        color: isDark ? Colors.white60 : Colors.black54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                  if (tournament.format == MatchFormat.t20 ||
+                      tournament.format == MatchFormat.custom)
+                    const Spacer()
+                  else
+                    Expanded(
+                      child: Text(
+                        '${tournament.customOvers} OVERS',
+                        style: TextStyle(
+                          color: isDark ? Colors.white60 : Colors.black54,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),

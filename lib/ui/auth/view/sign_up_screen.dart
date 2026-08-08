@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sportyapp/shared_widgets/app_button.dart';
+import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/shared_widgets/app_button.dart';
+import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -52,85 +54,73 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoading = ref.watch(authViewModelProvider);
-    final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 48),
-              Text(
-                _isLogin ? 'Welcome Back!' : 'Create Account',
-                style: AppTextStyles.headlineLarge(cs.onSurface),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _isLogin ? 'Log in to continue' : 'Sign up to get started',
-                style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-              if (!_isLogin) ...[
-                TextField(
-                  controller: _nameCtrl,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                ),
-              ),
-              const SizedBox(height: 32),
-              AppPrimaryButton(
-                label: _isLogin ? 'Login' : 'Sign Up',
-                isLoading: isLoading,
-                onPressed: _submit,
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isLogin = !_isLogin;
-                  });
-                },
-                child: Text(
-                  _isLogin
-                      ? "Don't have an account? Sign Up"
-                      : "Already have an account? Login",
-                ),
-              ),
-              const SizedBox(height: 48),
-            ],
-          ),
+    return AuthScaffold(
+      title: _isLogin ? 'Welcome Back!' : 'Create Account',
+      subtitle: _isLogin
+          ? 'Sign in as a spectator or a scorer'
+          : 'Join as a spectator or a scorer',
+      footer: TextButton(
+        onPressed: () {
+          setState(() {
+            _isLogin = !_isLogin;
+          });
+        },
+        child: Text(
+          _isLogin
+              ? "Don't have an account? Sign Up"
+              : "Already have an account? Login",
+          style: AppTextStyles.titleMedium(AppColors.pitchGreen),
         ),
       ),
+      children: [
+        if (!_isLogin) ...[
+          TextField(
+            controller: _nameCtrl,
+            textCapitalization: TextCapitalization.words,
+            style: AppTextStyles.bodyMedium(AppColors.charcoal900),
+            decoration: const InputDecoration(
+              labelText: 'Full Name',
+              prefixIcon: Icon(Icons.person_outline, color: AppColors.pitchGreen),
+              filled: true,
+              fillColor: AppColors.lightSurfaceVariant,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        TextField(
+          controller: _emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          style: AppTextStyles.bodyMedium(AppColors.charcoal900),
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            prefixIcon: Icon(Icons.email_outlined, color: AppColors.pitchGreen),
+            filled: true,
+            fillColor: AppColors.lightSurfaceVariant,
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _passwordCtrl,
+          obscureText: true,
+          style: AppTextStyles.bodyMedium(AppColors.charcoal900),
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            prefixIcon: Icon(Icons.lock_outline, color: AppColors.pitchGreen),
+            filled: true,
+            fillColor: AppColors.lightSurfaceVariant,
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 32),
+        AppPrimaryButton(
+          label: _isLogin ? 'Login' : 'Sign Up',
+          isLoading: isLoading,
+          onPressed: _submit,
+        ),
+      ],
     );
   }
 }

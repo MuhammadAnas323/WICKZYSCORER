@@ -5,11 +5,11 @@ const AGORA_APP_ID = '12982bdfadab4b378b96d4a6cb0bf604';
 
 /*
  * SETUP INSTRUCTIONS FOR AGORA TOKEN GENERATION:
- * 
+ *
  * Before deploying this function, you MUST set your Agora App Certificate in Firebase config:
- * 
+ *
  *   firebase functions:config:set agora.certificate="YOUR_AGORA_APP_CERTIFICATE"
- * 
+ *
  * To obtain your Agora App Certificate:
  *   1. Log into Agora Console: https://console.agora.io
  *   2. Navigate to Project Management -> Click 'Edit' on your project.

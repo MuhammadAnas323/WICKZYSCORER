@@ -8,18 +8,20 @@ import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class EventsScreen extends ConsumerWidget {
   const EventsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(spectatorHomeViewModelProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Events', style: AppTextStyles.headlineSmall(cs.onSurface)),
+        title: Text(l10n.translate('events'), style: AppTextStyles.headlineSmall(cs.onSurface)),
       ),
       body: state.isLoading
           ? const MatchListSkeleton()

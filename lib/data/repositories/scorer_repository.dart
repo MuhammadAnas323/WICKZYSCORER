@@ -38,6 +38,12 @@ class ScorerRepository {
 
   Future<void>? _loading;
 
+  /// Serializes Firestore writes so full-document `.set()` calls (one per ball
+  /// during live scoring) can never complete out of order. Without this a
+  /// fire-and-forget save from earlier in the innings could land AFTER the
+  /// final completed-match write and leave spectators with a stale/empty copy.
+  Future<void> _writeQueue = Future.value();
+
   ScorerRepository([this._cloud]);
 
   String? get currentUserId {
@@ -105,7 +111,11 @@ class ScorerRepository {
         tournaments: _readCacheList(prefs, _kTournaments, scorerTournamentFromJson),
         teams: _readCacheList(prefs, _kTeams, scorerTeamFromJson),
         players: _readCacheList(prefs, _kPlayers, scorerPlayerFromJson),
-        matches: _readCacheList(prefs, _kMatches, scorerMatchFromJson),
+        // Completed matches are dropped from the local cache entirely — finished
+        // results live only in Firestore, never in SharedPreferences.
+        matches: _readCacheList(prefs, _kMatches, scorerMatchFromJson)
+            .where((m) => m.status != MatchStatus.completed)
+            .toList(),
         schedules: _readCacheSchedules(prefs),
       );
     } catch (_) {
@@ -173,8 +183,15 @@ class ScorerRepository {
           _kTeams, encodeJsonStringList(_teams.map(scorerTeamToJson).toList()));
       await prefs.setString(
           _kPlayers, encodeJsonStringList(_players.map(scorerPlayerToJson).toList()));
+      // Completed matches are persisted to Firestore only — never written to
+      // local storage. Live/upcoming matches stay cached so the scorer can keep
+      // scoring offline, but finished results always come from the cloud.
       await prefs.setString(
-          _kMatches, encodeJsonStringList(_matches.map(scorerMatchToJson).toList()));
+          _kMatches,
+          encodeJsonStringList(_matches
+              .where((m) => m.status != MatchStatus.completed)
+              .map(scorerMatchToJson)
+              .toList()));
       final scheduleList = _schedules.entries.map((e) => {
             'tournamentId': e.key,
             'stages': e.value.map(scheduleStageToJson).toList(),
@@ -232,11 +249,14 @@ class ScorerRepository {
   /// is visible in the UI.
   Future<void> _persistToCloud(
       Future<void> Function(FirestoreScorerService cloud) op) async {
-    final cloud = _cloud;
-    if (cloud != null) {
-      await _cloudWrite(op);
-    }
-    await _saveToCache();
+    _writeQueue = _writeQueue.then((_) async {
+      final cloud = _cloud;
+      if (cloud != null) {
+        await _cloudWrite(op);
+      }
+      await _saveToCache();
+    });
+    await _writeQueue;
   }
 
   // ── Public Repository Methods ─────────────────────────────────────────────
@@ -784,6 +804,26 @@ class ScorerRepository {
       await deleteMatch(m.id);
     }
     await _saveToCache();
+    _bumpVersion();
+  }
+
+  /// One-time local cache wipe used by [main] at startup: removes the
+  /// SharedPreferences copies of tournaments/teams/players/matches/schedules
+  /// so BOTH the scorer and spectator portions reload purely from Firestore.
+  /// Only stale local copies are cleared — Firestore remains the source of
+  /// truth, and the next `refreshFromCloud` repopulates the cache.
+  Future<void> clearLocalCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kTournaments);
+    await prefs.remove(_kTeams);
+    await prefs.remove(_kPlayers);
+    await prefs.remove(_kMatches);
+    await prefs.remove(_kSchedules);
+    _tournaments.clear();
+    _teams.clear();
+    _players.clear();
+    _matches.clear();
+    _schedules.clear();
     _bumpVersion();
   }
 }

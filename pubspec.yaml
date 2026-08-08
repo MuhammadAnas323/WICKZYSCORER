@@ -49,6 +49,8 @@ dependencies:
   crypto: ^3.0.3
   http: ^1.2.1
   video_player: ^2.9.2
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
 
 dependency_overrides:
   ffi: ^2.1.2

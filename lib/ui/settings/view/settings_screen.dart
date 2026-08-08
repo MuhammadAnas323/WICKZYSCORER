@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 
@@ -13,21 +14,22 @@ class SettingsScreen extends ConsumerWidget {
     final state = ref.watch(settingsViewModelProvider);
     final themeMode = ref.watch(themeModeProvider);
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings', style: AppTextStyles.headlineSmall(cs.onBackground)),
+        title: Text(l10n.translate('settings'), style: AppTextStyles.headlineSmall(cs.onBackground)),
       ),
       body: ListView(
         children: [
-          const _SectionHeader('Appearance'),
+          _SectionHeader(l10n.translate('appearance')),
           ListTile(
             leading: const Icon(Icons.brightness_6_rounded),
-            title: const Text('Theme'),
+            title: Text(l10n.translate('theme')),
             trailing: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 16), label: Text('Light')),
-                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 16), label: Text('Dark')),
+              segments: [
+                ButtonSegment(value: ThemeMode.light, icon: const Icon(Icons.light_mode, size: 16), label: Text(l10n.translate('light'))),
+                ButtonSegment(value: ThemeMode.dark, icon: const Icon(Icons.dark_mode, size: 16), label: Text(l10n.translate('dark'))),
               ],
               selected: {themeMode},
               onSelectionChanged: (s) {
@@ -38,7 +40,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.language_rounded),
-            title: const Text('Language'),
+            title: Text(l10n.translate('language')),
             trailing: SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'en', label: Text('English')),
@@ -52,16 +54,16 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const Divider(),
-          const _SectionHeader('Notifications'),
+          _SectionHeader(l10n.translate('notifications')),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_rounded),
-            title: const Text('Enable Notifications'),
+            title: Text(l10n.translate('enable_notifications')),
             value: state.notificationsEnabled,
             onChanged: (_) => ref.read(settingsViewModelProvider.notifier).toggleNotifications(),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.sports_cricket_rounded),
-            title: const Text('Live Score Alerts'),
+            title: Text(l10n.translate('live_score_alerts')),
             value: state.liveScoreAlerts,
             onChanged: state.notificationsEnabled
               ? (_) => ref.read(settingsViewModelProvider.notifier).toggleLiveScore()
@@ -69,7 +71,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.gps_fixed_rounded),
-            title: const Text('Wicket Alerts'),
+            title: Text(l10n.translate('wicket_alerts')),
             value: state.wicketAlerts,
             onChanged: state.notificationsEnabled
               ? (_) => ref.read(settingsViewModelProvider.notifier).toggleWicket()
@@ -77,46 +79,46 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.alarm_rounded),
-            title: const Text('Match Start Reminders'),
+            title: Text(l10n.translate('match_start_reminders')),
             value: state.matchStartAlerts,
             onChanged: state.notificationsEnabled
               ? (_) => ref.read(settingsViewModelProvider.notifier).toggleMatchStart()
               : null,
           ),
           const Divider(),
-          const _SectionHeader('About'),
+          _SectionHeader(l10n.translate('about')),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('Version'),
+            title: Text(l10n.translate('version')),
             trailing: Text('1.0.0', style: TextStyle(color: cs.onSurfaceVariant)),
           ),
           ListTile(
             leading: const Icon(Icons.description_rounded),
-            title: const Text('Privacy Policy'),
+            title: Text(l10n.translate('privacy_policy')),
             trailing: const Icon(Icons.open_in_new, size: 16),
             onTap: () {},
           ),
           ListTile(
             leading: const Icon(Icons.gavel_rounded),
-            title: const Text('Terms of Service'),
+            title: Text(l10n.translate('terms_of_service')),
             trailing: const Icon(Icons.open_in_new, size: 16),
             onTap: () {},
           ),
           const Divider(),
-          const _SectionHeader('Account'),
+          _SectionHeader(l10n.translate('account')),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Colors.red),
-            title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+            title: Text(l10n.translate('sign_out'), style: const TextStyle(color: Colors.red)),
             onTap: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
+                  title: Text(l10n.translate('sign_out')),
+                  content: Text(l10n.translate('sign_out_confirm')),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      child: Text(l10n.translate('cancel')),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -124,7 +126,7 @@ class SettingsScreen extends ConsumerWidget {
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Sign Out'),
+                      child: Text(l10n.translate('sign_out')),
                     ),
                   ],
                 ),

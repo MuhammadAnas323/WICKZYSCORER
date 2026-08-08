@@ -8,6 +8,7 @@ import 'package:sportyapp/ui/players/viewmodel/player_viewmodel.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
 import 'package:sportyapp/shared_widgets/stat_pill.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class PlayerProfileScreen extends ConsumerStatefulWidget {
   final String playerId;
@@ -31,6 +32,7 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final async = ref.watch(playerDetailProvider(widget.playerId));
     final cs = Theme.of(context).colorScheme;
 
@@ -81,6 +83,7 @@ class _PlayerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final age = DateTime.now().difference(player.dateOfBirth).inDays ~/ 365;
     return Container(
       decoration: const BoxDecoration(
@@ -109,7 +112,7 @@ class _PlayerHeader extends StatelessWidget {
                   children: [
                     Row(children: [
                       Text(player.name, style: AppTextStyles.headlineSmall(Colors.white)),
-                      if (player.isCaptain) Text(' (C)',
+                      if (player.isCaptain) Text(l10n.translate('c_1'),
                         style: AppTextStyles.labelMedium(AppColors.floodlightGold)),
                     ]),
                     const SizedBox(height: 4),
@@ -148,6 +151,7 @@ class _BattingStatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final items = [
       ('Matches', stats.matches.toString()),
@@ -164,7 +168,7 @@ class _BattingStatsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Career Batting', style: AppTextStyles.titleLarge(cs.onSurface)),
+        Text(l10n.translate('career_batting'), style: AppTextStyles.titleLarge(cs.onSurface)),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
@@ -185,9 +189,10 @@ class _BowlingStatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     if (stats.wickets == 0 && stats.overs == 0) {
-      return Center(child: Text('No bowling stats available.',
+      return Center(child: Text(l10n.translate('no_bowling_stats_available'),
         style: AppTextStyles.bodyMedium(cs.onSurfaceVariant)));
     }
     final items = [
@@ -203,7 +208,7 @@ class _BowlingStatsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Career Bowling', style: AppTextStyles.titleLarge(cs.onSurface)),
+        Text(l10n.translate('career_bowling'), style: AppTextStyles.titleLarge(cs.onSurface)),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
@@ -225,6 +230,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),

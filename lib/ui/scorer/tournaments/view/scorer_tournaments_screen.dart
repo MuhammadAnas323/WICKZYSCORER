@@ -10,6 +10,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/shared_widgets/tournament_card.dart';
+import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 
 class ScorerTournamentsScreen extends ConsumerWidget {
   const ScorerTournamentsScreen({super.key});
@@ -20,6 +21,17 @@ class ScorerTournamentsScreen extends ConsumerWidget {
     final tournaments = state.tournaments;
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+
+    // A tournament counts as completed when every match linked to it has been
+    // completed; otherwise it is still active (has live/upcoming matches, or
+    // has no matches scored yet).
+    final completed = tournaments.where((t) {
+      final tMatches =
+          state.matches.where((m) => m.tournamentId == t.id).toList();
+      return tMatches.isNotEmpty &&
+          tMatches.every((m) => m.status == MatchStatus.completed);
+    }).toList();
+    final active = tournaments.where((t) => !completed.contains(t)).toList();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -64,15 +76,51 @@ class ScorerTournamentsScreen extends ConsumerWidget {
         },
         child: tournaments.isEmpty
             ? _emptyState(context, ref, l10n)
-            : ListView.builder(
+            : ListView(
                 padding: const EdgeInsets.only(bottom: 24, top: 4),
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: tournaments.length,
-                itemBuilder: (ctx, i) => TournamentCard(
-                  tournament: tournaments[i],
-                  onTap: () => context.push('/scorer/tournaments/${tournaments[i].id}'),
-                ),
+                children: [
+                  if (active.isNotEmpty) ...[
+                    _sectionHeader(context, cs, 'Active'),
+                    ...active.map((t) => TournamentCard(
+                          tournament: t,
+                          onTap: () =>
+                              context.push('/scorer/tournaments/${t.id}'),
+                        )),
+                  ],
+                  if (completed.isNotEmpty) ...[
+                    _sectionHeader(
+                        context, cs, l10n.translate('completed')),
+                    ...completed.map((t) => TournamentCard(
+                          tournament: t,
+                          onTap: () =>
+                              context.push('/scorer/tournaments/${t.id}'),
+                        )),
+                  ],
+                ],
               ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, ColorScheme cs, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.pitchGreenLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Gap(8),
+          Text(title,
+              style: AppTextStyles.titleMedium(cs.onSurface)
+                  .copyWith(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

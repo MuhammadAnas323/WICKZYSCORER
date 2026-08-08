@@ -6,18 +6,21 @@ import 'package:sportyapp/data/models/scorer/scorer_schedule_serializers.dart';
 import 'package:sportyapp/data/models/scorer/scorer_serializers.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
-import 'package:sportyapp/data/services/realtime_database_service.dart';
 
 /// Cloud mirror of all scorer-created data.
 ///
 /// This service is the durable store that lets tournaments, teams, players,
 /// matches and schedules be created, deleted and updated easily, and shared
 /// across the scorer and spectator portions.
+///
+/// Live scoring data is stored in Firestore only — the Realtime Database is
+/// intentionally NOT used for live match broadcasting anymore. The scorer
+/// persists the full match document (with innings and ball-by-ball data) on
+/// every change, and spectators read it straight back out of Firestore.
 class FirestoreScorerService {
   final FirebaseFirestore _firestore;
-  final RealtimeDatabaseService _rtdb;
 
-  FirestoreScorerService(this._firestore, this._rtdb);
+  FirestoreScorerService(this._firestore);
 
   CollectionReference get _tournaments => _firestore.collection('tournaments');
   CollectionReference get _teams => _firestore.collection('teams');
@@ -146,8 +149,6 @@ class FirestoreScorerService {
     final matchDocs = await _matches.where('tournamentId', isEqualTo: tournamentId).get();
     for (final m in matchDocs.docs) {
       batch.delete(_matches.doc(m.id));
-      // Cascade: drop any live broadcast node for this match too.
-      await _rtdb.deleteLiveMatch(m.id).catchError((_) {});
     }
     batch.delete(_tournaments.doc(tournamentId));
     batch.delete(_schedules.doc(tournamentId));
@@ -169,11 +170,10 @@ class FirestoreScorerService {
   }
 
   /// Deletes a match document and cascades into every related subcollection
-  /// (balls, innings, players-in-match) plus the live broadcast node.
+  /// (balls, innings, players-in-match).
   ///
   /// The scorer stores balls/innings inside the match document today, so the
-  /// Firestore delete is a single document; the RTDB live node is removed here
-  /// as well so a deleted match can never linger as "live" for spectators.
+  /// Firestore delete is a single document.
   Future<void> deleteMatch(String matchId) async {
     final batch = _firestore.batch();
     final matchRef = _matches.doc(matchId);
@@ -194,33 +194,27 @@ class FirestoreScorerService {
 
     batch.delete(matchRef);
     await batch.commit();
-
-    // Cascade: drop the live broadcast node too.
-    await _rtdb.deleteLiveMatch(matchId).catchError((_) {});
   }
 
-  // ── Live scoring helpers (Realtime Database broadcast) ─────────────────
+  // ── Live scoring helpers (Firestore only) ────────────────────────────────
 
-  Future<void> startMatch(ScorerMatch match) async {
-    final inn1Batting = match.innings1?.battingTeamId;
-    final inn1Bowling = match.innings1?.bowlingTeamId;
-    await _rtdb.createLiveMatch(match.id, {
-      'status': 'live',
-      'currentInnings': 1,
-      'battingTeamId': inn1Batting ?? match.team1Id,
-      'bowlingTeamId': inn1Bowling ?? match.team2Id,
-      'score': {'runs': 0, 'wickets': 0, 'overs': 0, 'balls': 0},
-      'target': null,
-      'requiredRunRate': null,
-    });
-  }
-
-  Future<void> updateRtdb(String matchId, Map<String, dynamic> updates) async {
-    await _rtdb.updateLiveMatch(matchId, updates);
-  }
-
-  Future<void> endMatch(String matchId) async {
-    await _rtdb.deleteLiveMatch(matchId);
+  /// Streams every match currently in progress or live from Firestore.
+  ///
+  /// This is the spectator's real-time window onto scorer-created matches.
+  /// Because the scorer persists the full match document (score, striker,
+  /// non-striker, current bowler, ball-by-ball innings) on every ball, this
+  /// single stream carries both the discovery of newly-started matches and
+  /// the live score/player updates needed for the spectator live section.
+  Stream<List<ScorerMatch>> watchLiveMatches() {
+    return _matches
+        .where('status', whereIn: ['inProgress', 'live'])
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => scorerMatchFromJson(d.data() as Map<String, dynamic>))
+            .where((m) => m.status == MatchStatus.inProgress ||
+                m.status == MatchStatus.live)
+            .toList())
+        .handleError((_) => <ScorerMatch>[]);
   }
 
   // ── Per-document helpers ────────────────────────────────────────────────

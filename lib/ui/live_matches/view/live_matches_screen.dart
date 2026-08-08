@@ -7,12 +7,14 @@ import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/ui/spectator/widgets/spectator_match_card.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class LiveMatchesScreen extends ConsumerWidget {
   const LiveMatchesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(spectatorHomeViewModelProvider);
     final cs = Theme.of(context).colorScheme;
     final liveMatches = state.liveMatches;
@@ -22,7 +24,7 @@ class LiveMatchesScreen extends ConsumerWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Live', style: AppTextStyles.headlineSmall(cs.onBackground)),
+            Text(l10n.translate('live'), style: AppTextStyles.headlineSmall(cs.onBackground)),
             const SizedBox(width: 8),
             if (liveMatches.isNotEmpty) const LiveBadge(),
           ],
@@ -58,6 +60,7 @@ class LiveMatchesScreen extends ConsumerWidget {
                           teamShort: state.teamShort,
                           tournamentName: (id) =>
                               state.tournamentById(id)?.name ?? 'Custom Match',
+                          live: state.rtdbLiveMatches[m.id],
                           onTap: () =>
                               context.push('/spectator/match/${m.id}'),
                         )).toList(),

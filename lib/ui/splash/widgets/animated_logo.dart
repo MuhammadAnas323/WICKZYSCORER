@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+/// Brand logo shown directly on the splash (no boxy tile). It spins fast on
+/// entry and decelerates to a stop at the end of the 5s master timeline.
 class AnimatedLogo extends StatefulWidget {
   final AnimationController masterController;
 
@@ -13,19 +15,18 @@ class AnimatedLogo extends StatefulWidget {
 
 class _AnimatedLogoState extends State<AnimatedLogo>
     with TickerProviderStateMixin {
-  static const double _logoSize = 132;
+  static const double _logoSize = 140;
   static const String _logoAsset = 'assets/images/Crixora.png';
 
-  // Continuous, gentle rotation — starts on the very first Flutter frame so the
-  // icon keeps "flowing" from the native splash (which shows the same artwork).
-  late final AnimationController _rotationController;
+  // Fast spin (6 full turns) driven by the 5s master timeline, easing out so
+  // the logo spins quickly then settles and stops at exactly 5s.
   late final Animation<double> _rotationAnimation;
 
-  // Gentle vertical float, repeated indefinitely.
+  // Gentle vertical float, repeated indefinitely while the logo spins.
   late final AnimationController _floatController;
   late final Animation<double> _floatAnimation;
 
-  // Entrance choreography, driven by the 3s master timeline.
+  // Entrance choreography, driven by the master timeline.
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _glowAnimation;
@@ -34,13 +35,12 @@ class _AnimatedLogoState extends State<AnimatedLogo>
   void initState() {
     super.initState();
 
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _rotationController, curve: Curves.linear),
+    _rotationAnimation =
+        Tween<double>(begin: 0.0, end: 6 * 2 * math.pi).animate(
+      CurvedAnimation(
+        parent: widget.masterController,
+        curve: Curves.easeInOutCubic,
+      ),
     );
 
     // Quick fade-in so the logo is already visible when the native splash hands
@@ -53,33 +53,32 @@ class _AnimatedLogoState extends State<AnimatedLogo>
     );
 
     // Settle-in scale: grows slightly, then eases back to rest (no snap).
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(
         parent: widget.masterController,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.35, curve: Curves.easeOutBack),
       ),
     );
 
     _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: widget.masterController,
-        curve: const Interval(0.2, 0.6, curve: Curves.easeInOut),
+        curve: const Interval(0.15, 0.5, curve: Curves.easeInOut),
       ),
     );
 
     _floatController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _floatAnimation = Tween<double>(begin: -5.0, end: 5.0).animate(
+    _floatAnimation = Tween<double>(begin: -6.0, end: 6.0).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
   }
 
   @override
   void dispose() {
-    _rotationController.dispose();
     _floatController.dispose();
     super.dispose();
   }
@@ -91,7 +90,6 @@ class _AnimatedLogoState extends State<AnimatedLogo>
         animation: Listenable.merge([
           widget.masterController,
           _floatController,
-          _rotationController,
         ]),
         builder: (context, child) {
           return Transform.translate(
@@ -105,45 +103,44 @@ class _AnimatedLogoState extends State<AnimatedLogo>
                   children: [
                     // Glowing halo ring
                     Container(
-                      width: _logoSize + 44,
-                      height: _logoSize + 44,
+                      width: _logoSize + 48,
+                      height: _logoSize + 48,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF00C853)
-                              .withOpacity(0.55 * _glowAnimation.value),
+                          color: const Color(0xFF2ECC71)
+                              .withValues(alpha: 0.55 * _glowAnimation.value),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00C853)
-                                .withOpacity(0.4 * _glowAnimation.value),
-                            blurRadius: 22,
-                            spreadRadius: 6,
+                            color: const Color(0xFF2ECC71)
+                                .withValues(alpha: 0.4 * _glowAnimation.value),
+                            blurRadius: 24,
+                            spreadRadius: 8,
                           ),
                         ],
                       ),
                     ),
-                    // Brand logo tile — the same artwork as the native splash.
+                    // Direct logo — spinning fast, no boxy tile around it.
                     Transform.rotate(
                       angle: _rotationAnimation.value,
-                      child: Container(
-                        width: _logoSize,
-                        height: _logoSize,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(28),
-                          border:
-                              Border.all(color: Colors.white.withOpacity(0.12)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
+                      child: ClipOval(
+                        child: Image.asset(
+                          _logoAsset,
+                          width: _logoSize,
+                          height: _logoSize,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: _logoSize,
+                            height: _logoSize,
+                            color: const Color(0xFF0D2818),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.sports_cricket,
+                              color: Colors.white,
+                              size: 56,
                             ),
-                          ],
-                          image: const DecorationImage(
-                            image: AssetImage(_logoAsset),
-                            fit: BoxFit.cover,
                           ),
                         ),
                       ),

@@ -7,6 +7,7 @@ import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/providers/live_match_providers.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
@@ -22,11 +23,15 @@ class SpectatorHomeState {
   final List<ScorerPlayer> players;
   final List<ScorerMatch> matches;
   final Map<String, List<ScheduleStage>> schedules;
-  final Map<String, LiveMatchData> liveMatchData;
   final int topTab; // 0 = Tournaments, 1 = Friendly Matches
   final String tournamentSubFilter; // 'all', 'live', 'upcoming', 'completed'
   final String friendlySubFilter; // 'all', 'live', 'upcoming', 'completed'
   final String searchQuery;
+
+  /// RTDB live payloads keyed by matchId. This is the real-time transport for
+  /// live matches; it overrides the Firestore snapshot on the match cards so
+  /// spectators always see the latest ball.
+  final Map<String, LiveMatchData> rtdbLiveMatches;
 
   const SpectatorHomeState({
     this.isLoading = true,
@@ -36,18 +41,16 @@ class SpectatorHomeState {
     this.players = const [],
     this.matches = const [],
     this.schedules = const {},
-    this.liveMatchData = const {},
     this.topTab = 0,
     this.tournamentSubFilter = 'all',
     this.friendlySubFilter = 'all',
     this.searchQuery = '',
+    this.rtdbLiveMatches = const {},
   });
 
   List<ScorerMatch> get liveMatches => matches
       .where((m) =>
-          m.status == MatchStatus.inProgress ||
-          m.status == MatchStatus.live ||
-          liveMatchData.containsKey(m.id))
+          m.status == MatchStatus.inProgress || m.status == MatchStatus.live)
       .toList();
 
   List<ScorerMatch> get upcomingMatches => matches
@@ -70,7 +73,7 @@ class SpectatorHomeState {
     return list.where((t) {
       final tourneyMatches = matches.where((m) => m.tournamentId == t.id).toList();
       if (tournamentSubFilter == 'live') {
-        return tourneyMatches.any((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live || liveMatchData.containsKey(m.id));
+        return tourneyMatches.any((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live);
       } else if (tournamentSubFilter == 'upcoming') {
         return tourneyMatches.any((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled);
       } else if (tournamentSubFilter == 'completed') {
@@ -102,7 +105,7 @@ class SpectatorHomeState {
     }
 
     if (friendlySubFilter == 'live') {
-      return list.where((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live || liveMatchData.containsKey(m.id)).toList();
+      return list.where((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live).toList();
     } else if (friendlySubFilter == 'upcoming') {
       return list.where((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled).toList();
     } else if (friendlySubFilter == 'completed') {
@@ -150,8 +153,6 @@ class SpectatorHomeState {
     return playerId.replaceAll('player_', '').replaceAll('p_', '');
   }
 
-  LiveMatchData? liveDataFor(String matchId) => liveMatchData[matchId];
-
   SpectatorHomeState copyWith({
     bool? isLoading,
     String? error,
@@ -160,11 +161,11 @@ class SpectatorHomeState {
     List<ScorerPlayer>? players,
     List<ScorerMatch>? matches,
     Map<String, List<ScheduleStage>>? schedules,
-    Map<String, LiveMatchData>? liveMatchData,
     int? topTab,
     String? tournamentSubFilter,
     String? friendlySubFilter,
     String? searchQuery,
+    Map<String, LiveMatchData>? rtdbLiveMatches,
   }) {
     return SpectatorHomeState(
       isLoading: isLoading ?? this.isLoading,
@@ -174,11 +175,11 @@ class SpectatorHomeState {
       players: players ?? this.players,
       matches: matches ?? this.matches,
       schedules: schedules ?? this.schedules,
-      liveMatchData: liveMatchData ?? this.liveMatchData,
       topTab: topTab ?? this.topTab,
       tournamentSubFilter: tournamentSubFilter ?? this.tournamentSubFilter,
       friendlySubFilter: friendlySubFilter ?? this.friendlySubFilter,
       searchQuery: searchQuery ?? this.searchQuery,
+      rtdbLiveMatches: rtdbLiveMatches ?? this.rtdbLiveMatches,
     );
   }
 }
@@ -186,12 +187,28 @@ class SpectatorHomeState {
 class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   final Ref ref;
   StreamSubscription? _liveSubscription;
+  ProviderSubscription<AsyncValue<Map<String, LiveMatchData>>>? _rtdbSubscription;
+  Timer? _reloadDebounce;
 
   SpectatorHomeViewModel(this.ref) : super(const SpectatorHomeState()) {
     _listenToLiveMatches();
+    _listenToRtdbLive();
     load();
     ref.listen(currentUserProvider, (_, next) {
       if (next != null) load();
+    });
+    // Pull fresh data from Firestore whenever the scorer creates/edits data
+    // (e.g. a friendly match is completed with its ball-by-ball innings).
+    // Debounced so the rapid per-ball version bumps during live scoring don't
+    // trigger a full reload on every delivery.
+    ref.listen(scorerDataVersionProvider, (_, __) => _onScorerDataChanged());
+  }
+
+  void _onScorerDataChanged() {
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      load(showLoading: false);
     });
   }
 
@@ -211,22 +228,59 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
     state = state.copyWith(searchQuery: query);
   }
 
+  /// Watches Firestore for scorer matches that are in progress/live. The scorer
+  /// persists the full match document (score, striker, non-striker, current
+  /// bowler, ball-by-ball innings) to Firestore on every ball, so this single
+  /// stream gives spectators:
+  ///   • instant discovery of matches that just went live on another device,
+  ///   • real-time score updates on the live match cards,
+  ///   • fresh player stats (runs, balls, wickets) in the match detail screen.
   void _listenToLiveMatches() {
     _liveSubscription?.cancel();
     _liveSubscription =
-        ref.read(realtimeDatabaseProvider).watchAllLiveMatches().listen((raw) {
-      if (!mounted) return;
-      final liveMatchData = raw.map(
-          (matchId, data) => MapEntry(matchId, LiveMatchData.fromJson(data)));
-      state = state.copyWith(liveMatchData: liveMatchData);
+        ref.read(firestoreScorerServiceProvider).watchLiveMatches().listen(
+      (liveMatches) {
+        if (!mounted) return;
 
-      // A brand-new match went live (created by another user after our last
-      // Firestore sync) — pull its document so it appears for every spectator.
-      // This only fires when an unknown match id shows up, so constant score
-      // updates during a match never trigger a reload.
-      final known = state.matches.map((m) => m.id).toSet();
-      if (raw.keys.any((id) => !known.contains(id))) {
-        load(showLoading: false);
+        // A match went live that we have never loaded before (created by another
+        // user after our last Firestore sync) — pull its tournament/team/player
+        // context so it renders properly for every spectator. This only fires
+        // when an unknown match id shows up, so constant score updates during a
+        // match never trigger a reload.
+        final known = state.matches.map((m) => m.id).toSet();
+
+        // Merge the live matches into the cached list so the live section,
+        // filters and match cards all see the freshest ball-by-ball data.
+        final byId = <String, ScorerMatch>{
+          for (final m in state.matches) m.id: m,
+        };
+        for (final m in liveMatches) {
+          byId[m.id] = m;
+        }
+        state = state.copyWith(matches: byId.values.toList());
+
+        if (liveMatches.any((m) => !known.contains(m.id))) {
+          load(showLoading: false);
+        }
+      },
+      onError: (e) {
+        // Firestore connection issue — keep existing state, don't crash.
+        // ignore: avoid_print
+        print('[Live] Live match listener error: $e');
+      },
+    );
+  }
+
+  /// Watches RTDB for the compact live payloads of every live match. These
+  /// override the Firestore snapshot on the live match cards so spectators see
+  /// the latest ball in real time, while Firestore stays the permanent record.
+  void _listenToRtdbLive() {
+    _rtdbSubscription?.close();
+    _rtdbSubscription = ref.listen(allLiveMatchesProvider, (_, next) {
+      if (!mounted) return;
+      final data = next.valueOrNull;
+      if (data != null) {
+        state = state.copyWith(rtdbLiveMatches: data);
       }
     });
   }
@@ -266,7 +320,9 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
 
   @override
   void dispose() {
+    _reloadDebounce?.cancel();
     _liveSubscription?.cancel();
+    _rtdbSubscription?.close();
     super.dispose();
   }
 }

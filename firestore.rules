@@ -74,6 +74,19 @@ service cloud.firestore {
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // ── User devices (FCM tokens): owner-only, read by the Cloud Function
+    //    sender via the Admin SDK (which bypasses rules). ───────────────────
+    match /users/{userId}/devices/{deviceId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Match alert subscriptions (per match): owner-only. ─────────────────
+    match /users/{userId}/matchAlerts/{matchId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     // Deny everything else unless explicitly allowed above.
     match /{document=**} {
       allow read: if true;

@@ -79,30 +79,36 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
         child: TextFormField(
           controller: controller,
           obscureText: obscureText ?? false,
-          style: AppTextStyles.bodyMedium(Colors.white),
+          style: AppTextStyles.bodyMedium(AppColors.charcoal900),
           decoration: InputDecoration(
             labelText: label,
-            labelStyle: AppTextStyles.bodyMedium(AppColors.charcoal200),
-            prefixIcon: Icon(icon, color: AppColors.charcoal200),
+            labelStyle: AppTextStyles.bodyMedium(AppColors.charcoal400),
+            prefixIcon: Icon(icon, color: AppColors.pitchGreen),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
                       obscureText == true ? Icons.visibility_off : Icons.visibility,
-                      color: AppColors.charcoal200,
+                      color: AppColors.charcoal400,
                     ),
                     onPressed: onToggleObscure,
                   )
                 : null,
             filled: true,
-            fillColor: AppColors.darkSurfaceVariant,
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.charcoal600),
+            fillColor: AppColors.lightSurfaceVariant,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.charcoal100),
             ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: widget.isScorer ? AppColors.floodlightGold : AppColors.pitchGreen),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: widget.isScorer
+                      ? AppColors.floodlightGold
+                      : AppColors.pitchGreen),
             ),
-            errorBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.error),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error),
             ),
           ),
           validator: validator,

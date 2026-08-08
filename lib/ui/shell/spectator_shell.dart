@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/shared_widgets/live_mini_banner.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 
@@ -49,11 +50,12 @@ class _SpectatorBottomNav extends StatelessWidget {
     final bgColor = isDark ? const Color(0xFF141414) : Colors.white;
     final unselectedColor = isDark ? Colors.white38 : Colors.black45;
 
+    final l10n = AppLocalizations.of(context);
     final items = [
-      (Icons.home_rounded, 'Home'),
-      (Icons.sports_cricket_rounded, 'Live'),
-      (Icons.emoji_events_rounded, 'Events'),
-      (Icons.person_rounded, 'Profile'),
+      (Icons.home_rounded, l10n.translate('home')),
+      (Icons.sports_cricket_rounded, l10n.translate('live')),
+      (Icons.emoji_events_rounded, l10n.translate('events')),
+      (Icons.person_rounded, l10n.translate('profile')),
     ];
 
     return Container(

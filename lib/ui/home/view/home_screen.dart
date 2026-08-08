@@ -359,6 +359,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           teamName: state.teamName,
           teamShort: state.teamShort,
           tournamentName: (id) => 'Friendly Match',
+          live: state.rtdbLiveMatches[m.id],
           onTap: () => context.push('/spectator/match/${m.id}'),
         );
       },
