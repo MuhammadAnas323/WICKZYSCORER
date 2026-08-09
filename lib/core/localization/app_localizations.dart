@@ -239,6 +239,9 @@ class AppLocalizations {
       'change_bowler_hint':
           'Change the current bowler or mark them retired hurt.',
       'available_bowlers': 'Available Bowlers',
+      'next_batsman': 'Next Batsman',
+      'who_comes_to_bat': 'Who comes in to bat?',
+      'no_batsmen_available': 'No players available to bat. Add players to the batting team first.',
 
       // Scheduling
       'manual_schedule': 'Manual Schedule',
@@ -508,6 +511,9 @@ class AppLocalizations {
       'change_bowler_hint':
           'موجودہ بولر کو تبدیل کریں یا انہیں ریٹائرڈ ہرٹ کریں۔',
       'available_bowlers': 'دستیاب بولرز',
+      'next_batsman': 'اگلا بیٹسمین',
+      'who_comes_to_bat': 'کون بیٹنگ کرنے آئے گا؟',
+      'no_batsmen_available': 'بیٹنگ کے لیے کوئی کھلاڑی دستیاب نہیں۔ پہلے بیٹنگ ٹیم میں کھلاڑی شامل کریں۔',
 
       // Scheduling
       'manual_schedule': 'دستی شیڈول',

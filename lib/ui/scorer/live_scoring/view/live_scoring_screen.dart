@@ -413,13 +413,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
+  /// Asks who comes in to bat next after a wicket. Reads the freshest match
+  /// state so the picker never fires for an innings that just finished (e.g. a
+  /// wicket on the last ball), and the selected batsman fills the vacant
+  /// striker/non-striker slot.
   void _showNewBatsmanPicker(ScorerMatch match, List<ScorerPlayer> allPlayers) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+    final inn =
+        liveRepo.activeMatch?.currentInningsData ?? match.currentInningsData;
+    if (inn == null || inn.isComplete) return;
 
-    final inn = match.currentInningsData;
-    if (inn == null) return;
     final battingTeamPlayers =
         allPlayers.where((p) => p.teamId == inn.battingTeamId).toList();
     final alreadyIn = inn.battingOrder.toSet();
@@ -428,49 +431,15 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
 
     if (available.isEmpty) return;
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('🏏 ${l10n.translate('batsman')}',
-                style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
-            const Gap(12),
-            ...available.map((p) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.pitchGreen.withOpacity(0.2),
-                    child: Text('${p.jerseyNumber ?? '?'}',
-                        style: const TextStyle(
-                            color: AppColors.pitchGreenLight,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(p.name,
-                      style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold)),
-                  subtitle: Text(p.battingStyle.name,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  onTap: () {
-                    ref
-                        .read(scorerLiveMatchRepositoryProvider)
-                        .setNextBatsman(p.id);
-                    Navigator.pop(ctx);
-                  },
-                )),
-          ],
-        ),
+      barrierDismissible: false,
+      builder: (ctx) => _NextBatsmanDialog(
+        players: available,
+        onSelect: (batsmanId) {
+          ref.read(scorerLiveMatchRepositoryProvider).setNextBatsman(batsmanId);
+          Navigator.pop(ctx);
+        },
       ),
     );
   }
@@ -2143,6 +2112,90 @@ class _NextBowlerDialogState extends ConsumerState<_NextBowlerDialog> {
     final withoutLast =
         eligible.where((p) => p.id != inn.currentBowlerId).toList();
     return withoutLast.isNotEmpty ? withoutLast : eligible;
+  }
+}
+
+// ── Next Batsman Dialog ───────────────────────────────────────────────────────
+
+/// Dialog shown after a wicket: the scorer picks which player comes in to bat
+/// next. The selected batsman fills the vacant striker/non-striker slot so they
+/// can bat on the next delivery.
+class _NextBatsmanDialog extends ConsumerStatefulWidget {
+  final List<ScorerPlayer> players;
+  final ValueChanged<String> onSelect;
+
+  const _NextBatsmanDialog({required this.players, required this.onSelect});
+
+  @override
+  ConsumerState<_NextBatsmanDialog> createState() => _NextBatsmanDialogState();
+}
+
+class _NextBatsmanDialogState extends ConsumerState<_NextBatsmanDialog> {
+  String? _selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('🏏 ${l10n.translate('next_batsman')}',
+          style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 20)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.translate('who_comes_to_bat'),
+                style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13)),
+            const Gap(8),
+            ...widget.players.map((p) => RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: p.id,
+                  groupValue: _selectedId,
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  subtitle: Text(p.battingStyle.name,
+                      style:
+                          const TextStyle(color: Colors.grey, fontSize: 11)),
+                  activeColor: AppColors.pitchGreen,
+                  onChanged: (val) => setState(() => _selectedId = val),
+                )),
+            if (widget.players.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(l10n.translate('no_batsmen_available'),
+                    style:
+                        const TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.pitchGreen,
+            foregroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: _selectedId == null
+              ? null
+              : () => widget.onSelect(_selectedId!),
+          child: Text(l10n.translate('confirm'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
   }
 }
 
