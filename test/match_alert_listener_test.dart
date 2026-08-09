@@ -27,6 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/core/services/match_alert_service.dart';
 import 'package:sportyapp/data/models/match_notification_prefs.dart';
+import 'package:sportyapp/data/models/tournament_notification_prefs.dart';
 import 'package:sportyapp/ui/spectator/match_detail/viewmodel/match_notification_prefs_provider.dart';
 
 const _uid = 'spectator-1';
@@ -35,6 +36,8 @@ const _matchId = 'match-1';
 MatchNotificationPrefs _prefs({
   bool enabled = true,
   bool start = true,
+  bool firstInnings = true,
+  bool secondInnings = true,
   bool wicket = true,
   bool complete = true,
 }) =>
@@ -42,6 +45,8 @@ MatchNotificationPrefs _prefs({
       matchId: _matchId,
       enabled: enabled,
       matchStart: start,
+      firstInningsStart: firstInnings,
+      secondInningsStart: secondInnings,
       wicket: wicket,
       matchComplete: complete,
     );
@@ -60,7 +65,11 @@ Map<String, dynamic> _payload(String type, {String? id}) => {
 void main() {
   late ProviderContainer container;
   late StreamController<Map<String, dynamic>?> rtdb;
+  late Map<String, StreamController<Map<String, dynamic>?>> matchStreams;
   late StreamController<Map<String, MatchNotificationPrefs>> prefsStream;
+  late StreamController<Map<String, TournamentNotificationPrefs>>
+      tournamentPrefsStream;
+  late StreamController<List<Map<String, dynamic>>> tournamentMatchesCtrl;
   late StateProvider<String?> uidProvider;
   final notifications = <Map<String, String>>[];
 
@@ -85,16 +94,27 @@ void main() {
   void build() {
     uidProvider = StateProvider<String?>((ref) => _uid);
     rtdb = StreamController<Map<String, dynamic>?>.broadcast();
+    matchStreams = <String, StreamController<Map<String, dynamic>?>>{};
     prefsStream =
         StreamController<Map<String, MatchNotificationPrefs>>.broadcast();
+    tournamentPrefsStream =
+        StreamController<Map<String, TournamentNotificationPrefs>>.broadcast();
+    tournamentMatchesCtrl =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
     container = ProviderContainer(overrides: [
       currentUserIdProvider.overrideWith((ref) => ref.watch(uidProvider)),
       matchAlertsMapProvider.overrideWith((ref) => prefsStream.stream),
+      tournamentAlertsMapProvider.overrideWith(
+        (ref) => tournamentPrefsStream.stream,
+      ),
       matchAlertListenerProvider.overrideWith(
         (ref) => MatchAlertListener(
           ref,
           notify: notify,
-          watchLiveMatch: (matchId) => rtdb.stream,
+          watchLiveMatch: (matchId) =>
+              (matchStreams[matchId] ?? rtdb).stream,
+          watchTournamentMatches: (tournamentId) =>
+              tournamentMatchesCtrl.stream,
         ),
       ),
     ]);
@@ -255,5 +275,127 @@ void main() {
     rtdb.add(_payload('start'));
     await flush();
     expect(notifications, isEmpty);
+  });
+
+  test('innings-start events notify only when the matching prefs are on',
+      () async {
+    emitPrefs(_prefs(start: false, wicket: false, complete: false));
+    await flush();
+    rtdb.add(null);
+    await flush();
+
+    rtdb.add(_payload('first_innings_start'));
+    rtdb.add(_payload('second_innings_start'));
+    await flush();
+
+    final types = notifications.map((n) => n['type']).toList();
+    expect(types, ['first_innings_start', 'second_innings_start']);
+    expect(notifications.first['body'],
+        'Alpha vs Beta — 1st innings has started');
+    expect(notifications.last['body'],
+        'Alpha vs Beta — 2nd innings has started');
+  });
+
+  test('innings-start events are gated off by their prefs', () async {
+    emitPrefs(_prefs(firstInnings: false, secondInnings: false));
+    await flush();
+    rtdb.add(null);
+    await flush();
+
+    rtdb.add(_payload('first_innings_start'));
+    rtdb.add(_payload('second_innings_start'));
+    await flush();
+
+    expect(notifications, isEmpty);
+  });
+
+  test('tournament alerts notify for every match of the tournament',
+      () async {
+    tournamentPrefsStream.add({
+      'tournament-1': TournamentNotificationPrefs(
+        tournamentId: 'tournament-1',
+        enabled: true,
+        matchStart: true,
+        firstInningsStart: true,
+        secondInningsStart: true,
+        wicket: true,
+        matchComplete: true,
+      ),
+    });
+    await flush();
+
+    // Per-match RTDB streams (real RTDB nodes are per-match). Register them
+    // before the matches arrive so the listener subscribes to the right node.
+    matchStreams['match-2'] =
+        StreamController<Map<String, dynamic>?>.broadcast();
+    matchStreams['match-3'] =
+        StreamController<Map<String, dynamic>?>.broadcast();
+
+    // The tournament's Firestore matches are resolved; one is not yet live,
+    // the other is already in progress.
+    tournamentMatchesCtrl.add([
+      {'id': 'match-2', 'status': 'scheduled', 'tournamentId': 'tournament-1'},
+      {'id': 'match-3', 'status': 'inProgress', 'tournamentId': 'tournament-1'},
+    ]);
+    await flush();
+    expect(listener().isWatching('match-2'), isTrue);
+    expect(listener().isWatching('match-3'), isTrue);
+
+    // Baseline for the not-yet-live match.
+    matchStreams['match-2']!.add(null);
+    await flush();
+
+    // match-2 starts → the tournament's matchStart pref applies.
+    matchStreams['match-2']!.add({
+      'team1Name': 'Alpha',
+      'team2Name': 'Beta',
+      'lastEvent': {
+        'id': 'match-2_start',
+        'type': 'start',
+      },
+    });
+    await flush();
+
+    // match-3 is already live: its first emission is the baseline (a wicket
+    // already fallen) so it is remembered, not notified.
+    matchStreams['match-3']!.add({
+      'team1Name': 'Alpha',
+      'team2Name': 'Beta',
+      'lastEvent': {
+        'id': 'match-3_old_wicket',
+        'type': 'wicket',
+      },
+    });
+    await flush();
+
+    final matched = notifications.where((n) => n['matchId'] == 'match-2');
+    expect(matched, hasLength(1));
+    expect(matched.single['type'], 'start');
+    expect(matched.single['body'], 'Alpha vs Beta has started');
+    expect(notifications, hasLength(1));
+  });
+
+  test('completed tournament matches are not watched', () async {
+    tournamentPrefsStream.add({
+      'tournament-1': TournamentNotificationPrefs(
+        tournamentId: 'tournament-1',
+        enabled: true,
+        matchStart: true,
+        firstInningsStart: true,
+        secondInningsStart: true,
+        wicket: true,
+        matchComplete: true,
+      ),
+    });
+    await flush();
+
+    tournamentMatchesCtrl.add([
+      {'id': 'match-done', 'status': 'completed', 'tournamentId': 'tournament-1'},
+      {'id': 'match-live', 'status': 'inProgress', 'tournamentId': 'tournament-1'},
+    ]);
+    await flush();
+
+    expect(listener().isWatching('match-done'), isFalse);
+    expect(listener().isWatching('match-live'), isTrue);
   });
 }

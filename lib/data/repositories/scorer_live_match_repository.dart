@@ -89,7 +89,8 @@ class ScorerLiveMatchRepository {
   }
 
   /// Detects the notification-worthy event represented by this state change
-  /// (match start, a wicket, match completion) plus the generic ball event.
+  /// (match start, innings start, a wicket, match completion) plus the generic
+  /// ball event.
   LiveMatchEvent? _detectEvent(ScorerMatch? previous, ScorerMatch current) {
     if (current.status == MatchStatus.completed) {
       return LiveMatchEvent(type: 'complete', match: current);
@@ -100,6 +101,19 @@ class ScorerLiveMatchRepository {
     }
     final inn = current.currentInningsData;
     if (inn != null && inn.balls.isNotEmpty) {
+      // 1st / 2nd innings start: the very first ball of that innings.
+      final prevInn1 = previous?.innings1;
+      if (current.currentInnings == 1 &&
+          inn.balls.length == 1 &&
+          (prevInn1 == null || prevInn1.balls.isEmpty)) {
+        return LiveMatchEvent(type: 'first_innings_start', match: current);
+      }
+      final prevInn2 = previous?.innings2;
+      if (current.currentInnings == 2 &&
+          inn.balls.length == 1 &&
+          (prevInn2 == null || prevInn2.balls.isEmpty)) {
+        return LiveMatchEvent(type: 'second_innings_start', match: current);
+      }
       final last = inn.balls.last;
       if (last.isWicket) {
         return LiveMatchEvent(type: 'wicket', match: current, ball: last);
@@ -363,6 +377,8 @@ class ScorerLiveMatchRepository {
       final eventId = switch (event.type) {
         'start' => '${match.id}_start',
         'complete' => '${match.id}_complete',
+        'first_innings_start' => '${match.id}_first_innings_start',
+        'second_innings_start' => '${match.id}_second_innings_start',
         _ => '${match.id}_inn${match.currentInnings}_o${ball?.overNumber}_'
             'b${ball?.ballInOver}_${ball?.timestamp.millisecondsSinceEpoch}',
       };
@@ -885,10 +901,12 @@ class _BowlAccum {
 }
 
 /// A scoring state change that is interesting to spectators (match start,
-/// wicket, match completion) or a routine ball delivery. Serialized into the
-/// RTDB `lastEvent` field for the Cloud Function notification triggers.
+/// innings start, wicket, match completion) or a routine ball delivery.
+/// Serialized into the RTDB `lastEvent` field for the notification triggers.
 class LiveMatchEvent {
-  final String type; // 'start' | 'ball' | 'wicket' | 'complete'
+  final String type;
+  // 'start' | 'first_innings_start' | 'second_innings_start' | 'ball' |
+  // 'wicket' | 'complete'
   final ScorerMatch match;
   final BallEvent? ball;
 
