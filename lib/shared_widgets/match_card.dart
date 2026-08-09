@@ -3,6 +3,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/data/models/match_model.dart';
+import 'package:sportyapp/shared_widgets/alert_options_sheet.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/ball_strip.dart';
 import 'package:sportyapp/core/extensions/datetime_extensions.dart';
@@ -76,6 +77,23 @@ class MatchCard extends StatelessWidget {
                     style: AppTextStyles.labelSmall(
                       match.status == MatchStatus.completed ?
                         AppColors.success : cs.onSurfaceVariant)),
+                  if (match.status != MatchStatus.completed) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.notifications_none_rounded,
+                          size: 18, color: cs.onSurfaceVariant),
+                      onPressed: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => MatchAlertsSheet(matchId: match.id),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

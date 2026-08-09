@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/shared_widgets/alert_options_sheet.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 
 class TournamentCard extends StatelessWidget {
@@ -126,6 +127,23 @@ class TournamentCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     headerBadge!,
                   ],
+                  const SizedBox(width: 4),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.notifications_none_rounded,
+                        size: 18,
+                        color: isDark ? Colors.white60 : Colors.black54),
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) =>
+                          TournamentAlertsSheet(tournamentId: tournament.id),
+                    ),
+                  ),
                 ],
               ),
             ),

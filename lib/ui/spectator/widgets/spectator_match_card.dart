@@ -3,6 +3,7 @@ import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/shared_widgets/alert_options_sheet.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
@@ -135,6 +136,21 @@ class SpectatorMatchCard extends StatelessWidget {
                             : cs.onSurfaceVariant,
                       ),
                     ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.notifications_none_rounded,
+                        size: 18, color: cs.onSurfaceVariant),
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => MatchAlertsSheet(matchId: match.id),
+                    ),
+                  ),
                 ],
               ),
             ),
