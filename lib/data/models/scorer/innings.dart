@@ -13,6 +13,10 @@ class Innings {
   final String? nonStrikerId;
   final String? currentBowlerId;
 
+  /// Bowlers who left the field injured mid-over ("retired hurt") and can no
+  /// longer bowl in this innings.
+  final List<String> retiredHurtBowlerIds;
+
   const Innings({
     required this.id,
     required this.battingTeamId,
@@ -25,6 +29,7 @@ class Innings {
     this.strikerId,
     this.nonStrikerId,
     this.currentBowlerId,
+    this.retiredHurtBowlerIds = const [],
   });
 
   int get totalRuns => balls.fold(0, (sum, ball) => sum + ball.totalRuns);
@@ -70,6 +75,7 @@ class Innings {
     Object? strikerId = _unset,
     Object? nonStrikerId = _unset,
     Object? currentBowlerId = _unset,
+    List<String>? retiredHurtBowlerIds,
   }) {
     return Innings(
       id: id ?? this.id,
@@ -83,6 +89,7 @@ class Innings {
       strikerId: strikerId == _unset ? this.strikerId : strikerId as String?,
       nonStrikerId: nonStrikerId == _unset ? this.nonStrikerId : nonStrikerId as String?,
       currentBowlerId: currentBowlerId == _unset ? this.currentBowlerId : currentBowlerId as String?,
+      retiredHurtBowlerIds: retiredHurtBowlerIds ?? this.retiredHurtBowlerIds,
     );
   }
 }

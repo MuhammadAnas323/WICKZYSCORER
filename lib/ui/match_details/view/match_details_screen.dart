@@ -16,6 +16,27 @@ import 'package:sportyapp/shared_widgets/ball_strip.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 
+/// A single delivery for the over-by-over strip.
+class _OverBall {
+  final int over;
+  final String label; // '0','1','2','3','4','6','W','WD','NB'
+  final bool wicket;
+  final bool six;
+  final bool boundary;
+  final bool extra;
+  final String bowlerId;
+
+  const _OverBall({
+    required this.over,
+    required this.label,
+    required this.wicket,
+    required this.six,
+    required this.boundary,
+    required this.extra,
+    required this.bowlerId,
+  });
+}
+
 class MatchDetailsScreen extends ConsumerStatefulWidget {
   final String matchId;
   const MatchDetailsScreen({super.key, required this.matchId});
@@ -395,108 +416,254 @@ class _CommentaryTab extends StatelessWidget {
     }
   }
 
+  Color _chipColor(_OverBall b, ColorScheme cs) {
+    if (b.wicket) return AppColors.ballRed;
+    if (b.six) return AppColors.floodlightGold;
+    if (b.boundary) return AppColors.pitchGreen;
+    if (b.extra) return Colors.orangeAccent;
+    return cs.onSurface.withValues(alpha: 0.7);
+  }
+
+  String _liveLabel(LiveBallEvent e) {
+    if (e.wicket) return 'W';
+    switch (e.extraType) {
+      case 'wide': return 'WD';
+      case 'noBall': return 'NB';
+      default: return e.runs.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final events = match.innings
-      .expand((inn) => inn.ballEvents.reversed)
-      .toList();
+    final hasLive = liveData != null && liveData!.ballHistory.isNotEmpty;
 
-    if (events.isEmpty && liveData == null) {
+    if (liveData == null && match.innings.every((i) => i.ballEvents.isEmpty)) {
       return const EmptyState(emoji: '🎤', title: 'No Commentary Yet',
         subtitle: 'Ball-by-ball commentary will appear here during the match.');
     }
 
-    if (liveData != null && liveData!.ballHistory.isNotEmpty) {
-      return ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: liveData!.ballHistory.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (_, i) {
-          final e = liveData!.ballHistory.reversed.toList()[i];
-          final label = e.wicket ? 'W' : e.runs.toString();
-          final isHighlight = e.wicket || e.runs == 4 || e.runs == 6;
-          return Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            color: isHighlight ? _eventColor(label, cs).withValues(alpha: 0.08) : null,
+    final children = <Widget>[];
+
+    if (hasLive) {
+      final balls = liveData!.ballHistory.map((e) => _OverBall(
+        over: e.over,
+        label: _liveLabel(e),
+        wicket: e.wicket,
+        six: e.runs == 6,
+        boundary: e.runs == 4,
+        extra: e.extraType != null && e.extraType!.isNotEmpty,
+        bowlerId: e.bowlerId,
+      )).toList();
+      children.add(_overByOverSection(
+        title: 'Over by Over',
+        balls: balls,
+        nameOf: (id) => liveData!.players[id] ?? '—',
+        cs: cs,
+      ));
+    } else {
+      for (final inn in match.innings) {
+        if (inn.ballEvents.isEmpty) continue;
+        final names = <String, String>{
+          for (final b in inn.bowlers) b.bowler.id: b.bowler.name,
+          for (final b in inn.batters) b.batsman.id: b.batsman.name,
+        };
+        children.add(_overByOverSection(
+          title: match.innings.length > 1
+              ? 'Over by Over — Innings ${inn.inningsNumber}'
+              : 'Over by Over',
+          balls: inn.ballEvents.map((e) => _OverBall(
+            over: e.over,
+            label: e.event,
+            wicket: e.isWicket,
+            six: e.isSix,
+            boundary: e.isBoundary,
+            extra: e.event == 'WD' || e.event == 'NB',
+            bowlerId: e.bowlerId,
+          )).toList(),
+          nameOf: (id) => names[id] ?? '—',
+          cs: cs,
+        ));
+        children.add(const SizedBox(height: 16));
+      }
+    }
+
+    children.add(const Divider(height: 1));
+
+    final detailed = hasLive
+        ? liveData!.ballHistory.reversed.map((e) => _liveCommentaryRow(cs, e)).toList()
+        : match.innings
+            .expand((inn) => inn.ballEvents.reversed)
+            .map((e) => _commentaryRow(cs, e))
+            .toList();
+    for (var i = 0; i < detailed.length; i++) {
+      if (i > 0) children.add(const Divider(height: 1));
+      children.add(detailed[i]);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: children,
+    );
+  }
+
+  Widget _overByOverSection({
+    required String title,
+    required List<_OverBall> balls,
+    required String Function(String id) nameOf,
+    required ColorScheme cs,
+  }) {
+    final byOver = <int, List<_OverBall>>{};
+    for (final b in balls) {
+      byOver.putIfAbsent(b.over, () => []).add(b);
+    }
+    final overNumbers = byOver.keys.toList()..sort();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppTextStyles.titleSmall(cs.onSurface)),
+        const SizedBox(height: 8),
+        if (overNumbers.isEmpty)
+          Text('No deliveries yet.', style: AppTextStyles.bodySmall(cs.onSurfaceVariant))
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 32, height: 32,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: _eventColor(label, cs),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(label,
-                      style: AppTextStyles.labelSmall(Colors.white)
-                        .copyWith(fontWeight: FontWeight.w800, fontSize: 10))),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Over ${e.over}.${e.ballInOver}',
-                        style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
-                      const SizedBox(height: 2),
-                      Text('${e.runs} run${e.runs == 1 ? '' : 's'}${e.wicket ? ' - Wicket!' : ''}${e.extraType != null && e.extraType!.isNotEmpty ? ' (${e.extraType})' : ''}',
-                        style: AppTextStyles.bodySmall(cs.onSurface).copyWith(
-                          fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w400)),
-                    ],
-                  ),
-                ),
+                for (final o in overNumbers) _overColumn(o, byOver[o]!, nameOf, cs),
               ],
             ),
-          );
-        },
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: events.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (_, i) {
-        final e = events[i];
-        final isHighlight = e.isBoundary || e.isSix || e.isWicket;
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          color: isHighlight ? _eventColor(e.event, cs).withValues(alpha: 0.08) : null,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 32, height: 32,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  color: _eventColor(e.event, cs),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(e.event,
-                    style: AppTextStyles.labelSmall(Colors.white)
-                      .copyWith(fontWeight: FontWeight.w800, fontSize: 10))),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Over ${e.over}.${e.ball}',
-                      style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
-                    const SizedBox(height: 2),
-                    Text(e.commentary,
-                      style: AppTextStyles.bodySmall(cs.onSurface).copyWith(
-                        fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w400)),
-                  ],
-                ),
-              ),
-            ],
           ),
-        );
-      },
+      ],
+    );
+  }
+
+  Widget _overColumn(int overNum, List<_OverBall> balls,
+      String Function(String id) nameOf, ColorScheme cs) {
+    final bowlerName =
+        balls.first.bowlerId.isNotEmpty ? nameOf(balls.first.bowlerId) : '—';
+    return Container(
+      width: 120,
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Over $overNum',
+            style: AppTextStyles.labelSmall(cs.onSurface)
+              .copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 1),
+          Text(bowlerName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: balls.map((b) => _overBallChip(b, cs)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overBallChip(_OverBall b, ColorScheme cs) {
+    final color = _chipColor(b, cs);
+    return Container(
+      width: 26, height: 26,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(b.label,
+        style: AppTextStyles.labelSmall(color)
+          .copyWith(fontWeight: FontWeight.w800, fontSize: 9)),
+    );
+  }
+
+  Widget _liveCommentaryRow(ColorScheme cs, LiveBallEvent e) {
+    final label = e.wicket ? 'W' : e.runs.toString();
+    final isHighlight = e.wicket || e.runs == 4 || e.runs == 6;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      color: isHighlight ? _eventColor(label, cs).withValues(alpha: 0.08) : null,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32, height: 32,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: _eventColor(label, cs),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(label,
+                style: AppTextStyles.labelSmall(Colors.white)
+                  .copyWith(fontWeight: FontWeight.w800, fontSize: 10))),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Over ${e.over}.${e.ballInOver}',
+                  style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                Text('${e.runs} run${e.runs == 1 ? '' : 's'}${e.wicket ? ' - Wicket!' : ''}${e.extraType != null && e.extraType!.isNotEmpty ? ' (${e.extraType})' : ''}',
+                  style: AppTextStyles.bodySmall(cs.onSurface).copyWith(
+                    fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w400)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _commentaryRow(ColorScheme cs, BallEvent e) {
+    final isHighlight = e.isBoundary || e.isSix || e.isWicket;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      color: isHighlight ? _eventColor(e.event, cs).withValues(alpha: 0.08) : null,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32, height: 32,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: _eventColor(e.event, cs),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(e.event,
+                style: AppTextStyles.labelSmall(Colors.white)
+                  .copyWith(fontWeight: FontWeight.w800, fontSize: 10))),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Over ${e.over}.${e.ball}',
+                  style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                Text(e.commentary,
+                  style: AppTextStyles.bodySmall(cs.onSurface).copyWith(
+                    fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w400)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

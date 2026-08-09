@@ -229,6 +229,16 @@ class AppLocalizations {
       'stumped': 'Stumped',
       'hit_wicket': 'Hit Wicket',
       'fielder': 'Fielder',
+      'next_over': 'Next Over',
+      'who_will_bowl_next': 'Who will bowl the next over?',
+      'retired_hurt': 'Retired Hurt',
+      'retired_hurt_confirm':
+          'This bowler can no longer bowl in this innings. Select a replacement to continue scoring.',
+      'select_bowler_to_continue': 'Select a bowler to continue scoring.',
+      'select_bowler_first': 'Select a bowler first',
+      'change_bowler_hint':
+          'Change the current bowler or mark them retired hurt.',
+      'available_bowlers': 'Available Bowlers',
 
       // Scheduling
       'manual_schedule': 'Manual Schedule',
@@ -487,6 +497,17 @@ class AppLocalizations {
       'stumped': 'اسٹمپڈ',
       'hit_wicket': 'ہٹ وکٹ',
       'fielder': 'فیلڈر',
+      'next_over': 'اگلا اوور',
+      'who_will_bowl_next': 'اگلا اوور کون بولے گا؟',
+      'retired_hurt': 'ریٹائرڈ ہرٹ',
+      'retired_hurt_confirm':
+          'یہ بولر اس اننگز میں مزید بولنگ نہیں کر سکے گا۔ اسکورنگ جاری رکھنے کے لیے نیا بولر منتخب کریں۔',
+      'select_bowler_to_continue':
+          'اسکورنگ جاری رکھنے کے لیے بولر منتخب کریں۔',
+      'select_bowler_first': 'پہلے بولر منتخب کریں',
+      'change_bowler_hint':
+          'موجودہ بولر کو تبدیل کریں یا انہیں ریٹائرڈ ہرٹ کریں۔',
+      'available_bowlers': 'دستیاب بولرز',
 
       // Scheduling
       'manual_schedule': 'دستی شیڈول',

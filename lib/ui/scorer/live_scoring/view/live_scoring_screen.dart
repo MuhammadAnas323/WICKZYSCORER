@@ -61,7 +61,9 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  void _recordBall({
+  /// Records a ball. Returns false (and instead opens the bowler picker) when
+  /// no bowler is currently set — e.g. after a bowler retired hurt.
+  bool _recordBall({
     int runs = 0,
     bool isWicket = false,
     bool isBoundary = false,
@@ -69,12 +71,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     ExtrasType extras = ExtrasType.none,
     int extrasRuns = 0,
     Dismissal? dismissal,
+    List<ScorerPlayer> allPlayers = const [],
   }) {
     final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
     final match = liveRepo.activeMatch;
-    if (match == null) return;
+    if (match == null) return false;
     final inn = match.currentInningsData;
-    if (inn == null) return;
+    if (inn == null) return false;
+
+    // A retired-hurt bowler leaves an empty bowler slot; the scorer must pick
+    // a replacement before any ball can be recorded.
+    if (inn.currentBowlerId == null || inn.currentBowlerId!.isEmpty) {
+      if (allPlayers.isNotEmpty) {
+        _showBowlerPicker(match, allPlayers);
+      } else {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(AppLocalizations.of(context)
+                .translate('select_bowler_first')),
+            backgroundColor: Colors.orange,
+          ));
+      }
+      return false;
+    }
 
     final legalCount = inn.legalBallsDelivered;
     final overNum = (legalCount ~/ 6) + 1;
@@ -144,6 +164,23 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 .addPostFrameCallback((_) => _goToMatchSummary());
           }
         }
+
+        // The over just ended on this legal delivery — ask who bowls the next
+        // one. Skipped when the innings/match also finished on that ball, or
+        // when the last ball was a wicket (the new-batsman picker takes over).
+        final overJustEnded = event.isLegalBall &&
+            updatedInn.legalBallsDelivered > 0 &&
+            updatedInn.legalBallsDelivered % 6 == 0;
+        final inningsFinished =
+            (isAllOut || isOversComplete) || (isFinalInnings && chasedTarget);
+        if (overJustEnded &&
+            !inningsFinished &&
+            !event.isWicket &&
+            allPlayers.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showNextBowlerDialog(updatedMatch, allPlayers);
+          });
+        }
       }
     }
 
@@ -151,15 +188,18 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
       _showExtras = false;
       _selectedExtrasType = null;
     });
+    return true;
   }
 
-  void _recordExtras(ExtrasType type, int total) {
+  void _recordExtras(
+      ExtrasType type, int total, List<ScorerPlayer> allPlayers) {
     _recordBall(
       runs: 0,
       extras: type,
       extrasRuns: total,
       isBoundary:
           (type == ExtrasType.bye || type == ExtrasType.legBye) && total == 4,
+      allPlayers: allPlayers,
     );
   }
 
@@ -362,9 +402,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         allPlayers: allPlayers,
         onWicket: (dismissal) {
           Navigator.pop(ctx);
-          _recordBall(isWicket: true, dismissal: dismissal);
-          // Show new batsman picker
-          _showNewBatsmanPicker(match, allPlayers);
+          final recorded = _recordBall(
+              isWicket: true, dismissal: dismissal, allPlayers: allPlayers);
+          if (recorded) {
+            // Show new batsman picker
+            _showNewBatsmanPicker(match, allPlayers);
+          }
         },
       ),
     );
@@ -432,61 +475,30 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
+  /// Bottom sheet to change the current bowler mid-over. Also offers marking
+  /// the current bowler as "retired hurt" (unavailable for the rest of the
+  /// innings), after which a replacement must be selected.
   void _showBowlerPicker(ScorerMatch match, List<ScorerPlayer> allPlayers) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final inn = match.currentInningsData;
-    if (inn == null) return;
-    final bowlingTeamPlayers =
-        allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('🎳 ${l10n.translate('bowler')}',
-                style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
-            const Gap(12),
-            ...bowlingTeamPlayers.map((p) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.redAccent.withOpacity(0.15),
-                    child: Text('${p.jerseyNumber ?? '?'}',
-                        style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(p.name,
-                      style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold)),
-                  subtitle: Text(p.bowlingStyle.name,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  trailing: inn.currentBowlerId == p.id
-                      ? const Icon(Icons.check_circle,
-                          color: AppColors.pitchGreenLight)
-                      : null,
-                  onTap: () {
-                    ref.read(scorerLiveMatchRepositoryProvider).setBowler(p.id);
-                    Navigator.pop(ctx);
-                  },
-                )),
-          ],
-        ),
+      builder: (ctx) => _BowlerChangeSheet(
+        match: match,
+        allPlayers: allPlayers,
+      ),
+    );
+  }
+
+  /// Dialog shown the moment an over ends: the scorer picks who bowls the
+  /// next over before scoring continues.
+  void _showNextBowlerDialog(ScorerMatch match, List<ScorerPlayer> allPlayers) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _NextBowlerDialog(
+        match: match,
+        allPlayers: allPlayers,
       ),
     );
   }
@@ -777,18 +789,29 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                     childAspectRatio: 1.4,
                     children: [
                       _runButton(0, colorScheme.surface,
-                          colorScheme.onSurface.withOpacity(0.7)),
-                      _runButton(1, colorScheme.surface, colorScheme.onSurface),
-                      _runButton(2, colorScheme.surface, colorScheme.onSurface),
-                      _runButton(3, colorScheme.surface, colorScheme.onSurface),
+                          colorScheme.onSurface.withOpacity(0.7),
+                          allPlayers: allPlayers),
+                      _runButton(1, colorScheme.surface, colorScheme.onSurface,
+                          allPlayers: allPlayers),
+                      _runButton(2, colorScheme.surface, colorScheme.onSurface,
+                          allPlayers: allPlayers),
+                      _runButton(3, colorScheme.surface, colorScheme.onSurface,
+                          allPlayers: allPlayers),
                       _runButton(4, AppColors.pitchGreen.withOpacity(0.1),
                           AppColors.pitchGreenLight,
-                          label: '4 ◈', isBoundary: true),
-                      _runButton(5, colorScheme.surface, colorScheme.onSurface),
+                          label: '4 ◈',
+                          isBoundary: true,
+                          allPlayers: allPlayers),
+                      _runButton(5, colorScheme.surface, colorScheme.onSurface,
+                          allPlayers: allPlayers),
                       _runButton(6, Colors.redAccent.withOpacity(0.1),
                           Colors.redAccent,
-                          label: '6 ★', isSix: true, isBoundary: true),
-                      _runButton(7, colorScheme.surface, colorScheme.onSurface),
+                          label: '6 ★',
+                          isSix: true,
+                          isBoundary: true,
+                          allPlayers: allPlayers),
+                      _runButton(7, colorScheme.surface, colorScheme.onSurface,
+                          allPlayers: allPlayers),
                     ],
                   ),
                   const Gap(12),
@@ -867,7 +890,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                   // Extras sub-picker
                   if (_showExtras) ...[
                     const Gap(10),
-                    _extrasPicker(),
+                    _extrasPicker(allPlayers),
                   ],
 
                   const Gap(12),
@@ -1036,8 +1059,25 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _bowlerInfoChip(ScorerPlayer? player, Innings? inn) {
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
-    if (player == null) return const SizedBox();
+    if (player == null) {
+      if (inn == null || inn.currentBowlerId != null) return const SizedBox();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(l10n.translate('bowler'),
+              style: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+          const Text('Select bowler',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.orange, fontSize: 10)),
+        ],
+      );
+    }
     final playerBalls =
         inn?.balls.where((b) => b.bowlerId == player.id).length ?? 0;
     final playerWickets =
@@ -1047,6 +1087,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             .where((b) => b.bowlerId == player.id)
             .fold(0, (s, b) => s + b.totalRuns) ??
         0;
+    final retiredHurt = inn?.retiredHurtBowlerIds.contains(player.id) ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -1057,11 +1098,19 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 13)),
-        Text(
-            '$playerRuns runs • $playerWickets-W • ${(playerBalls ~/ 6)}.${playerBalls % 6} ov',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.grey, fontSize: 10)),
+        if (retiredHurt)
+          const Text('Retired hurt',
+              maxLines: 1,
+              style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold))
+        else
+          Text(
+              '$playerRuns runs • $playerWickets-W • ${(playerBalls ~/ 6)}.${playerBalls % 6} ov',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.grey, fontSize: 10)),
       ],
     );
   }
@@ -1139,10 +1188,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
   }
 
   Widget _runButton(int runs, Color bg, Color textColor,
-      {String? label, bool isBoundary = false, bool isSix = false}) {
+      {String? label,
+      bool isBoundary = false,
+      bool isSix = false,
+      List<ScorerPlayer> allPlayers = const []}) {
     return GestureDetector(
-      onTap: () =>
-          _recordBall(runs: runs, isBoundary: isBoundary, isSix: isSix),
+      onTap: () => _recordBall(
+          runs: runs,
+          isBoundary: isBoundary,
+          isSix: isSix,
+          allPlayers: allPlayers),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
@@ -1179,7 +1234,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  Widget _extrasPicker() {
+  Widget _extrasPicker(List<ScorerPlayer> allPlayers) {
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final selected = _selectedExtrasType;
@@ -1248,7 +1303,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           const Gap(4),
           Row(
             children: [1, 2, 3, 4].map((r) {
-              return Expanded(child: _extrasRunButton(selected, r));
+              return Expanded(
+                  child: _extrasRunButton(selected, r, allPlayers));
             }).toList(),
           ),
         ],
@@ -1291,7 +1347,8 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  Widget _extrasRunButton(ExtrasType? type, int runs) {
+  Widget _extrasRunButton(
+      ExtrasType? type, int runs, List<ScorerPlayer> allPlayers) {
     final isByes = type == ExtrasType.bye || type == ExtrasType.legBye;
     return GestureDetector(
       onTap: () {
@@ -1305,7 +1362,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             ));
           return;
         }
-        _recordExtras(type, runs);
+        _recordExtras(type, runs, allPlayers);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -1731,6 +1788,361 @@ class _ReplacePlayerSheetState extends ConsumerState<_ReplacePlayerSheet> {
         ),
       ),
     );
+  }
+}
+
+// ── Bowler Change Sheet ───────────────────────────────────────────────────────
+
+/// Mid-over bowler picker. The scorer can switch to another bowler or mark the
+/// current one as "retired hurt" (unavailable for the rest of the innings), in
+/// which case a replacement must be selected before the next ball.
+class _BowlerChangeSheet extends ConsumerStatefulWidget {
+  final ScorerMatch match;
+  final List<ScorerPlayer> allPlayers;
+
+  const _BowlerChangeSheet({required this.match, required this.allPlayers});
+
+  @override
+  ConsumerState<_BowlerChangeSheet> createState() => _BowlerChangeSheetState();
+}
+
+class _BowlerChangeSheetState extends ConsumerState<_BowlerChangeSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final liveRepo = ref.watch(scorerLiveMatchRepositoryProvider);
+    final match = ref.watch(scorerLiveMatchStreamProvider).value ??
+        liveRepo.activeMatch ??
+        widget.match;
+    final inn = match.currentInningsData;
+    if (inn == null) return const SizedBox();
+
+    final bowlingTeamPlayers =
+        widget.allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
+    final currentBowlerId = inn.currentBowlerId;
+    final currentBowler = currentBowlerId == null
+        ? null
+        : widget.allPlayers.where((p) => p.id == currentBowlerId).firstOrNull;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('🎳 ${l10n.translate('bowler')}',
+                    style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close_rounded,
+                      color: colorScheme.onSurface.withOpacity(0.7)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            Text(
+              currentBowler == null
+                  ? l10n.translate('select_bowler_to_continue')
+                  : l10n.translate('change_bowler_hint'),
+              style: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 12),
+            ),
+            if (currentBowler != null) ...[
+              const Gap(12),
+              _currentBowlerCard(currentBowler, inn, l10n, colorScheme),
+            ],
+            const Gap(16),
+            Text(l10n.translate('available_bowlers'),
+                style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
+            const Gap(4),
+            if (bowlingTeamPlayers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  l10n.translate('no_players'),
+                  style: const TextStyle(
+                      color: Colors.orangeAccent, fontSize: 12),
+                ),
+              )
+            else
+              ...bowlingTeamPlayers.map((p) => _bowlerTile(
+                  p, inn, colorScheme, l10n, currentBowlerId)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _currentBowlerCard(ScorerPlayer bowler, Innings inn,
+      AppLocalizations l10n, ColorScheme colorScheme) {
+    final balls =
+        inn.balls.where((b) => b.bowlerId == bowler.id).length;
+    final wickets =
+        inn.balls.where((b) => b.bowlerId == bowler.id && b.isWicket).length;
+    final runs =
+        inn.balls.where((b) => b.bowlerId == bowler.id).fold(0, (s, b) => s + b.totalRuns);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.redAccent.withOpacity(0.35)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.redAccent.withOpacity(0.15),
+            child: Text('${bowler.jerseyNumber ?? '?'}',
+                style: const TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+          const Gap(10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(bowler.name,
+                    style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13)),
+                Text(
+                    '$runs runs • $wickets-W • ${balls ~/ 6}.${balls % 6} ov',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+          ),
+          const Gap(8),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(color: Colors.redAccent.withOpacity(0.6)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => _confirmRetireHurt(bowler, l10n),
+            child: Text(l10n.translate('retired_hurt'),
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmRetireHurt(
+      ScorerPlayer bowler, AppLocalizations l10n) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('${bowler.name} — ${l10n.translate('retired_hurt')}?',
+            style: TextStyle(
+                color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        content: Text(
+          l10n.translate('retired_hurt_confirm'),
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.translate('cancel'),
+                style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.liveRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.translate('confirm'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(scorerLiveMatchRepositoryProvider).retireBowlerHurt(bowler.id);
+    }
+  }
+
+  Widget _bowlerTile(ScorerPlayer p, Innings inn, ColorScheme colorScheme,
+      AppLocalizations l10n, String? currentBowlerId) {
+    final isRetired = inn.retiredHurtBowlerIds.contains(p.id);
+    final isCurrent = p.id == currentBowlerId;
+    return ListTile(
+      enabled: !isRetired && !isCurrent,
+      leading: CircleAvatar(
+        backgroundColor: isRetired
+            ? Colors.white10
+            : Colors.redAccent.withOpacity(0.15),
+        child: Text('${p.jerseyNumber ?? '?'}',
+            style: TextStyle(
+                color: isRetired
+                    ? Colors.grey
+                    : Colors.redAccent,
+                fontWeight: FontWeight.bold)),
+      ),
+      title: Text(
+        p.name,
+        style: TextStyle(
+            color: isRetired
+                ? Colors.grey
+                : colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 13),
+      ),
+      subtitle: Text(
+        isRetired ? l10n.translate('retired_hurt') : p.bowlingStyle.name,
+        style: const TextStyle(color: Colors.grey, fontSize: 11),
+      ),
+      trailing: isCurrent
+          ? const Icon(Icons.check_circle, color: AppColors.pitchGreenLight)
+          : isRetired
+              ? const Icon(Icons.block_rounded, color: Colors.grey)
+              : null,
+      onTap: isRetired || isCurrent
+          ? null
+          : () {
+              ref.read(scorerLiveMatchRepositoryProvider).setBowler(p.id);
+              Navigator.pop(context);
+            },
+    );
+  }
+}
+
+// ── Next Bowler Dialog ─────────────────────────────────────────────────────────
+
+/// Shown the moment an over ends: choose who bowls the next over. Bowlers who
+/// are retired hurt, and the bowler who just bowled (unless nobody else is
+/// available), are not offered.
+class _NextBowlerDialog extends ConsumerStatefulWidget {
+  final ScorerMatch match;
+  final List<ScorerPlayer> allPlayers;
+
+  const _NextBowlerDialog({required this.match, required this.allPlayers});
+
+  @override
+  ConsumerState<_NextBowlerDialog> createState() => _NextBowlerDialogState();
+}
+
+class _NextBowlerDialogState extends ConsumerState<_NextBowlerDialog> {
+  String? _selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final liveRepo = ref.watch(scorerLiveMatchRepositoryProvider);
+    final match = ref.watch(scorerLiveMatchStreamProvider).value ??
+        liveRepo.activeMatch ??
+        widget.match;
+    final inn = match.currentInningsData;
+    if (inn == null) return const SizedBox();
+
+    final bowlingTeamPlayers =
+        widget.allPlayers.where((p) => p.teamId == inn.bowlingTeamId).toList();
+    final candidates = _nextOverCandidates(inn, bowlingTeamPlayers);
+
+    return AlertDialog(
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('🎳 ${l10n.translate('next_over')}',
+          style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 20)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.translate('who_will_bowl_next'),
+                style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13)),
+            const Gap(8),
+            ...candidates.map((p) => RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: p.id,
+                  groupValue: _selectedId,
+                  title: Text(p.name,
+                      style: TextStyle(
+                          color: colorScheme.onSurface, fontSize: 13)),
+                  subtitle: Text(p.bowlingStyle.name,
+                      style:
+                          const TextStyle(color: Colors.grey, fontSize: 11)),
+                  activeColor: Colors.redAccent,
+                  onChanged: (val) => setState(() => _selectedId = val),
+                )),
+            if (candidates.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                    'No players available to bowl. Add players to the bowling team first.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.pitchGreen,
+            foregroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: _selectedId == null
+              ? null
+              : () {
+                  ref
+                      .read(scorerLiveMatchRepositoryProvider)
+                      .setBowler(_selectedId!);
+                  Navigator.pop(context);
+                },
+          child: Text(l10n.translate('confirm'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  /// Bowlers eligible for the next over: retired-hurt bowlers are excluded,
+  /// and the bowler who just finished the over is excluded unless that would
+  /// leave no candidates at all.
+  List<ScorerPlayer> _nextOverCandidates(
+      Innings inn, List<ScorerPlayer> bowlingTeamPlayers) {
+    final eligible = bowlingTeamPlayers
+        .where((p) => !inn.retiredHurtBowlerIds.contains(p.id))
+        .toList();
+    final withoutLast =
+        eligible.where((p) => p.id != inn.currentBowlerId).toList();
+    return withoutLast.isNotEmpty ? withoutLast : eligible;
   }
 }
 

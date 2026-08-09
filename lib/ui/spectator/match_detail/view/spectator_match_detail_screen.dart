@@ -941,7 +941,7 @@ class _SpectatorMatchDetailScreenState
           const Divider(color: Colors.white12, height: 12),
           _bowlingCard(context, st, inn, match, liveData, nameOf),
           const Divider(color: Colors.white12, height: 12),
-          _commentaryCard(st, inn, nameOf),
+          _overByOverCard(inn, nameOf),
         ],
       ),
     );
@@ -1153,9 +1153,18 @@ class _SpectatorMatchDetailScreenState
     );
   }
 
-  Widget _commentaryCard(
-      SpectatorHomeState st, Innings inn, String Function(String id) nameOf) {
-    final balls = inn.balls.reversed.toList();
+  /// Over-by-over display: each over is its own column in a single horizontal
+  /// row, headed by the over number and the bowler's name, with that over's
+  /// balls laid out beneath.
+  Widget _overByOverCard(
+      Innings inn, String Function(String id) nameOf) {
+    final cs = Theme.of(context).colorScheme;
+    final byOver = <int, List<BallEvent>>{};
+    for (final b in inn.balls) {
+      byOver.putIfAbsent(b.overNumber, () => []).add(b);
+    }
+    final overNumbers = byOver.keys.toList()..sort();
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
       child: Column(
@@ -1167,63 +1176,85 @@ class _SpectatorMatchDetailScreenState
                   fontWeight: FontWeight.bold,
                   fontSize: 13)),
           const Gap(8),
-          if (balls.isEmpty)
+          if (overNumbers.isEmpty)
             const Text('No deliveries yet.',
                 style: TextStyle(color: Colors.white38, fontSize: 12))
           else
-            ...balls.map((b) => _commentaryRow(st, b, nameOf)),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final overNum in overNumbers)
+                    _overColumn(overNum, byOver[overNum]!, nameOf, cs),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _commentaryRow(
-      SpectatorHomeState st, BallEvent b, String Function(String id) nameOf) {
+  Widget _overColumn(int overNum, List<BallEvent> balls,
+      String Function(String id) nameOf, ColorScheme cs) {
+    final bowlerId = balls.first.bowlerId;
+    final bowlerName = bowlerId.isNotEmpty ? nameOf(bowlerId) : '—';
+    return Container(
+      width: 120,
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Over $overNum',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11)),
+          const SizedBox(height: 1),
+          Text(bowlerName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.grey, fontSize: 9)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: balls.map((b) => _overBallChip(b, cs)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overBallChip(BallEvent b, ColorScheme cs) {
     final color = b.isWicket
         ? Colors.redAccent
         : b.isSix
             ? Colors.amber
             : b.isBoundary
-                ? Colors.green
-                : AppColors.charcoal200;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text('${b.overNumber}.${b.ballInOver}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${nameOf(b.batsmanId)} — ${_ballText(b)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
-          ),
-        ],
+                ? Colors.greenAccent
+                : !b.isLegalBall
+                    ? Colors.orangeAccent
+                    : cs.onSurface.withOpacity(0.7);
+    return Container(
+      width: 26,
+      height: 26,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
+      child: Text(b.displayLabel,
+          style: TextStyle(
+              color: color, fontSize: 9, fontWeight: FontWeight.bold)),
     );
-  }
-
-  String _ballText(BallEvent b) {
-    if (b.isWicket) return 'Wicket!';
-    if (b.extrasType == ExtrasType.wide) return '${b.extrasRuns} wide';
-    if (b.extrasType == ExtrasType.noBall) return '${b.extrasRuns} no ball';
-    if (b.extrasType == ExtrasType.bye) return '${b.extrasRuns} bye';
-    if (b.extrasType == ExtrasType.legBye) return '${b.extrasRuns} leg bye';
-    if (b.isSix) return 'SIX!';
-    if (b.isBoundary) return 'FOUR';
-    return '${b.runs} run${b.runs == 1 ? '' : 's'}';
   }
 
   Widget _tableCard({

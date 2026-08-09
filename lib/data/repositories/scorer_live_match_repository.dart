@@ -455,6 +455,7 @@ class ScorerLiveMatchRepository {
       currentBowlerId: inn.currentBowlerId,
       battingOrder: List<String>.from(inn.battingOrder),
       bowlingOrder: List<String>.from(inn.bowlingOrder),
+      retiredHurtBowlerIds: List<String>.from(inn.retiredHurtBowlerIds),
       isComplete: inn.isComplete,
     ));
 
@@ -527,6 +528,7 @@ class ScorerLiveMatchRepository {
       currentBowlerId: snap.currentBowlerId,
       battingOrder: snap.battingOrder,
       bowlingOrder: snap.bowlingOrder,
+      retiredHurtBowlerIds: snap.retiredHurtBowlerIds,
       isComplete: snap.isComplete,
     );
     final updatedMatch = _withInnings(match, updatedInnings);
@@ -564,6 +566,31 @@ class ScorerLiveMatchRepository {
     final updatedInnings = inn.copyWith(
       currentBowlerId: bowlerId,
       bowlingOrder: updatedBowlingOrder,
+    );
+
+    final updatedMatch = _withInnings(match, updatedInnings);
+
+    setActiveMatch(updatedMatch);
+  }
+
+  /// Marks a bowler as "retired hurt": they leave the field mid-over and can no
+  /// longer bowl in this innings. If they were the current bowler the slot is
+  /// cleared so the scorer must pick a replacement before the next ball.
+  void retireBowlerHurt(String bowlerId) {
+    if (_activeMatch == null) return;
+    final match = _activeMatch!;
+    final inn = match.currentInningsData;
+    if (inn == null) return;
+
+    final retired = List<String>.from(inn.retiredHurtBowlerIds);
+    if (!retired.contains(bowlerId)) {
+      retired.add(bowlerId);
+    }
+
+    final updatedInnings = inn.copyWith(
+      retiredHurtBowlerIds: retired,
+      currentBowlerId:
+          inn.currentBowlerId == bowlerId ? null : inn.currentBowlerId,
     );
 
     final updatedMatch = _withInnings(match, updatedInnings);
@@ -630,6 +657,9 @@ class ScorerLiveMatchRepository {
             .map((id) => id == playerOutId ? playerInId : id)
             .toList(),
         bowlingOrder: inn.bowlingOrder
+            .map((id) => id == playerOutId ? playerInId : id)
+            .toList(),
+        retiredHurtBowlerIds: inn.retiredHurtBowlerIds
             .map((id) => id == playerOutId ? playerInId : id)
             .toList(),
         strikerId: inn.strikerId == playerOutId ? playerInId : inn.strikerId,
@@ -877,6 +907,7 @@ class _BallUndo {
   final String? currentBowlerId;
   final List<String> battingOrder;
   final List<String> bowlingOrder;
+  final List<String> retiredHurtBowlerIds;
   final bool isComplete;
 
   const _BallUndo({
@@ -887,6 +918,7 @@ class _BallUndo {
     required this.currentBowlerId,
     required this.battingOrder,
     required this.bowlingOrder,
+    required this.retiredHurtBowlerIds,
     required this.isComplete,
   });
 }

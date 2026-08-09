@@ -83,6 +83,7 @@ Map<String, dynamic> inningsToJson(Innings i) => {
       'strikerId': i.strikerId,
       'nonStrikerId': i.nonStrikerId,
       'currentBowlerId': i.currentBowlerId,
+      'retiredHurtBowlerIds': i.retiredHurtBowlerIds,
     };
 
 Innings inningsFromJson(Map<String, dynamic> json) => Innings(
@@ -99,6 +100,8 @@ Innings inningsFromJson(Map<String, dynamic> json) => Innings(
       strikerId: json['strikerId'],
       nonStrikerId: json['nonStrikerId'],
       currentBowlerId: json['currentBowlerId'],
+      retiredHurtBowlerIds:
+          (json['retiredHurtBowlerIds'] as List? ?? []).cast<String>(),
     );
 
 // ─── ScorerMatch ───────────────────────────────────────────────────────────
