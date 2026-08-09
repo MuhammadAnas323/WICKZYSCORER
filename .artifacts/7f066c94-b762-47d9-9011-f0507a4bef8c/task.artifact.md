@@ -1,22 +1,23 @@
-# Task List - Scorer Creation & Team Input Fixes
+# Task List - Auth improvements and Match Detail Fixes
 
-- [x] **Tournament Creation Navigation**
-    - [x] Fix `TournamentManagementScreen` to navigate back after save.
-    - [x] Add error handling and loading feedback.
+- [x] **Phase 1: Auth Logic & Infrastructure**
+    - [x] Implement `signInWithGoogle` in `AuthViewModel`
+    - [x] Audit `CurrentUserNotifier` for Google sign-in flow
+    - [x] Fixed `applicationId` mismatch in `build.gradle.kts`
+    - [x] Updated `firebase_options.dart` with correct Android App ID
 
-- [x] **Match Creation Loading**
-    - [x] Fix `CreateLocalMatchScreen` continuous loading issue.
-    - [x] Add `try-finally` to ensure state is reset.
+- [x] **Phase 2: Theme-aware Auth UI**
+    - [x] Update `AuthScaffold` to follow app theme
+    - [x] Refactor `SignInScreen` to use `AuthScaffold` and add Google button
+    - [x] Update `SignUpScreen` with Google button
+    - [x] Update `ForgotPasswordScreen` colors
+    - [x] Update `RoleSelectionScreen` colors
+    - [x] Update `ScorerSignupScreen` & `SpectatorSignupScreen` to use `AuthScaffold`
 
-- [x] **Friendly Match Team Entry**
-    - [x] Update `MatchSetupScreen` to allow manual team name entry.
-    - [x] Implement team resolution logic (existing vs new).
+- [x] **Phase 3: Match Detail Improvements**
+    - [x] Fix scorecard filtering bug for bowling team in `SpectatorMatchDetailScreen`
+    - [x] Improve innings section headers and labels with (Batting) and (Bowling) tags
 
-- [x] **Syntax & Build Fixes**
-    - [x] Escape `$` in string literals for tournament screens.
-    - [x] Clean up duplicated code in `TeamSetupScreen`.
-    - [x] Fix `Gap` and import issues in Team screens.
-    - [x] Fix `l10n` getter in `CreateLocalMatchScreen`.
-
-- [x] **Final Verification**
-    - [x] Run `dart analyze lib/`.
+- [x] **Phase 4: Verification**
+    - [x] Run `dart analyze lib/`
+    - [x] Fixed build errors in `sign_up_screen.dart` and `role_selection_screen.dart`

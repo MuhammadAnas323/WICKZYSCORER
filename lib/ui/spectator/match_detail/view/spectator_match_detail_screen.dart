@@ -10,7 +10,6 @@ import 'package:sportyapp/data/models/scorer/dismissal.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
-import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/providers/live_match_providers.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/shared_widgets/live_badge.dart';
@@ -191,32 +190,42 @@ class _SpectatorMatchDetailScreenState
       if (match.superOverInnings1 != null) innings.add(match.superOverInnings1!);
       if (match.superOverInnings2 != null) innings.add(match.superOverInnings2!);
     } else {
-      // Completed/upcoming: filter by selected team
+      // Completed/upcoming: filter by selected team (either batting or bowling)
       if (match.innings1 != null &&
-          match.innings1!.battingTeamId == selected)
+          (match.innings1!.battingTeamId == selected || match.innings1!.bowlingTeamId == selected))
         innings.add(match.innings1!);
       if (match.innings2 != null &&
-          match.innings2!.battingTeamId == selected)
+          (match.innings2!.battingTeamId == selected || match.innings2!.bowlingTeamId == selected))
         innings.add(match.innings2!);
       if (match.superOverInnings1 != null &&
-          match.superOverInnings1!.battingTeamId == selected)
+          (match.superOverInnings1!.battingTeamId == selected || match.superOverInnings1!.bowlingTeamId == selected))
         innings.add(match.superOverInnings1!);
       if (match.superOverInnings2 != null &&
-          match.superOverInnings2!.battingTeamId == selected)
+          (match.superOverInnings2!.battingTeamId == selected || match.superOverInnings2!.bowlingTeamId == selected))
         innings.add(match.superOverInnings2!);
     }
 
     return innings
-        .map((inn) => _inningsSection(
-            context, st, inn, _inningsLabel(inn, match.innings1, match.innings2),
-            match, liveData, nameOf))
+        .asMap()
+        .entries
+        .map((e) => _inningsSection(
+            context, st, e.value,
+            _inningsLabel(e.value, match.innings1, match.innings2, selected), match,
+            liveData, nameOf,
+            gradient: AppColors
+                .cardGradients[e.key % AppColors.cardGradients.length]))
         .toList();
   }
 
-  String _inningsLabel(Innings inn, Innings? inn1, Innings? inn2) {
-    if (inn1 != null && inn.id == inn1.id) return '1st Innings';
-    if (inn2 != null && inn.id == inn2.id) return '2nd Innings';
-    return '⚡ Super Over';
+  String _inningsLabel(Innings inn, Innings? inn1, Innings? inn2, String selectedTeamId) {
+    String base = '';
+    if (inn1 != null && inn.id == inn1.id) base = '1st Innings';
+    else if (inn2 != null && inn.id == inn2.id) base = '2nd Innings';
+    else base = '⚡ Super Over';
+
+    if (inn.battingTeamId == selectedTeamId) return '$base (Batting)';
+    if (inn.bowlingTeamId == selectedTeamId) return '$base (Bowling)';
+    return base;
   }
 
   Widget _teamFilterChips(
@@ -277,7 +286,6 @@ class _SpectatorMatchDetailScreenState
   /// belong to the selected team, with their optional prize text.
   Widget _awardsCard(BuildContext context, SpectatorHomeState st,
       ScorerMatch match, String Function(String id) nameOf) {
-    final cs = Theme.of(context).colorScheme;
     final selected = _selectedTeamId ?? match.team1Id;
     final awards = <({String title, String? playerId, String? prize})>[
       (title: 'Player of the Match', playerId: match.playerOfTheMatchId, prize: match.playerOfTheMatchPrize),
@@ -291,9 +299,9 @@ class _SpectatorMatchDetailScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.floodlightGold.withOpacity(0.08),
+        gradient: AppColors.goldGradient,
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: AppColors.floodlightGold.withOpacity(0.3)),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,10 +309,10 @@ class _SpectatorMatchDetailScreenState
           Row(
             children: [
               const Icon(Icons.emoji_events_rounded,
-                  color: AppColors.floodlightGold, size: 18),
+                  color: Colors.white, size: 18),
               const Gap(8),
               Text('Awards',
-                  style: AppTextStyles.titleSmall(cs.onSurface)
+                  style: AppTextStyles.titleSmall(Colors.white)
                       .copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
@@ -317,7 +325,7 @@ class _SpectatorMatchDetailScreenState
                 children: [
                   Text(a.title,
                       style: const TextStyle(
-                          color: Colors.white54,
+                          color: Colors.white70,
                           fontSize: 11,
                           fontWeight: FontWeight.w600)),
                   const Spacer(),
@@ -333,7 +341,7 @@ class _SpectatorMatchDetailScreenState
                         if (a.prize != null && a.prize!.isNotEmpty)
                           Text(a.prize!,
                               style: const TextStyle(
-                                  color: AppColors.floodlightGold,
+                                  color: Colors.white70,
                                   fontSize: 11)),
                       ],
                     ),
@@ -362,7 +370,6 @@ class _SpectatorMatchDetailScreenState
 
   Widget _livePlayersPanel(BuildContext context, SpectatorHomeState st,
       ScorerMatch match, LiveMatchData live, String Function(String id) nameOf) {
-    final cs = Theme.of(context).colorScheme;
     final striker = live.striker;
     final nonStriker = live.nonStriker;
     final bowler = live.currentBowler;
@@ -370,19 +377,20 @@ class _SpectatorMatchDetailScreenState
 
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: AppColors.liveCardGradient,
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: AppColors.pitchGreen.withOpacity(0.35)),
+        border: Border.all(color: Colors.white24),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Container(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            decoration: BoxDecoration(
-              color: AppColors.pitchGreen.withOpacity(0.15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            decoration: const BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -421,7 +429,7 @@ class _SpectatorMatchDetailScreenState
                   if (live.requiredRunRate != null)
                     Text('RRR: ${live.requiredRunRate!.toStringAsFixed(2)}',
                         style: const TextStyle(
-                            color: AppColors.floodlightGold,
+                            color: AppColors.floodlightGoldLight,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                 ],
@@ -429,7 +437,7 @@ class _SpectatorMatchDetailScreenState
             ),
           ],
 
-          const Divider(color: Colors.white12, height: 16),
+          const Divider(color: Colors.white24, height: 16),
 
           // Batters
           Padding(
@@ -453,13 +461,13 @@ class _SpectatorMatchDetailScreenState
                   detail:
                       '${nonStriker.runs} (${nonStriker.balls}) • 4s:${nonStriker.fours} 6s:${nonStriker.sixes}',
                   badge: '◇',
-                  badgeColor: Colors.white38,
+                  badgeColor: Colors.white70,
                 ),
               ],
             ),
           ),
 
-          const Divider(color: Colors.white12, height: 14),
+          const Divider(color: Colors.white24, height: 14),
 
           // Bowler
           Padding(
@@ -477,7 +485,7 @@ class _SpectatorMatchDetailScreenState
 
           // This over
           if (overBalls.isNotEmpty) ...[
-            const Divider(color: Colors.white12, height: 1),
+            const Divider(color: Colors.white24, height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
               child: Column(
@@ -485,7 +493,7 @@ class _SpectatorMatchDetailScreenState
                 children: [
                   const Text('This Over',
                       style: TextStyle(
-                          color: Colors.white54,
+                          color: Colors.white70,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8)),
@@ -501,7 +509,7 @@ class _SpectatorMatchDetailScreenState
                               ? Colors.amber
                               : isFour
                                   ? Colors.greenAccent
-                                  : cs.onSurface.withOpacity(0.7);
+                                  : Colors.white70;
                       return Container(
                         margin: const EdgeInsets.only(right: 6),
                         width: 30,
@@ -549,7 +557,7 @@ class _SpectatorMatchDetailScreenState
               overflow: TextOverflow.ellipsis),
         ),
         Text(detail,
-            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            style: const TextStyle(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
@@ -569,12 +577,7 @@ class _SpectatorMatchDetailScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isLive) ...[
-                const LiveBadge(),
-                const SizedBox(width: 8),
-              ],
-              Text(_formatLabel(match),
-                  style: AppTextStyles.labelMedium(Colors.white70)),
+              if (isLive) const LiveBadge(),
             ],
           ),
           const Gap(20),
@@ -687,19 +690,6 @@ class _SpectatorMatchDetailScreenState
     );
   }
 
-  String _formatLabel(ScorerMatch match) {
-    switch (match.format) {
-      case MatchFormat.t20:
-        return 'T20 • ${match.overs} overs';
-      case MatchFormat.odi:
-        return 'ODI • ${match.overs} overs';
-      case MatchFormat.test:
-        return 'TEST';
-      case MatchFormat.custom:
-        return '${match.overs}-OVER';
-    }
-  }
-
   /// Best available score line for [teamId]: the RTDB live payload when that
   /// team is batting, otherwise the innings (main or super over) where the team
   /// batted, read from the freshest Firestore match document.
@@ -754,43 +744,42 @@ class _SpectatorMatchDetailScreenState
 
   Widget _infoCard(BuildContext context, ScorerMatch match,
       SpectatorHomeState st, String? tournamentName) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: AppColors.cardGradients[2],
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
       ),
       child: Column(
         children: [
-          _infoRow(cs, Icons.emoji_events_rounded, 'Tournament',
+          _infoRow(Icons.emoji_events_rounded, 'Tournament',
               tournamentName ?? 'Custom Match'),
-          _infoRow(cs, Icons.calendar_today_rounded, 'Scheduled',
+          _infoRow(Icons.calendar_today_rounded, 'Scheduled',
               '${match.dateTime.day}/${match.dateTime.month}/${match.dateTime.year}'),
-          _infoRow(cs, Icons.access_time_rounded, 'Status',
+          _infoRow(Icons.access_time_rounded, 'Status',
               match.status.name.toUpperCase()),
           if (match.tossWinnerId != null)
-            _infoRow(cs, Icons.adjust_rounded, 'Toss',
+            _infoRow(Icons.adjust_rounded, 'Toss',
                 '${st.teamName(match.tossWinnerId!)} won the toss'),
           if (match.note != null && match.note!.isNotEmpty)
-            _infoRow(cs, Icons.notes_rounded, 'Note', match.note!),
+            _infoRow(Icons.notes_rounded, 'Note', match.note!),
         ],
       ),
     );
   }
 
-  Widget _infoRow(ColorScheme cs, IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.pitchGreenLight, size: 18),
+          Icon(icon, color: AppColors.floodlightGoldLight, size: 18),
           const Gap(10),
-          Text(label, style: AppTextStyles.labelMedium(cs.onSurfaceVariant)),
+          Text(label, style: AppTextStyles.labelMedium(Colors.white70)),
           const Spacer(),
           Flexible(
             child: Text(value,
-                style: AppTextStyles.bodyMedium(cs.onSurface)
+                style: AppTextStyles.bodyMedium(Colors.white)
                     .copyWith(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
           ),
@@ -805,16 +794,15 @@ class _SpectatorMatchDetailScreenState
   /// (match start / wickets / match completed) is a separate toggle. Requires a
   /// signed-in spectator; otherwise it offers a sign-in shortcut.
   Widget _alertsCard(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final user = ref.watch(currentUserProvider);
 
     if (user == null) {
       return Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
         decoration: BoxDecoration(
-          color: cs.surface,
+          gradient: AppColors.cardGradients[5],
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-          border: Border.all(color: cs.outline.withOpacity(0.15)),
+          border: Border.all(color: Colors.white24),
         ),
         child: Row(
           children: [
@@ -828,6 +816,7 @@ class _SpectatorMatchDetailScreenState
               ),
             ),
             TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
               onPressed: () => context.push('/signin'),
               child: const Text('Sign in'),
             ),
@@ -843,9 +832,9 @@ class _SpectatorMatchDetailScreenState
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: AppColors.cardGradients[5],
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: cs.outline.withOpacity(0.15)),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         children: [
@@ -858,7 +847,7 @@ class _SpectatorMatchDetailScreenState
                     color: AppColors.pitchGreenLight, size: 18),
                 const Gap(8),
                 Text('Match Alerts',
-                    style: AppTextStyles.titleSmall(cs.onSurface)
+                    style: AppTextStyles.titleSmall(Colors.white)
                         .copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
@@ -867,7 +856,7 @@ class _SpectatorMatchDetailScreenState
             onChanged: (_) => notifier.toggleAlerts(),
           ),
           if (prefs.enabled) ...[
-            const Divider(color: Colors.white12, height: 1),
+            const Divider(color: Colors.white24, height: 1),
             SwitchListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -923,14 +912,19 @@ class _SpectatorMatchDetailScreenState
 
   Widget _inningsSection(BuildContext context, SpectatorHomeState st,
       Innings inn, String title, ScorerMatch match, LiveMatchData? liveData,
-      String Function(String id) nameOf) {
-    final cs = Theme.of(context).colorScheme;
+      String Function(String id) nameOf,
+      {required Gradient gradient}) {
+    final selected = _selectedTeamId ?? match.team1Id;
+    final isBatting = inn.battingTeamId == selected;
+    final isBowling = inn.bowlingTeamId == selected;
+
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: cs.outline.withOpacity(0.15)),
+        border: Border.all(color: Colors.white24),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -938,12 +932,13 @@ class _SpectatorMatchDetailScreenState
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
             child: Row(
               children: [
-                Text(title,
-                    style: AppTextStyles.titleSmall(cs.onSurfaceVariant)),
-                const Spacer(),
+                Expanded(
+                  child: Text(title,
+                      style: AppTextStyles.titleSmall(Colors.white70)),
+                ),
                 Text(
                     '${st.teamShort(inn.battingTeamId)} ${inn.totalRuns}/${inn.wickets}',
-                    style: AppTextStyles.titleMedium(cs.onSurface)
+                    style: AppTextStyles.titleMedium(Colors.white)
                         .copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
@@ -952,13 +947,21 @@ class _SpectatorMatchDetailScreenState
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Text(
                 'Overs ${inn.overs.toStringAsFixed(1)} • Run rate ${_runRateLabel(inn)}',
-                style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
+                style: AppTextStyles.bodySmall(Colors.white70)),
           ),
           const Gap(8),
-          _battingCard(context, st, inn, match, liveData, nameOf),
-          const Divider(color: Colors.white12, height: 12),
-          _bowlingCard(context, st, inn, match, liveData, nameOf),
-          const Divider(color: Colors.white12, height: 12),
+          // If a team filter is active, only show the relevant card for that team in this innings.
+          if (isBatting) ...[
+            _battingCard(context, st, inn, match, liveData, nameOf),
+          ] else if (isBowling) ...[
+            _bowlingCard(context, st, inn, match, liveData, nameOf),
+          ] else ...[
+            // No filter or neither team matched (shouldn't happen in 2-team matches), show both.
+            _battingCard(context, st, inn, match, liveData, nameOf),
+            const Divider(color: Colors.white24, height: 12),
+            _bowlingCard(context, st, inn, match, liveData, nameOf),
+          ],
+          const Divider(color: Colors.white24, height: 12),
           _overByOverCard(inn, nameOf),
         ],
       ),
@@ -1176,7 +1179,6 @@ class _SpectatorMatchDetailScreenState
   /// balls laid out beneath.
   Widget _overByOverCard(
       Innings inn, String Function(String id) nameOf) {
-    final cs = Theme.of(context).colorScheme;
     final byOver = <int, List<BallEvent>>{};
     for (final b in inn.balls) {
       byOver.putIfAbsent(b.overNumber, () => []).add(b);
@@ -1196,7 +1198,7 @@ class _SpectatorMatchDetailScreenState
           const Gap(8),
           if (overNumbers.isEmpty)
             const Text('No deliveries yet.',
-                style: TextStyle(color: Colors.white38, fontSize: 12))
+                style: TextStyle(color: Colors.white70, fontSize: 12))
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1204,7 +1206,7 @@ class _SpectatorMatchDetailScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (final overNum in overNumbers)
-                    _overColumn(overNum, byOver[overNum]!, nameOf, cs),
+                    _overColumn(overNum, byOver[overNum]!, nameOf),
                 ],
               ),
             ),
@@ -1214,7 +1216,7 @@ class _SpectatorMatchDetailScreenState
   }
 
   Widget _overColumn(int overNum, List<BallEvent> balls,
-      String Function(String id) nameOf, ColorScheme cs) {
+      String Function(String id) nameOf) {
     final bowlerId = balls.first.bowlerId;
     final bowlerName = bowlerId.isNotEmpty ? nameOf(bowlerId) : '—';
     return Container(
@@ -1222,35 +1224,35 @@ class _SpectatorMatchDetailScreenState
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        color: Colors.white12,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Over $overNum',
-              style: const TextStyle(
+          const Text('Over',
+              style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 11)),
           const SizedBox(height: 1),
-          Text(bowlerName,
+          Text('$overNum • $bowlerName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.grey, fontSize: 9)),
+              style: const TextStyle(color: Colors.white70, fontSize: 9)),
           const SizedBox(height: 6),
           Wrap(
             spacing: 4,
             runSpacing: 4,
-            children: balls.map((b) => _overBallChip(b, cs)).toList(),
+            children: balls.map((b) => _overBallChip(b)).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _overBallChip(BallEvent b, ColorScheme cs) {
+  Widget _overBallChip(BallEvent b) {
     final color = b.isWicket
         ? Colors.redAccent
         : b.isSix
@@ -1259,7 +1261,7 @@ class _SpectatorMatchDetailScreenState
                 ? Colors.greenAccent
                 : !b.isLegalBall
                     ? Colors.orangeAccent
-                    : cs.onSurface.withOpacity(0.7);
+                    : Colors.white70;
     return Container(
       width: 26,
       height: 26,
@@ -1288,7 +1290,7 @@ class _SpectatorMatchDetailScreenState
         children: [
           Text(title.toUpperCase(),
               style: const TextStyle(
-                  color: AppColors.pitchGreenLight,
+                  color: Colors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1)),
@@ -1299,12 +1301,12 @@ class _SpectatorMatchDetailScreenState
                 flex: widths[i].round(),
                 child: Text(headers[i],
                     style: const TextStyle(
-                        color: Colors.grey,
+                        color: Colors.white70,
                         fontSize: 10,
                         fontWeight: FontWeight.w600)),
               ),
           ]),
-          const Divider(color: Colors.white12, height: 8),
+          const Divider(color: Colors.white24, height: 8),
           for (final row in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1332,16 +1334,15 @@ class _SpectatorMatchDetailScreenState
 
   Widget _squadCard(BuildContext context, SpectatorHomeState st,
       ScorerMatch match, String teamId, String Function(String id) nameOf) {
-    final cs = Theme.of(context).colorScheme;
     final xi = teamId == match.team1Id ? match.playingXI1 : match.playingXI2;
     final teamPlayers = st.playersForTeam(teamId);
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: AppColors.cardGradients[8],
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: cs.outline.withOpacity(0.15)),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1349,10 +1350,10 @@ class _SpectatorMatchDetailScreenState
           Row(
             children: [
               const Icon(Icons.groups_rounded,
-                  color: AppColors.pitchGreenLight, size: 18),
+                  color: AppColors.floodlightGoldLight, size: 18),
               const Gap(8),
               Text('${st.teamName(teamId)} — Playing XI',
-                  style: AppTextStyles.titleSmall(cs.onSurface)
+                  style: AppTextStyles.titleSmall(Colors.white)
                       .copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
@@ -1367,17 +1368,18 @@ class _SpectatorMatchDetailScreenState
                     height: 8,
                     decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.pitchGreenLight),
+                        color: AppColors.floodlightGoldLight),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(nameOf(id),
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 13))),
+                              color: Colors.white, fontSize: 13))),
                   Text(
                       _roleLabel(
                           teamPlayers.where((p) => p.id == id).firstOrNull),
-                      style: const TextStyle(color: Colors.grey, fontSize: 9)),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 9)),
                 ],
               ),
             ),

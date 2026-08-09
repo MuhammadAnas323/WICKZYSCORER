@@ -72,6 +72,24 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<AppUser> signUpWithGoogle({
+    required AppUserRole role,
+    String? organization,
+  }) async {
+    _user = AppUser(
+      id: 'google_123',
+      name: 'Google User',
+      email: 'google@gmail.com',
+      phone: '',
+      address: '',
+      role: role,
+      organization: organization,
+      createdAt: DateTime.now(),
+    );
+    return _user!;
+  }
+
+  @override
   Future<void> signOut() async {
     _user = null;
   }

@@ -6,7 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
@@ -104,8 +106,15 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(
-          home: LiveScoringScreen(),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const LiveScoringScreen(),
         ),
       ),
     );
@@ -114,7 +123,7 @@ void main() {
 
     // 1st innings scoreboard + the "Start 2nd Innings" banner.
     expect(find.text('4/0'), findsOneWidget);
-    expect(find.text('1st Innings complete'), findsOneWidget);
+    expect(find.text('Innings Break'), findsOneWidget);
 
     // Open the innings break dialog.
     await tester.ensureVisible(find.text('Start 2nd Innings'));
@@ -144,6 +153,11 @@ void main() {
     // Now in the 2nd innings: fresh scoreboard.
     expect(container.read(scorerLiveMatchRepositoryProvider).activeMatch!.currentInnings, 2);
     expect(find.text('0/0'), findsOneWidget);
-    expect(find.text('1st Innings complete'), findsNothing);
+    expect(find.text('Innings Break'), findsNothing);
+
+    // Let the 800ms persist-debounce timer fire so the test framework doesn't
+    // report a pending Timer after the widget tree is disposed.
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

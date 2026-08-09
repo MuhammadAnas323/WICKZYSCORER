@@ -40,6 +40,18 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  Future<void> signUpWithGoogle({String? organization}) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await ref
+          .read(currentUserProvider.notifier)
+          .signUpScorerWithGoogle(organization: organization);
+      state = state.copyWith(isLoading: false, success: true);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 }
 
 final scorerSignupViewModelProvider = StateNotifierProvider.autoDispose<ScorerSignupViewModel, ScorerSignupState>((ref) {

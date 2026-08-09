@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
-import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
@@ -54,11 +53,16 @@ class EventDetailScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Overview banner
+            // Hero card: overview + stats + prizes in one, with its own
+            // unique gradient.
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: AppColors.heroCardGradient,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+                ),
                 borderRadius: BorderRadius.circular(AppConstants.radiusLG),
               ),
               child: Column(
@@ -66,53 +70,100 @@ class EventDetailScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.emoji_events_rounded,
-                          color: AppColors.floodlightGold, size: 28),
-                      const Gap(10),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.emoji_events_rounded,
+                            color: AppColors.floodlightGold, size: 26),
+                      ),
+                      const Gap(12),
                       Expanded(
-                        child: Text(
-                          tournament.name,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              tournament.name,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Gap(3),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    color: Colors.white70, size: 13),
+                                const Gap(4),
+                                Expanded(
+                                  child: Text(
+                                    tournament.venue,
+                                    style: const TextStyle(
+                                        color: Colors.white70, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const Gap(10),
+                  const Gap(16),
                   Row(
                     children: [
-                      const Icon(Icons.location_on,
-                          color: Colors.white54, size: 16),
-                      const Gap(4),
-                      Expanded(
-                        child: Text(tournament.venue,
-                            style:
-                                const TextStyle(color: Colors.white70, fontSize: 13)),
+                      _heroStatTile(
+                          emoji: '🏑', value: '${teams.length}', label: 'Teams'),
+                      _heroStatTile(
+                          emoji: '🏏',
+                          value: '${matches.length}',
+                          label: 'Matches'),
+                      _heroStatTile(
+                          emoji: '🔴', value: '$live', label: 'Live'),
+                      _heroStatTile(
+                          emoji: '🏁', value: '$completed', label: 'Done'),
+                    ],
+                  ),
+                  const Gap(14),
+                  const Divider(color: Colors.white24, height: 1),
+                  const Gap(12),
+                  Row(
+                    children: [
+                      _heroPrizeTile(
+                        icon: Icons.payments_outlined,
+                        label: 'Entry Fee',
+                        value: tournament.entryFee != null
+                            ? '\$ ${tournament.entryFee!.toStringAsFixed(0)}'
+                            : 'Free',
+                        color: Colors.blueAccent,
+                      ),
+                      const Gap(8),
+                      _heroPrizeTile(
+                        icon: Icons.emoji_events_rounded,
+                        label: 'Winner',
+                        value: tournament.winnerPrize != null
+                            ? '\$ ${tournament.winnerPrize!.toStringAsFixed(0)}'
+                            : 'TBD',
+                        color: AppColors.floodlightGoldLight,
+                      ),
+                      const Gap(8),
+                      _heroPrizeTile(
+                        icon: Icons.workspace_premium_outlined,
+                        label: 'Runner-Up',
+                        value: tournament.runnerUpPrize != null
+                            ? '\$ ${tournament.runnerUpPrize!.toStringAsFixed(0)}'
+                            : 'TBD',
+                        color: Colors.white70,
                       ),
                     ],
                   ),
-                  const Gap(6),
-                  Text(
-                    '${tournament.startDate.day}/${tournament.startDate.month} — '
-                    '${tournament.endDate.day}/${tournament.endDate.month}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
                 ],
               ),
-            ),
-            const Gap(16),
-
-            // Stats row
-            Row(
-              children: [
-                _statTile(cs, '🏑', '${teams.length}', 'Teams'),
-                _statTile(cs, '🏏', '${matches.length}', 'Matches'),
-                _statTile(cs, '🔴', '$live', 'Live'),
-                _statTile(cs, '🏁', '$completed', 'Done'),
-              ],
             ),
             const Gap(16),
 
@@ -131,6 +182,24 @@ class EventDetailScreen extends ConsumerWidget {
                 end: Alignment.bottomRight,
               ),
               onTap: () => context.push('/events/$tournamentId/schedule'),
+            ),
+            const Gap(10),
+
+            // Teams button — all teams & their squads in one place
+            _actionCard(
+              context,
+              icon: Icons.groups_rounded,
+              title: 'Teams',
+              subtitle: '${teams.length} teams • tap to view squads',
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.vibrantPurple.withOpacity(0.85),
+                  AppColors.vibrantPurple.withOpacity(0.55),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              onTap: () => _showTeamsSheet(context, teams, state),
             ),
             const Gap(10),
 
@@ -194,14 +263,6 @@ class EventDetailScreen extends ConsumerWidget {
                     context, 'Requirements', tournament.tournamentRequirements!),
               ),
               const Gap(10),
-            ],
-
-            // Cash prizes & entry fee (read-only)
-            if (tournament.entryFee != null ||
-                tournament.winnerPrize != null ||
-                tournament.runnerUpPrize != null) ...[
-              _prizesCard(cs, tournament),
-              const Gap(16),
             ],
 
             // Matches section
@@ -268,28 +329,6 @@ class EventDetailScreen extends ConsumerWidget {
                   )),
               const Gap(16),
             ],
-
-            // Teams + squads section
-            _sectionHeader(cs, 'Squads (${teams.length})'),
-            const Gap(8),
-            if (teams.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(24),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-                ),
-                child: Text('No teams added yet.',
-                    style: AppTextStyles.bodyMedium(cs.onSurfaceVariant)),
-              )
-            else
-              ...teams.map((team) => _TeamSquadCard(
-                    team: team,
-                    players: state.playersForTeam(team.id),
-                    isDark: Theme.of(context).brightness == Brightness.dark,
-                    cs: cs,
-                  )),
             const Gap(32),
           ],
         ),
@@ -297,25 +336,36 @@ class EventDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statTile(
-      ColorScheme cs, String emoji, String value, String label) {
+  /// Stat tile rendered inside the merged hero card (on the gradient).
+  Widget _heroStatTile({
+    required String emoji,
+    required String value,
+    required String label,
+  }) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white12),
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 4),
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const Gap(2),
             Text(value,
-                style: AppTextStyles.titleLarge(cs.onSurface)
-                    .copyWith(fontWeight: FontWeight.w700)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const Gap(2),
             Text(label,
-                style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -416,95 +466,123 @@ class EventDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _prizesCard(ColorScheme cs, ScorerTournament tournament) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: AppColors.floodlightGold.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.monetization_on_outlined,
-                  color: AppColors.floodlightGold, size: 20),
-              const Gap(8),
-              Text('Cash Prizes',
-                  style: AppTextStyles.titleSmall(cs.onSurface)
-                      .copyWith(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const Gap(12),
-          Row(
-            children: [
-              _prizeTile(cs,
-                  label: 'Entry Fee',
-                  value: tournament.entryFee != null
-                      ? '\$ ${tournament.entryFee!.toStringAsFixed(0)}'
-                      : 'Free',
-                  color: Colors.blueAccent),
-              const Gap(8),
-              _prizeTile(cs,
-                  label: 'Winner 🏆',
-                  value: tournament.winnerPrize != null
-                      ? '\$ ${tournament.winnerPrize!.toStringAsFixed(0)}'
-                      : 'TBD',
-                  color: AppColors.floodlightGold),
-              const Gap(8),
-              _prizeTile(cs,
-                  label: 'Runner-Up',
-                  value: tournament.runnerUpPrize != null
-                      ? '\$ ${tournament.runnerUpPrize!.toStringAsFixed(0)}'
-                      : 'TBD',
-                  color: cs.onSurfaceVariant),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _prizeTile(ColorScheme cs,
-      {required String label,
-      required String value,
-      required Color color}) {
+  /// Prize/entry-fee tile rendered inside the merged hero card.
+  Widget _heroPrizeTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: cs.surfaceVariant.withOpacity(0.4),
+          color: Colors.white.withOpacity(0.12),
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white12),
         ),
         child: Column(
           children: [
+            Icon(icon, color: color, size: 16),
+            const Gap(2),
             Text(value,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             const Gap(2),
             Text(label,
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
                 textAlign: TextAlign.center),
           ],
         ),
       ),
     );
   }
+
+  /// Bottom sheet listing every team of the tournament with its squad. Each
+  /// team card gets its own gradient color.
+  void _showTeamsSheet(
+      BuildContext context, List<ScorerTeam> teams, SpectatorHomeState state) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: cs.background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+                child: Row(
+                  children: [
+                    _sectionHeader(cs, 'Teams & Squads (${teams.length})'),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(Icons.close,
+                          color: cs.onSurfaceVariant),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: teams.isEmpty
+                    ? Center(
+                        child: Text('No teams added yet.',
+                            style:
+                                AppTextStyles.bodyMedium(cs.onSurfaceVariant)),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        itemCount: teams.length,
+                        itemBuilder: (_, i) => _TeamGradientCard(
+                          team: teams[i],
+                          players: state.playersForTeam(teams[i].id),
+                          gradient: AppColors.cardGradients[
+                              i % AppColors.cardGradients.length],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _TeamSquadCard extends StatelessWidget {
+/// Distinct gradients so every team card in the sheet has its own colour.
+class _TeamGradientCard extends StatelessWidget {
   final ScorerTeam team;
   final List<ScorerPlayer> players;
-  final bool isDark;
-  final ColorScheme cs;
+  final LinearGradient gradient;
 
-  const _TeamSquadCard({
+  const _TeamGradientCard({
     required this.team,
     required this.players,
-    required this.isDark,
-    required this.cs,
+    required this.gradient,
   });
 
   String _roleLabel(PlayerRole role) {
@@ -522,51 +600,55 @@ class _TeamSquadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final short = team.shortCode.isNotEmpty
+        ? team.shortCode
+            .substring(0, team.shortCode.length > 3 ? 3 : team.shortCode.length)
+            .toUpperCase()
+        : 'T';
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-        border: Border.all(color: Colors.white10),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.colors.last.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         shape: const Border(),
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.pitchGreen, AppColors.pitchGreenDark],
-            ),
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
           ),
           alignment: Alignment.center,
-          child: Text(
-            team.shortCode.isNotEmpty
-                ? team.shortCode.substring(
-                        0, team.shortCode.length > 3 ? 3 : team.shortCode.length)
-                    .toUpperCase()
-                : 'T',
-            style: const TextStyle(
-                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
-          ),
+          child: Text(short,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
         ),
         title: Text(team.name,
-            style: AppTextStyles.titleSmall(cs.onSurface)
-                .copyWith(fontWeight: FontWeight.w700)),
-        subtitle: Text('${players.length} squad players • ${team.ownerName ?? 'No owner'}',
-            style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+        subtitle: Text(
+            '${players.length} squad players • ${team.ownerName ?? 'No owner'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        iconColor: Colors.white,
+        collapsedIconColor: Colors.white70,
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (players.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
               child: Text('No players registered yet.',
-                  style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
             )
           else
             ...players.map((p) => Padding(
@@ -574,33 +656,37 @@ class _TeamSquadCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Container(
-                        width: 28,
-                        height: 28,
+                        width: 26,
+                        height: 26,
                         decoration: BoxDecoration(
-                          color: AppColors.pitchGreen.withOpacity(0.12),
+                          color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           '${p.jerseyNumber ?? '-'}',
-                          style: AppTextStyles.labelSmall(
-                              AppColors.pitchGreenLight),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                       const Gap(10),
                       Expanded(
                         child: Text(p.name,
-                            style: AppTextStyles.bodyMedium(cs.onSurface)),
+                            style:
+                                const TextStyle(color: Colors.white, fontSize: 13)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: cs.surfaceVariant,
+                          color: Colors.white.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(100),
                         ),
                         child: Text(_roleLabel(p.role),
-                            style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 10)),
                       ),
                     ],
                   ),

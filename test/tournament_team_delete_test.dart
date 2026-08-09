@@ -5,8 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
@@ -51,6 +53,14 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<AppUser> signUpWithGoogle({
+    required AppUserRole role,
+    String? organization,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> signOut() async {}
 }
 
@@ -88,11 +98,24 @@ void main() {
           scorerRepositoryProvider.overrideWithValue(repo),
           authServiceProvider.overrideWithValue(MockAuthService()),
         ],
-        child: const MaterialApp(
-          home: TournamentDetailViewScreen(tournamentId: 't1'),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const TournamentDetailViewScreen(tournamentId: 't1'),
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    // Open the "Teams & Squads" bottom sheet where the team cards live.
+    await tester.ensureVisible(find.text('Teams & Squads'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Teams & Squads'));
     await tester.pumpAndSettle();
 
     // The team card is visible and has NO delete icon button.
@@ -111,11 +134,12 @@ void main() {
     // Long-press the team card -> confirm dialog appears.
     await tester.longPress(find.text('Kings XI'));
     await tester.pumpAndSettle();
-    expect(find.text('Remove Team?'), findsOneWidget);
+    expect(find.text('Remove "Kings XI" from this tournament?'), findsOneWidget);
 
     // Confirm removal -> team is gone from the list.
-    await tester.tap(find.text('Remove'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(find.text('Kings XI'), findsNothing);
+    expect(await repo.getTeamsByTournament('t1'), isEmpty);
   });
 }

@@ -597,56 +597,58 @@ class _TournamentDetailViewScreenState
                                           color: AppColors.floodlightGold
                                               .withOpacity(0.25)),
                                     ),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 14, vertical: 6),
-                                      onTap: () async {
-                                        Navigator.of(ctx).pop();
-                                        await context.push(
-                                            '/scorer/teams/${team.id}/players');
-                                        _loadData();
-                                      },
-                                      onLongPress: () {
-                                        Navigator.of(ctx).pop();
-                                        _deleteTeam(team);
-                                      },
-                                      leading: Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              AppColors.floodlightGold,
-                                              AppColors.pitchGreen,
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: ListTile(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 6),
+                                        onTap: () async {
+                                          Navigator.of(ctx).pop();
+                                          await context.push(
+                                              '/scorer/teams/${team.id}/players');
+                                          _loadData();
+                                        },
+                                        onLongPress: () {
+                                          Navigator.of(ctx).pop();
+                                          _deleteTeam(team);
+                                        },
+                                        leading: Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                AppColors.floodlightGold,
+                                                AppColors.pitchGreen,
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            team.shortCode.isNotEmpty
+                                                ? team.shortCode
+                                                    .substring(
+                                                        0,
+                                                        team.shortCode.length > 3
+                                                            ? 3
+                                                            : team
+                                                                .shortCode.length)
+                                                    .toUpperCase()
+                                                : 'T',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w800),
                                           ),
                                         ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          team.shortCode.isNotEmpty
-                                              ? team.shortCode
-                                                  .substring(
-                                                      0,
-                                                      team.shortCode.length > 3
-                                                          ? 3
-                                                          : team
-                                                              .shortCode.length)
-                                                  .toUpperCase()
-                                              : 'T',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800),
-                                        ),
-                                      ),
-                                      title: Text(team.name,
-                                          style: TextStyle(
-                                              color: textColor,
-                                              fontWeight: FontWeight.bold,
+                                        title: Text(team.name,
+                                            style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
                                               fontSize: 15)),
                                       subtitle: Text(
                                           '${team.playerIds.length} squad players',
@@ -731,6 +733,7 @@ class _TournamentDetailViewScreenState
                                         ],
                                       ),
                                     ),
+                                  ),
                                   );
                                 },
                               ),

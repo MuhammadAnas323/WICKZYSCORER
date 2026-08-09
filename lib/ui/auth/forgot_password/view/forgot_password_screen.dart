@@ -4,6 +4,8 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 
+import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
+
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -33,46 +35,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(color: Colors.white),
+    final cs = Theme.of(context).colorScheme;
+    return AuthScaffold(
+      title: _isSuccess ? 'Check your email' : 'Reset Password',
+      subtitle: _isSuccess 
+          ? 'We have sent reset instructions' 
+          : 'Enter your email and we will send you a reset link.',
+      footer: TextButton(
+        onPressed: () => context.go('/signin'),
+        child: Text('Back to Sign In', style: AppTextStyles.labelLarge(AppColors.pitchGreen)),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            child: _isSuccess ? _buildSuccessView() : _buildFormView(),
-          ),
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          child: _isSuccess ? _buildSuccessView(cs) : _buildFormView(cs),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildFormView() {
+  Widget _buildFormView(ColorScheme cs) {
     return Column(
       key: const ValueKey('form'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 20),
-        Text('Reset Password', style: AppTextStyles.headlineLarge(Colors.white)),
-        const SizedBox(height: 8),
-        Text('Enter your email and we will send you a reset link.', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
-        const SizedBox(height: 48),
         TextFormField(
           controller: _emailController,
-          style: AppTextStyles.bodyMedium(Colors.white),
+          style: AppTextStyles.bodyMedium(cs.onSurface),
           decoration: InputDecoration(
             labelText: 'Email',
-            labelStyle: AppTextStyles.bodyMedium(AppColors.charcoal200),
-            prefixIcon: const Icon(Icons.email_outlined, color: AppColors.charcoal200),
+            labelStyle: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.email_outlined, color: AppColors.pitchGreen),
             filled: true,
-            fillColor: AppColors.darkSurfaceVariant,
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.charcoal600)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.pitchGreen)),
+            fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
         ),
         const SizedBox(height: 32),
@@ -85,25 +81,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildSuccessView() {
+  Widget _buildSuccessView(ColorScheme cs) {
     return Column(
       key: const ValueKey('success'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 60),
         const Icon(Icons.check_circle_outline, color: AppColors.pitchGreen, size: 80),
         const SizedBox(height: 24),
-        Center(child: Text('Check your email', style: AppTextStyles.headlineMedium(Colors.white))),
-        const SizedBox(height: 16),
         Text(
           'We have sent password reset instructions to ${_emailController.text}',
           textAlign: TextAlign.center,
-          style: AppTextStyles.bodyMedium(AppColors.charcoal200),
-        ),
-        const SizedBox(height: 48),
-        TextButton(
-          onPressed: () => context.go('/signin'),
-          child: Text('Back to Sign In', style: AppTextStyles.labelLarge(AppColors.pitchGreen)),
+          style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
         ),
       ],
     );

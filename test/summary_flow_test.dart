@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
@@ -13,9 +16,57 @@ import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/data/services/auth_service.dart';
 import 'package:sportyapp/ui/scorer/live_scoring/view/live_scoring_screen.dart';
 import 'package:sportyapp/ui/scorer/live_scoring/view/match_summary_screen.dart';
 import 'package:sportyapp/ui/scorer/matches/view/scorer_matches_screen.dart';
+
+class MockAuthService implements AuthService {
+  @override
+  AppUser? get currentUser => null;
+
+  @override
+  Stream<fa.User?> authStateChanges() => const Stream.empty();
+
+  @override
+  Future<void> loadCurrentUser() async {}
+
+  @override
+  Future<AppUser> signIn(String email, String password) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppUser> signUpScorer({
+    required String name,
+    required String email,
+    required String password,
+    String? organization,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppUser> signUpSpectator({
+    required String name,
+    required String email,
+    required String password,
+    String? favoriteTournamentId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppUser> signUpWithGoogle({
+    required AppUserRole role,
+    String? organization,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> signOut() async {}
+}
 
 ScorerMatch buildInProgressMatch() {
   final inn1 = Innings(
@@ -313,7 +364,10 @@ void main() {
     );
 
     final container = ProviderContainer(
-      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        scorerRepositoryProvider.overrideWithValue(repo),
+        authServiceProvider.overrideWithValue(MockAuthService()),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -361,11 +415,12 @@ void main() {
     expect(saved!.status, MatchStatus.completed);
     expect(saved.resultSummary, isNotEmpty);
 
-    // Completed matches stay out of the scorer Matches tab.
+    // The completed match is listed under the "Completed" section of the
+    // scorer Matches tab.
     router.go('/scorer/matches');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
-    expect(find.text('team1  vs  team2'), findsNothing);
+    expect(find.text('team1  vs  team2'), findsOneWidget);
   });
 
   testWidgets('tied match offers super over, scores it, and reaches summary',
@@ -427,7 +482,7 @@ void main() {
 
     // Tie dialog offers a super over.
     expect(find.textContaining('Match Tied!'), findsOneWidget);
-    await tester.tap(find.text('Yes'));
+    await tester.tap(find.text('Start Super Over'));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

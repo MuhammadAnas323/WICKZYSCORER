@@ -1,4 +1,5 @@
 import 'package:sportyapp/data/models/scorer/innings.dart';
+import 'package:sportyapp/data/models/scorer/match_result.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 
 enum TossDecision { bat, bowl }
@@ -26,7 +27,12 @@ class ScorerMatch {
   final Innings? innings2;
   final int currentInnings;
   final String? winnerTeamId;
+  final String? loserTeamId;
   final String? resultSummary;
+  final MatchResultType? resultType;
+  final int? resultMargin;
+  final bool isNoResult;
+  final bool isDls;
   final String? specialInstructions;
 
   /// UID of the user who created this match (set once).
@@ -79,7 +85,12 @@ class ScorerMatch {
     this.innings2,
     required this.currentInnings,
     this.winnerTeamId,
+    this.loserTeamId,
     this.resultSummary,
+    this.resultType,
+    this.resultMargin,
+    this.isNoResult = false,
+    this.isDls = false,
     this.specialInstructions,
     this.createdBy = '',
     this.playerOfTheMatchId,
@@ -150,7 +161,12 @@ class ScorerMatch {
     Innings? innings2,
     int? currentInnings,
     String? winnerTeamId,
+    String? loserTeamId,
     String? resultSummary,
+    MatchResultType? resultType,
+    int? resultMargin,
+    bool? isNoResult,
+    bool? isDls,
     String? specialInstructions,
     String? createdBy,
     String? playerOfTheMatchId,
@@ -187,7 +203,12 @@ class ScorerMatch {
       innings2: innings2 ?? this.innings2,
       currentInnings: currentInnings ?? this.currentInnings,
       winnerTeamId: winnerTeamId ?? this.winnerTeamId,
+      loserTeamId: loserTeamId ?? this.loserTeamId,
       resultSummary: resultSummary ?? this.resultSummary,
+      resultType: resultType ?? this.resultType,
+      resultMargin: resultMargin ?? this.resultMargin,
+      isNoResult: isNoResult ?? this.isNoResult,
+      isDls: isDls ?? this.isDls,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       createdBy: createdBy ?? this.createdBy,
       playerOfTheMatchId: playerOfTheMatchId ?? this.playerOfTheMatchId,

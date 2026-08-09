@@ -342,8 +342,6 @@ class _MatchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLive = match.status == MatchStatus.live ||
         match.status == MatchStatus.inProgress;
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     String statusText = match.status.name.toUpperCase();
     if (isLive) statusText = l10n.translate('live');
@@ -360,10 +358,9 @@ class _MatchTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
+          gradient: AppColors.cardGradientFor(match.id),
           borderRadius: BorderRadius.circular(5),
-          border: Border.all(
-              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+          border: Border.all(color: Colors.white24),
         ),
         child: Row(
           children: [
@@ -373,15 +370,15 @@ class _MatchTile extends StatelessWidget {
                 children: [
                   Text(
                     '${teamName(match.team1Id)}  vs  ${teamName(match.team2Id)}',
-                    style: TextStyle(
-                        color: cs.onSurface,
+                    style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 15),
                   ),
                   const Gap(4),
                   Text(
-                    '${match.format.name.toUpperCase()} • ${match.overs} ${l10n.translate('overs')} • ${match.venue}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    '${match.overs} ${l10n.translate('overs')} • ${match.venue}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -399,18 +396,14 @@ class _MatchTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: isLive
-                    ? AppColors.liveRed.withValues(alpha: 0.2)
-                    : AppColors.pitchGreen.withValues(alpha: 0.15),
+                    ? AppColors.liveRed.withValues(alpha: 0.35)
+                    : Colors.white24,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 statusText,
-                style: TextStyle(
-                  color: isLive
-                      ? AppColors.liveRed
-                      : (isDark
-                          ? AppColors.pitchGreenLight
-                          : AppColors.pitchGreen),
+                style: const TextStyle(
+                  color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),

@@ -9,11 +9,17 @@ class RoleSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.charcoal900, AppColors.darkBackground],
+            colors: isDark
+                ? [const Color(0xFF0D2818), theme.scaffoldBackgroundColor]
+                : [const Color(0xFFEAF6EE), theme.scaffoldBackgroundColor],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -28,14 +34,14 @@ class RoleSelectionScreen extends StatelessWidget {
                 Center(
                   child: Text(
                     'CRIXORA',
-                    style: AppTextStyles.displayLarge(Colors.white),
+                    style: AppTextStyles.displayLarge(cs.onBackground),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
                     'Choose your role',
-                    style: AppTextStyles.titleLarge(AppColors.charcoal200),
+                    style: AppTextStyles.titleLarge(cs.onSurfaceVariant),
                   ),
                 ),
                 const Spacer(),
@@ -51,7 +57,7 @@ class RoleSelectionScreen extends StatelessWidget {
                   title: 'Score a Match',
                   subtitle: 'Manage matches & score ball-by-ball',
                   icon: Icons.sports_score,
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [AppColors.floodlightGold, Colors.orangeAccent],
                   ),
                   onTap: () => context.push('/scorer-signup'),
@@ -63,7 +69,7 @@ class RoleSelectionScreen extends StatelessWidget {
                     child: RichText(
                       text: TextSpan(
                         text: 'Already have an account? ',
-                        style: AppTextStyles.bodyMedium(AppColors.charcoal200),
+                        style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
                         children: [
                           TextSpan(
                             text: 'Sign In',
@@ -101,6 +107,9 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -110,9 +119,9 @@ class _RoleCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.glassFill,
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : AppColors.glassFill,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.glassBorder),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.glassBorder),
             ),
             child: Row(
               children: [
@@ -129,9 +138,9 @@ class _RoleCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: AppTextStyles.titleLarge(Colors.white)),
+                      Text(title, style: AppTextStyles.titleLarge(cs.onSurface)),
                       const SizedBox(height: 4),
-                      Text(subtitle, style: AppTextStyles.bodySmall(AppColors.charcoal200)),
+                      Text(subtitle, style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
                     ],
                   ),
                 ),

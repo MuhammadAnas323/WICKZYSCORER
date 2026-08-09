@@ -56,7 +56,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCwfhk3MSCFk6kHJ9-3Tfc9OtnbeM_028U',
-    appId: '1:217796585547:android:REPLACE_ME',
+    appId: '1:217796585547:android:9058f3eb1b448a01f485ce',
     messagingSenderId: '217796585547',
     projectId: 'fitnessapp-bcc3b',
     storageBucket: 'fitnessapp-bcc3b.appspot.com',

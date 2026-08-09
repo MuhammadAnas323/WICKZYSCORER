@@ -6,7 +6,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
-import 'package:sportyapp/shared_widgets/tournament_card.dart';
+import 'package:sportyapp/shared_widgets/spectator_tournament_card.dart';
 import 'package:sportyapp/ui/spectator/widgets/spectator_match_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -323,8 +323,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       itemCount: list.length,
       itemBuilder: (context, i) {
         final t = list[i];
-        return TournamentCard(
+        return SpectatorTournamentCard(
           tournament: t,
+          teamCount: state.teamsForTournament(t.id).length,
+          matchCount: state.matchesForTournament(t.id).length,
           onTap: () => context.push('/events/${t.id}'),
         );
       },

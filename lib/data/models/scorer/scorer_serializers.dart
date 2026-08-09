@@ -9,6 +9,7 @@ import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/dismissal.dart';
+import 'package:sportyapp/data/models/scorer/match_result.dart';
 
 T _enumByName<T extends Enum>(List<T> values, String? name, T fallback) {
   if (name == null) return fallback;
@@ -127,7 +128,12 @@ Map<String, dynamic> scorerMatchToJson(ScorerMatch m) => {
       'innings2': m.innings2 == null ? null : inningsToJson(m.innings2!),
       'currentInnings': m.currentInnings,
       'winnerTeamId': m.winnerTeamId,
+      'loserTeamId': m.loserTeamId,
       'resultSummary': m.resultSummary,
+      'resultType': m.resultType?.name,
+      'resultMargin': m.resultMargin,
+      'isNoResult': m.isNoResult,
+      'isDls': m.isDls,
       'specialInstructions': m.specialInstructions,
       'createdBy': m.createdBy,
       'playerOfTheMatchId': m.playerOfTheMatchId,
@@ -177,7 +183,15 @@ ScorerMatch scorerMatchFromJson(Map<String, dynamic> json) => ScorerMatch(
           : inningsFromJson(json['innings2'] as Map<String, dynamic>),
       currentInnings: (json['currentInnings'] as num?)?.toInt() ?? 1,
       winnerTeamId: json['winnerTeamId'],
+      loserTeamId: json['loserTeamId'],
       resultSummary: json['resultSummary'],
+      resultType: json['resultType'] == null
+          ? null
+          : _enumByName(
+              MatchResultType.values, json['resultType'], MatchResultType.tie),
+      resultMargin: (json['resultMargin'] as num?)?.toInt(),
+      isNoResult: json['isNoResult'] ?? false,
+      isDls: json['isDls'] ?? false,
       specialInstructions: json['specialInstructions'],
       createdBy: json['createdBy'] ?? '',
       playerOfTheMatchId: json['playerOfTheMatchId'],

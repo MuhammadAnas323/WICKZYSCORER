@@ -5,6 +5,8 @@ import 'package:gap/gap.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
+import 'package:sportyapp/data/models/scorer/match_result.dart';
+import 'package:sportyapp/data/engines/match_result_engine.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
@@ -111,10 +113,13 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     // stay on this screen and let the scorer retry.
     try {
       final completed = liveRepo.endMatch(
-        winnerTeamId: result.winnerId,
-        summary: result.isTie
-            ? '${data.team1Name} vs ${data.team2Name} — ${l10n.translate('match_tied')}'
-            : '${result.winnerName} ${l10n.translate('won_by')} ${result.margin}',
+        winnerTeamId: result.winnerTeamId,
+        loserTeamId: result.loserTeamId,
+        summary: result.resultText,
+        resultType: result.type,
+        resultMargin: result.margin,
+        isNoResult: result.isNoResult,
+        isDls: result.isDls,
         playerOfTheMatchId: _pomId,
         bestBatsmanId: _bestBatsmanId,
         bestBowlerId: _bestBowlerId,
@@ -149,16 +154,14 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
 
     // 2. Advance tournament schedule/tables. Best-effort — the match itself is
     // already completed and persisted, so a schedule sync failure must never
-    // strand the scorer on this screen. A tie has no winner/loser to advance.
-    if (result.winnerId != null) {
+    // strand the scorer on this screen. A tie/no-result has no winner/loser to
+    // advance.
+    if (result.winnerTeamId != null && result.loserTeamId != null) {
       try {
-        final winnerId = result.winnerId!;
-        final loserId =
-            winnerId == match.team2Id ? match.team1Id : match.team2Id;
         await ref.read(scorerRepositoryProvider).applyScheduleResult(
               tournamentId: match.tournamentId,
-              winnerTeamId: winnerId,
-              loserTeamId: loserId,
+              winnerTeamId: result.winnerTeamId!,
+              loserTeamId: result.loserTeamId!,
               matchTeam1Id: match.team1Id,
               matchTeam2Id: match.team2Id,
             );
@@ -171,63 +174,15 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     context.go('/scorer/dashboard');
   }
 
-  /// Computes the match result, honouring a played super over and ties.
-  ({String? winnerId, String winnerName, String margin, bool isTie}) _result(
+  /// Computes the match result through the centralized [MatchResultEngine],
+  /// honouring super overs, ties and no-result states.
+  MatchResult _result(
       ScorerMatch match, _SummaryData data, AppLocalizations l10n) {
-    final so1 = match.superOverInnings1;
-    final so2 = match.superOverInnings2;
-    if (match.superOverPlayed && so1 != null && so2 != null) {
-      final target = so1.totalRuns + 1;
-      final chased = so2.totalRuns >= target;
-      if (so2.totalRuns == so1.totalRuns) {
-        return (
-          winnerId: null,
-          winnerName: '${data.team1Name} vs ${data.team2Name}',
-          margin: l10n.translate('match_tied'),
-          isTie: true,
-        );
-      }
-      final winnerId = chased ? so2.battingTeamId : so1.battingTeamId;
-      final winnerName =
-          winnerId == match.team1Id ? data.team1Name : data.team2Name;
-      final margin = chased
-          ? '${2 - so2.wickets} ${l10n.translate('wickets')} (Super Over)'
-          : '${(target - 1) - so2.totalRuns} ${l10n.translate('runs')} (Super Over)';
-      return (
-        winnerId: winnerId,
-        winnerName: winnerName,
-        margin: margin,
-        isTie: false,
-      );
-    }
-
-    final inn1 = match.innings1;
-    final inn2 = match.innings2;
-    final target = (inn1?.totalRuns ?? 0) + 1;
-    final inn2Runs = inn2?.totalRuns ?? 0;
-    final inn2Wickets = inn2?.wickets ?? 0;
-    final chasingWon = inn2 != null && inn2Runs >= target;
-    if (match.isTie) {
-      return (
-        winnerId: null,
-        winnerName: '${data.team1Name} vs ${data.team2Name}',
-        margin: l10n.translate('match_tied'),
-        isTie: true,
-      );
-    }
-    final winnerId = chasingWon
-        ? inn2.battingTeamId
-        : (inn1?.battingTeamId ?? match.team1Id);
-    final winnerName =
-        winnerId == match.team1Id ? data.team1Name : data.team2Name;
-    final margin = chasingWon
-        ? '${10 - inn2Wickets} ${l10n.translate('wickets')}'
-        : '${(target - 1) - inn2Runs} ${l10n.translate('runs')}';
-    return (
-      winnerId: winnerId,
-      winnerName: winnerName,
-      margin: margin,
-      isTie: false,
+    return MatchResultEngine.compute(
+      match: match,
+      team1Name: data.team1Name,
+      team2Name: data.team2Name,
+      l10n: l10n,
     );
   }
 
@@ -311,8 +266,8 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
           ),
           child: Text(
             result.isTie
-                ? '🤝 ${result.winnerName} ${l10n.translate('match_tied')}'
-                : '🏆 ${result.winnerName} ${l10n.translate('won_by')} ${result.margin}',
+                ? '🤝 ${result.resultText}'
+                : '🏆 ${result.resultText}',
             style: TextStyle(
                 color: result.isTie
                     ? AppColors.floodlightGold

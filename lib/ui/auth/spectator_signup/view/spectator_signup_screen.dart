@@ -5,7 +5,10 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/ui/auth/widgets/common_signup_form.dart';
+import 'package:sportyapp/ui/auth/widgets/google_sign_in_button.dart';
 import 'package:sportyapp/ui/auth/spectator_signup/viewmodel/spectator_signup_viewmodel.dart';
+
+import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 
 class SpectatorSignupScreen extends ConsumerStatefulWidget {
   const SpectatorSignupScreen({super.key});
@@ -31,60 +34,65 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
     });
 
     final state = ref.watch(spectatorSignupViewModelProvider);
+    final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(color: Colors.white),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Spectator Sign Up', style: AppTextStyles.headlineLarge(Colors.white)),
-              const SizedBox(height: 8),
-              Text('Follow your favorite tournaments', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
-              const SizedBox(height: 32),
-              CommonSignupForm(key: _formKey, isScorer: false),
-              const SizedBox(height: 40),
-              AppPrimaryButton(
-                label: 'Create Account',
-                isLoading: state.isLoading,
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    ref.read(spectatorSignupViewModelProvider.notifier).signUp(
-                          name: _formKey.currentState!.nameController.text,
-                          email: _formKey.currentState!.emailController.text,
-                          password: _formKey.currentState!.passwordController.text,
-                        );
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Already have an account? ',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  GestureDetector(
-                    onTap: () => context.go('/signin'),
-                    child: const Text('Sign In',
-                        style: TextStyle(
-                          color: AppColors.pitchGreenLight,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        )),
-                  ),
-                ],
-              ),
-            ],
+    return AuthScaffold(
+      title: 'Spectator Sign Up',
+      subtitle: 'Follow your favorite tournaments',
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Already have an account? ',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+          GestureDetector(
+            onTap: () => context.go('/signin'),
+            child: Text('Sign In',
+                style: TextStyle(
+                  color: AppColors.pitchGreen,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                )),
           ),
-        ),
+        ],
       ),
+      children: [
+        CommonSignupForm(key: _formKey, isScorer: false),
+        const SizedBox(height: 32),
+        AppPrimaryButton(
+          label: 'Create Account',
+          isLoading: state.isLoading,
+          onPressed: () {
+            if (_formKey.currentState?.validate() ?? false) {
+              ref.read(spectatorSignupViewModelProvider.notifier).signUp(
+                    name: _formKey.currentState!.nameController.text,
+                    email: _formKey.currentState!.emailController.text,
+                    password: _formKey.currentState!.passwordController.text,
+                  );
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('or',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GoogleSignInButton(
+          isLoading: state.isLoading,
+          onPressed: () {
+            ref
+                .read(spectatorSignupViewModelProvider.notifier)
+                .signUpWithGoogle();
+          },
+        ),
+      ],
     );
   }
 }

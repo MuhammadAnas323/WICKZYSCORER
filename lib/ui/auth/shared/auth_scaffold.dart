@@ -74,14 +74,20 @@ class _AuthScaffoldState extends State<AuthScaffold>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF6EE), AppColors.lightBackground],
+            colors: isDark
+                ? [const Color(0xFF0D2818), theme.scaffoldBackgroundColor]
+                : [const Color(0xFFEAF6EE), theme.scaffoldBackgroundColor],
           ),
         ),
         child: Stack(
@@ -90,17 +96,17 @@ class _AuthScaffoldState extends State<AuthScaffold>
             Positioned(
               top: -60,
               right: -50,
-              child: _blurCircle(AppColors.pitchGreen.withValues(alpha: 0.12), 180),
+              child: _blurCircle(AppColors.pitchGreen.withValues(alpha: isDark ? 0.08 : 0.12), 180),
             ),
             Positioned(
               top: 140,
               left: -70,
-              child: _blurCircle(AppColors.floodlightGold.withValues(alpha: 0.10), 140),
+              child: _blurCircle(AppColors.floodlightGold.withValues(alpha: isDark ? 0.06 : 0.10), 140),
             ),
             Positioned(
               bottom: -50,
               right: -40,
-              child: _blurCircle(AppColors.vibrantCyan.withValues(alpha: 0.10), 160),
+              child: _blurCircle(AppColors.vibrantCyan.withValues(alpha: isDark ? 0.06 : 0.10), 160),
             ),
             SafeArea(
               child: SingleChildScrollView(
@@ -125,15 +131,13 @@ class _AuthScaffoldState extends State<AuthScaffold>
                             Text(
                               widget.title,
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.headlineLarge(
-                                  AppColors.charcoal900),
+                              style: AppTextStyles.headlineLarge(cs.onBackground),
                             ),
                             const Gap(8),
                             Text(
                               widget.subtitle,
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.bodyMedium(
-                                  AppColors.charcoal400),
+                              style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
                             ),
                           ],
                         ),
@@ -148,11 +152,11 @@ class _AuthScaffoldState extends State<AuthScaffold>
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cs.surface,
                             borderRadius: BorderRadius.circular(22),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.07),
+                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.07),
                                 blurRadius: 24,
                                 offset: const Offset(0, 10),
                               ),

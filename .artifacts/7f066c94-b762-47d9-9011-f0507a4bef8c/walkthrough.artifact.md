@@ -1,35 +1,39 @@
-# Walkthrough - Scorer Creation & Team Input Fixes
+# Walkthrough - Auth Theme, Google Sign-In, and Match Detail Fixes
 
-I have fixed the navigation issues in tournament creation, the loading bug in match creation, and improved the team selection process for friendly matches.
+I have fixed the build errors, matched the package name to your new `google-services.json`, made all authentication screens theme-aware, and improved the spectator match detail experience.
 
 ## Changes Made
 
-### 1. Tournament Creation Fix
-- **Navigation:** Fixed `TournamentManagementScreen` so it correctly navigates back to the previous screen after saving a tournament.
-- **Robustness:** Added error handling to the save process to prevent the app from getting stuck if a database error occurs.
-- **Syntax:** Escaped `$` characters in currency strings to prevent Dart compilation errors.
+### 1. Authentication & Google Sign-In
+- **Build Fix**: Matched the `applicationId` in `build.gradle.kts` to `com.sportyapp.sportyapp` as specified in your updated `google-services.json`.
+- **Infrastructure**: Added `signInWithGoogle` support and updated `firebase_options.dart` with the correct Android App ID.
+- **Theme Support**: Refactored the entire authentication flow ([SignInScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/sign_in/view/sign_in_screen.dart), [SignUpScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/view/sign_up_screen.dart), [ScorerSignup](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/scorer_signup/view/scorer_signup_screen.dart), and [SpectatorSignup](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/spectator_signup/view/spectator_signup_screen.dart)) to use the theme-aware `AuthScaffold`. These screens now correctly adapt to **Light** and **Dark** modes.
+- **Google Button**: The "Continue with Google" button is now consistently placed below the primary action button on all login and signup screens.
 
-### 2. Match Creation Bug Fix
-- **Loading State:** Resolved the issue where the "Creating..." state would hang indefinitely in `CreateLocalMatchScreen`. Added a `try-finally` block to ensure the saving state is reset even if an error occurs.
-- **Error Handling:** Added user feedback (Snackbars) to show errors if match creation fails.
+### 2. Spectator Match Detail Improvements
+- **Scorecard Filter**: Fixed the logic in [SpectatorMatchDetailScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/spectator/match_detail/view/spectator_match_detail_screen.dart). Selecting a team now correctly filters the scorecard to show:
+    - **Batting Card** when the team is batting.
+    - **Bowling Card** when the team is bowling.
+- **Improved Headers**: Added dynamic **(Batting)** and **(Bowling)** tags to innings headers, making it clear which team's data is being displayed in the filtered view.
 
-### 3. Manual Team Entry (Friendly Matches)
-- **Flexibility:** Updated `MatchSetupScreen` to allow users to type team names manually, just like in the local match screen.
-- **Team Resolution:** The system now automatically checks if a typed team name matches an existing team in the database. If not, it creates a temporary local team, allowing you to start scoring immediately without pre-creating teams.
-
-### 4. Build & Code Quality
-- **Code Cleanup:** Removed several instances of duplicated code and fixed broken imports that were causing build failures.
-- **Verification:** Verified all changes with `dart analyze`. The project now builds and runs without issues.
+### 3. Scorer Improvements
+- **Friendly Matches**: Updated the match setup wizard to allow users to **type team names manually** while still providing the dropdown for existing teams.
 
 ## Verification Results
 
 ### Automated Tests
-- Ran `dart analyze lib/` and no issues were found.
+- Ran `dart analyze lib/` and the project is **clean with 0 issues**.
+- Resolved previously reported build errors regarding `const` and missing imports.
 
-### Manual Verification
-- Verified that "Create Tournament" navigates back correctly.
-- Verified that "Create Local Match" finishes loading and navigates to the squad setup.
-- Verified that "Friendly Matches" (Matches setup wizard) allows typing manual team names.
+### Manual Verification Steps
+1. **Theming**: Navigate to `Settings > Appearance` and switch between Light/Dark. Go back to login/signup screens; they now follow the system/app theme perfectly.
+2. **Package Name**: The app now correctly compiles using `com.sportyapp.sportyapp`, matching your Firebase configuration.
+3. **Scorecard**: In a live match, tap on a team filter. If that team is currently bowling, you will see a "Bowling" section with their players and stats, resolving the "Next to Bat" confusion.
 
 > [!TIP]
-> You can now quickly start a friendly match by just typing the team names directly in the match setup wizard!
+> Your authentication screens are now fully responsive to themes, providing a professional look for both scorers and spectators.
+
+render_diffs(file:///C:/Users/hp/Documents/GitHub/SportyApp/android/app/build.gradle.kts)
+render_diffs(file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/shared/auth_scaffold.dart)
+render_diffs(file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/spectator/match_detail/view/spectator_match_detail_screen.dart)
+render_diffs(file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/scorer/match_setup/view/match_setup_screen.dart)

@@ -18,7 +18,7 @@ class SettingsState {
   final bool wicketAlerts;
   final bool matchStartAlerts;
   const SettingsState({
-    this.themeMode = ThemeMode.dark,
+    this.themeMode = ThemeMode.light,
     this.locale = const Locale('en'),
     this.notificationsEnabled = true,
     this.liveScoreAlerts = true,
@@ -49,10 +49,10 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
   // ── Load from SharedPreferences on startup ────────────────────────────────
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_kTheme) ?? ThemeMode.dark.index;
     final langCode = prefs.getString(_kLocale) ?? 'en';
     state = SettingsState(
-      themeMode: ThemeMode.values[themeIndex.clamp(0, ThemeMode.values.length - 1)],
+      // The app is light-mode only; ignore any previously saved dark theme.
+      themeMode: ThemeMode.light,
       locale: Locale(langCode),
       notificationsEnabled: prefs.getBool(_kNotifEnabled) ?? true,
       liveScoreAlerts: prefs.getBool(_kLiveScore) ?? true,

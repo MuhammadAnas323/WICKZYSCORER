@@ -124,7 +124,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       } else {
                         await notifier.signOut();
                         if (context.mounted) {
-                          context.go('/signin');
+                          context.go('/role-selection');
                         }
                       }
                     },
@@ -169,7 +169,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       );
                       if (confirmed == true) {
                         await ref.read(currentUserProvider.notifier).signOut();
-                        if (context.mounted) context.go('/signin');
+                        if (context.mounted) context.go('/role-selection');
                       }
                     },
                     child: Container(

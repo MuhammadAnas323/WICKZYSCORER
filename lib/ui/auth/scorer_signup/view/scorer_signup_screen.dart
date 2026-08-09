@@ -5,7 +5,10 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/ui/auth/widgets/common_signup_form.dart';
+import 'package:sportyapp/ui/auth/widgets/google_sign_in_button.dart';
 import 'package:sportyapp/ui/auth/scorer_signup/viewmodel/scorer_signup_viewmodel.dart';
+
+import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 
 class ScorerSignupScreen extends ConsumerStatefulWidget {
   const ScorerSignupScreen({super.key});
@@ -31,61 +34,64 @@ class _ScorerSignupScreenState extends ConsumerState<ScorerSignupScreen> {
     });
 
     final state = ref.watch(scorerSignupViewModelProvider);
+    final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(color: Colors.white),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Scorer Sign Up', style: AppTextStyles.headlineLarge(AppColors.floodlightGold)),
-              const SizedBox(height: 8),
-              Text('Sign up for professional matches', style: AppTextStyles.bodyMedium(AppColors.charcoal200)),
-              const SizedBox(height: 32),
-              CommonSignupForm(key: _formKey, isScorer: true),
-              const SizedBox(height: 40),
-              AppPrimaryButton(
-                label: 'Sign Up',
-                isLoading: state.isLoading,
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    ref.read(scorerSignupViewModelProvider.notifier).signUp(
-                          name: _formKey.currentState!.nameController.text,
-                          email: _formKey.currentState!.emailController.text,
-                          password: _formKey.currentState!.passwordController.text,
-                          organization: _formKey.currentState!.orgController.text,
-                        );
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Already have an account? ',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  GestureDetector(
-                    onTap: () => context.go('/signin'),
-                    child: const Text('Sign In',
-                        style: TextStyle(
-                          color: AppColors.pitchGreenLight,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        )),
-                  ),
-                ],
-              ),
-            ],
+    return AuthScaffold(
+      title: 'Scorer Sign Up',
+      subtitle: 'Sign up for professional matches',
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Already have an account? ',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+          GestureDetector(
+            onTap: () => context.go('/signin'),
+            child: Text('Sign In',
+                style: TextStyle(
+                  color: AppColors.pitchGreen,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                )),
           ),
-        ),
+        ],
       ),
+      children: [
+        CommonSignupForm(key: _formKey, isScorer: true),
+        const SizedBox(height: 32),
+        AppPrimaryButton(
+          label: 'Sign Up',
+          isLoading: state.isLoading,
+          onPressed: () {
+            if (_formKey.currentState?.validate() ?? false) {
+              ref.read(scorerSignupViewModelProvider.notifier).signUp(
+                    name: _formKey.currentState!.nameController.text,
+                    email: _formKey.currentState!.emailController.text,
+                    password: _formKey.currentState!.passwordController.text,
+                    organization: _formKey.currentState!.orgController.text,
+                  );
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('or',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GoogleSignInButton(
+          isLoading: state.isLoading,
+          onPressed: () {
+            ref.read(scorerSignupViewModelProvider.notifier).signUpWithGoogle();
+          },
+        ),
+      ],
     );
   }
 }

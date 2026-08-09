@@ -6,57 +6,7 @@ import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/stream_model.dart';
 import 'package:sportyapp/data/repositories/live_match_repository.dart';
 import 'package:sportyapp/data/repositories/streaming_repository.dart';
-import 'package:sportyapp/data/services/streaming_service.dart';
 import 'package:sportyapp/ui/streaming/go_live/viewmodel/active_stream_controller.dart';
-
-class FakeStreamingService implements StreamingService {
-  @override
-  Future<bool> initCamera({bool useFrontCamera = false}) async => true;
-
-  @override
-  Future<void> switchCamera() async {}
-
-  @override
-  Future<bool> toggleMute() async => true;
-
-  @override
-  Future<bool> toggleTorch() async => false;
-
-  @override
-  Future<void> startStream(
-      {required String streamKey, required String title}) async {}
-
-  @override
-  Future<void> startScreenBroadcast(
-      {required String streamKey, required String title}) async {}
-
-  @override
-  Future<void> stopScreenCapture() async {}
-
-  @override
-  Future<void> joinAsViewer(
-      {required String channelName, required int uid}) async {}
-
-  @override
-  Stream<int> get onRemoteUserJoined => const Stream.empty();
-
-  @override
-  Stream<int> get onRemoteUserOffline => const Stream.empty();
-
-  @override
-  Future<StreamSummary> endStream({bool saveRecording = false}) async {
-    return StreamSummary(
-      duration: const Duration(seconds: 12),
-      peakViewers: 7,
-      totalComments: 3,
-      replaySaved: true,
-      endedAt: DateTime.now(),
-    );
-  }
-
-  @override
-  Future<void> dispose() async {}
-}
 
 class FakeStreamingRepository implements StreamingRepository {
   @override
@@ -96,13 +46,7 @@ class FakeLiveMatchRepository implements LiveMatchRepository {
       String matchId, Map<String, dynamic> data) async {}
 
   @override
-  Future<void> deleteLiveMatch(String matchId) async {}
-
-  @override
   void dispose() {}
-
-  @override
-  Future<LiveMatchData?> getLiveData(String matchId) async => null;
 
   @override
   Stream<LiveMatchData> watchLiveMatch(String matchId) => const Stream.empty();
@@ -115,7 +59,6 @@ void main() {
   test('clears the previous stream summary when a new broadcast starts',
       () async {
     final controller = ActiveStreamController(
-      FakeStreamingService(),
       FakeStreamingRepository(),
       FakeLiveMatchRepository(),
     );

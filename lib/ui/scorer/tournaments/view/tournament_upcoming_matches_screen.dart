@@ -673,8 +673,6 @@ class _UpcomingMatchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final local = match.dateTime.toLocal();
 
     return InkWell(
@@ -684,11 +682,9 @@ class _UpcomingMatchTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cs.surface,
+          gradient: AppColors.cardGradientFor(match.id),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color:
-                  isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+          border: Border.all(color: Colors.white24),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -699,13 +695,13 @@ class _UpcomingMatchTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.floodlightGold.withValues(alpha: 0.15),
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '${l10n.translate('match_number')} #$matchNumber',
                     style: const TextStyle(
-                        color: AppColors.floodlightGold,
+                        color: Colors.white,
                         fontSize: 10,
                         fontWeight: FontWeight.bold),
                   ),
@@ -715,15 +711,13 @@ class _UpcomingMatchTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.pitchGreen.withValues(alpha: 0.15),
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _statusText(),
-                    style: TextStyle(
-                      color: isDark
-                          ? AppColors.pitchGreenLight
-                          : AppColors.pitchGreen,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -734,8 +728,8 @@ class _UpcomingMatchTile extends StatelessWidget {
             const Gap(10),
             Text(
               '${teamName(match.team1Id)}  vs  ${teamName(match.team2Id)}',
-              style: TextStyle(
-                  color: cs.onSurface,
+              style: const TextStyle(
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 15),
             ),
@@ -743,26 +737,26 @@ class _UpcomingMatchTile extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.calendar_today_outlined,
-                    color: Colors.grey, size: 13),
+                    color: Colors.white70, size: 13),
                 const Gap(4),
                 Text(
                   '${local.day}/${local.month}/${local.year}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 const Gap(12),
-                const Icon(Icons.schedule, color: Colors.grey, size: 13),
+                const Icon(Icons.schedule, color: Colors.white70, size: 13),
                 const Gap(4),
                 Text(
                   '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 const Gap(12),
-                const Icon(Icons.location_on, color: Colors.grey, size: 13),
+                const Icon(Icons.location_on, color: Colors.white70, size: 13),
                 const Gap(4),
                 Expanded(
                   child: Text(
                     match.venue,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -771,8 +765,8 @@ class _UpcomingMatchTile extends StatelessWidget {
             ),
             const Gap(8),
             Text(
-              '${match.format.name.toUpperCase()} • ${match.overs} ${l10n.translate('overs')}',
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              '${match.overs} ${l10n.translate('overs')}',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
         ),

@@ -98,7 +98,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isPublic = publicRoutes.any(location.startsWith);
 
       if (currentUser == null) {
-        if (!isPublic) return '/signin';
+        if (!isPublic) return '/role-selection';
         return null;
       }
 

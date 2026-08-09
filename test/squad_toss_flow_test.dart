@@ -6,7 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
@@ -98,8 +100,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
-        child: const MaterialApp(
-          home: TossScreen(matchId: 'm1'),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const TossScreen(matchId: 'm1'),
         ),
       ),
     );
@@ -114,19 +123,19 @@ void main() {
     // Pick the toss winner (Kings XI) and a decision.
     await tester.tap(find.text('Kings XI'));
     await tester.pump();
-    await tester.tap(find.text('Bat First'));
+    await tester.tap(find.text('Bat'));
     await tester.pump();
 
     // Batting team section is labelled with the real team name.
-    expect(find.text('Kings XI — Opening Batsmen'), findsOneWidget);
+    expect(find.text('Kings XI — Opening Players'), findsOneWidget);
     expect(find.text('Lions — Opening Bowler'), findsOneWidget);
 
     // Starting scoring before openers are picked shows a helpful error.
-    await tester.ensureVisible(find.text('Start Live Scoring'));
+    await tester.ensureVisible(find.text('Start Scoring'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Start Live Scoring'));
+    await tester.tap(find.text('Start Scoring'));
     await tester.pump();
-    expect(find.text('Select the opening batsmen and the opening bowler'),
+    expect(find.text('Please select opening batsmen and bowler'),
         findsOneWidget);
   });
 
@@ -137,8 +146,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
-        child: const MaterialApp(
-          home: SquadSetupScreen(matchId: 'm1'),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const SquadSetupScreen(matchId: 'm1'),
         ),
       ),
     );
@@ -166,7 +182,7 @@ void main() {
     );
     expect(startButton.onPressed, isNull);
     expect(
-      find.text('Select at least one player for each team to start scoring.'),
+      find.text('Select at least one player for each team'),
       findsOneWidget,
     );
   });

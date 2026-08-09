@@ -103,7 +103,6 @@ class TournamentScheduleScreen extends ConsumerWidget {
                           matchNumber: e.key + 1,
                           match: e.value,
                           state: state,
-                          cs: cs,
                         )),
                   ],
                   const Gap(32),
@@ -356,13 +355,11 @@ class _ScheduleMatchCard extends StatelessWidget {
   final int matchNumber;
   final ScorerMatch match;
   final SpectatorHomeState state;
-  final ColorScheme cs;
 
   const _ScheduleMatchCard({
     required this.matchNumber,
     required this.match,
     required this.state,
-    required this.cs,
   });
 
   String _statusText(AppLocalizations l10n) {
@@ -381,9 +378,9 @@ class _ScheduleMatchCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: cs.surface,
+          gradient: AppColors.cardGradientFor(match.id),
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-          border: Border.all(color: AppColors.pitchGreen.withOpacity(0.25)),
+          border: Border.all(color: Colors.white24),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,12 +391,12 @@ class _ScheduleMatchCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.floodlightGold.withOpacity(0.15),
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '${l10n.translate('match_number')} #$matchNumber',
-                    style: AppTextStyles.labelSmall(AppColors.floodlightGold),
+                    style: AppTextStyles.labelSmall(Colors.white),
                   ),
                 ),
                 const Spacer(),
@@ -407,12 +404,12 @@ class _ScheduleMatchCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.pitchGreen.withOpacity(0.15),
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
                     _statusText(l10n),
-                    style: AppTextStyles.labelSmall(AppColors.pitchGreenLight),
+                    style: AppTextStyles.labelSmall(Colors.white),
                   ),
                 ),
               ],
@@ -423,37 +420,37 @@ class _ScheduleMatchCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '${state.teamName(match.team1Id)} vs ${state.teamName(match.team2Id)}',
-                    style: AppTextStyles.titleSmall(cs.onSurface)
+                    style: AppTextStyles.titleSmall(Colors.white)
                         .copyWith(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const Gap(6),
                 const Icon(Icons.chevron_right_rounded,
-                    color: Colors.grey, size: 18),
+                    color: Colors.white70, size: 18),
               ],
             ),
             const Gap(6),
             Row(
               children: [
                 const Icon(Icons.calendar_today_outlined,
-                    color: Colors.grey, size: 13),
+                    color: Colors.white70, size: 13),
                 const Gap(4),
                 Text('${local.day}/${local.month}/${local.year}',
-                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                    style: AppTextStyles.labelSmall(Colors.white70)),
                 const Gap(12),
-                const Icon(Icons.schedule, color: Colors.grey, size: 13),
+                const Icon(Icons.schedule, color: Colors.white70, size: 13),
                 const Gap(4),
                 Text(
                     '${local.hour.toString().padLeft(2, '0')}:'
                     '${local.minute.toString().padLeft(2, '0')}',
-                    style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                    style: AppTextStyles.labelSmall(Colors.white70)),
                 const Gap(12),
-                const Icon(Icons.location_on, color: Colors.grey, size: 13),
+                const Icon(Icons.location_on, color: Colors.white70, size: 13),
                 const Gap(4),
                 Expanded(
                   child: Text(match.venue,
-                      style: AppTextStyles.labelSmall(cs.onSurfaceVariant),
+                      style: AppTextStyles.labelSmall(Colors.white70),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],

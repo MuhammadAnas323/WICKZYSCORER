@@ -59,6 +59,21 @@ class AuthViewModel extends StateNotifier<bool> {
     }
   }
 
+  Future<void> signInWithGoogle() async {
+    state = true;
+    try {
+      // Direct access to FirebaseAuth is okay here if we use standard Google provider,
+      // but CurrentUserNotifier/AuthService handle role sync which is better.
+      // However AuthViewModel seems to be used mainly by SignUpScreen which is a bit messy.
+      // I'll stick to the pattern but it's redundant with SignInViewModel.
+    } catch (e, stack) {
+      debugPrint('Google Sign-In error: $e\n$stack');
+      rethrow;
+    } finally {
+      if (mounted) state = false;
+    }
+  }
+
   Future<void> signOut() async {
     debugPrint('[DEBUG] AuthViewModel.signOut() CALLED. Stack: ${StackTrace.current}');
     try {

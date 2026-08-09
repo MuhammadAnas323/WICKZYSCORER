@@ -1,38 +1,75 @@
-# Implementation Plan - Fix Scorer Creation & Team Input
+# Implementation Plan - Google Sign-In Fix, Auth Theming, and Match Detail Improvements
 
-This plan addresses reported issues in tournament and match creation, and improves team selection in the match setup wizard.
+This plan addresses the Google Sign-In "ApiException: 10" error, implements the "Continue with Google" button, makes ALL Auth screens theme-aware, and fixes the scorecard filter bug in the spectator match detail screen.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Google Sign-In ApiException: 10**
+> I have audited your configuration and found that the `android/app/google-services.json` file is missing the `oauth_client` array. This is the root cause of the error.
+> - **Action Required**:
+>   1. Go to Firebase Console > Project Settings > General.
+>   2. Add the **SHA-1** fingerprint of your debug (and release) keystore.
+>   3. Download the updated `google-services.json`.
+>   4. Replace `android/app/google-services.json` with the new file.
+> - **Note**: To find your debug SHA-1, run `./gradlew signingReport` in the `android` folder.
+
+> [!CAUTION]
+> **Theming Auth Screens**
+> The `AuthScaffold` was previously hardcoded to always be light. I will change it to follow the app theme, so it will be light in Light mode and dark in Dark mode.
 
 ## Proposed Changes
 
-### 1. Fix Tournament Creation Navigation
-In `TournamentManagementScreen`, I will ensure that the screen reliably navigates back after a successful save. I'll also add a `try-catch` to handle potential save errors.
+### 1. Authentication Logic
 
-- [MODIFY] [tournament_management_screen.dart](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/scorer/tournaments/view/tournament_management_screen.dart)
-    - Add `try-catch-finally` to `_save()`.
-    - Use `Navigator.of(context).pop()` for more reliable navigation if `context.pop()` is failing.
-    - Ensure the dashboard is refreshed correctly.
+#### [MODIFY] [AuthViewModel](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/viewmodel/auth_viewmodel.dart)
+- Implement `signInWithGoogle` to support direct login from the Sign In screen.
 
-### 2. Fix Match Creation Loading
-In `CreateLocalMatchScreen`, I will fix the "continuous loading" issue by ensuring the loading state is reset even if an error occurs.
+### 2. Theme-aware Auth Screens
 
-- [MODIFY] [create_local_match_screen.dart](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/scorer/create_match/view/create_local_match_screen.dart)
-    - Add `try-finally` block to `_createMatch()` to ensure `_isSaving` is set to `false` on completion or error.
-    - Add error handling to show a snackbar if the match creation fails.
+#### [MODIFY] [AuthScaffold](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/shared/auth_scaffold.dart)
+- Remove hardcoded `AppColors.lightBackground` and `Colors.white`.
+- Use `Theme.of(context).scaffoldBackgroundColor` and `Theme.of(context).colorScheme.surface`.
+- Update gradients and decorative blurred circles to adapt to the current theme.
 
-### 3. Improve Team Selection (Manual Entry)
-In `MatchSetupScreen` (used for Friendly Matches), I will update the team picker to allow users to type team names manually, just like in the Local Match screen.
+#### [MODIFY] [SignInScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/sign_in/view/sign_in_screen.dart)
+- Refactor to use `AuthScaffold`.
+- Add `GoogleSignInButton` below the "Sign In" button.
 
-- [MODIFY] [match_setup_screen.dart](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/scorer/match_setup/view/match_setup_screen.dart)
-    - Replace `DropdownButtonFormField` with a `TextFormField` that has a dropdown suffix icon.
-    - Update `_teamPicker` to use `TextEditingController`s for manual entry.
-    - Implement team resolution logic (finding existing team by name or creating a new temporary one) when proceeding to the next step.
+#### [MODIFY] [SignUpScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/view/sign_up_screen.dart)
+- Add `GoogleSignInButton` below the "Sign Up" button.
+
+#### [MODIFY] [ForgotPasswordScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/auth/forgot_password/view/forgot_password_screen.dart)
+- Update colors to use `Theme.of(context)` instead of `AppColors.darkBackground` and hardcoded white.
+
+#### [MODIFY] [ScorerSignupScreen & SpectatorSignupScreen]
+- Move `GoogleSignInButton` below the primary "Sign Up" / "Create Account" button.
+- Ensure backgrounds follow the theme.
+
+### 3. Spectator Match Detail Scorecard Fix
+
+#### [MODIFY] [SpectatorMatchDetailScreen](file:///C:/Users/hp/Documents/GitHub/SportyApp/lib/ui/spectator/match_detail/view/spectator_match_detail_screen.dart)
+- **Fix `_filteredInnings`**:
+    - When a team is selected, show innings where they are **either batting or bowling**.
+    - If Team B is selected and Team A is batting, Innings 1 should still be shown because Team B is bowling.
+- **Fix `_inningsSection`**:
+    - If a team filter is active and the selected team is BOWLING in that innings:
+        - Add a "Bowling" indicator to the section header.
+        - Ensure the Bowling card is shown correctly.
+- **Fix "Next to Bat" squad display**:
+    - Ensure the squad card clearly shows it belongs to the selected team.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `dart analyze lib/` to ensure no regression in code quality.
+- Run `dart analyze lib/` to ensure no linting or type errors.
 
 ### Manual Verification
-1.  **Create Tournament:** Verify that clicking "Save" creates the tournament and immediately navigates back to the previous screen.
-2.  **Create Match:** Verify that the "Creating..." state in the Local Match screen finishes correctly (either successful navigation or showing an error).
-3.  **Friendly Match Team Entry:** Navigate to "Matches" in the Scorer hub, and verify you can now type team names manually in the "Team 1" and "Team 2" fields, as well as select them from the dropdown.
+1. **Auth Screens**:
+   - Check `SignIn`, `SignUp`, `ForgotPassword`, and `RoleSelection` in both Light and Dark modes.
+2. **Google Button**:
+   - Confirm it appears below the primary button on all login/signup screens.
+3. **Match Detail Filter**:
+   - Start a live match.
+   - Select the team that is currently bowling.
+   - Verify that the scorecard shows their bowling stats and is correctly labeled.

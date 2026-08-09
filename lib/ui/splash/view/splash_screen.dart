@@ -54,7 +54,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         if (context.mounted) {
           final user = ref.read(currentUserProvider);
           if (user == null) {
-            context.go('/signin');
+            context.go('/role-selection');
           } else if (user.isScorer) {
             context.go('/scorer/dashboard');
           } else {

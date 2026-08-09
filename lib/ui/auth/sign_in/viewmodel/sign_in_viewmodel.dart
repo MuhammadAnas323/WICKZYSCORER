@@ -30,6 +30,16 @@ class SignInViewModel extends StateNotifier<SignInState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  Future<void> signInWithGoogle() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await ref.read(currentUserProvider.notifier).signInWithGoogle();
+      state = state.copyWith(isLoading: false, success: true);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 }
 
 final signInViewModelProvider = StateNotifierProvider.autoDispose<SignInViewModel, SignInState>((ref) {

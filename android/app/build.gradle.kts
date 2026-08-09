@@ -17,7 +17,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.crixora.app"
+        applicationId = "com.sportyapp.sportyapp"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

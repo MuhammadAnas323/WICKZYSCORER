@@ -24,6 +24,8 @@ class MatchAlertsSheet extends ConsumerWidget {
         ref.read(matchNotificationPrefsProvider(matchId).notifier);
     return _AlertsSheet(
       title: 'Match Alerts',
+      description: 'Get notified about key moments of this match — '
+          'from the toss to the final result.',
       enabled: prefs.enabled,
       onMasterChanged: (_) => notifier.toggleAlerts(),
       toggles: [
@@ -70,6 +72,8 @@ class TournamentAlertsSheet extends ConsumerWidget {
         .read(tournamentNotificationPrefsProvider(tournamentId).notifier);
     return _AlertsSheet(
       title: 'Tournament Alerts',
+      description: 'Get notified about key moments of every match '
+          'in this tournament.',
       enabled: prefs.enabled,
       onMasterChanged: (_) => notifier.toggleAlerts(),
       toggles: [
@@ -116,12 +120,14 @@ class _AlertOption {
 
 class _AlertsSheet extends ConsumerWidget {
   final String title;
+  final String description;
   final bool enabled;
   final ValueChanged<bool> onMasterChanged;
   final List<_AlertOption> toggles;
 
   const _AlertsSheet({
     required this.title,
+    required this.description,
     required this.enabled,
     required this.onMasterChanged,
     required this.toggles,
@@ -154,10 +160,16 @@ class _AlertsSheet extends ConsumerWidget {
                 const Spacer(),
                 IconButton(
                   icon: Icon(Icons.close_rounded,
-                      color: cs.onSurface.withOpacity(0.7)),
+                      color: cs.onSurface.withValues(alpha: 0.7)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                  color: cs.onSurfaceVariant, fontSize: 12, height: 1.4),
             ),
             if (user == null) ...[
               const SizedBox(height: 8),

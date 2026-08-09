@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
@@ -54,8 +56,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
-        child: const MaterialApp(
-          home: ScheduleBuilderScreen(tournamentId: 't1'),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const ScheduleBuilderScreen(tournamentId: 't1'),
         ),
       ),
     );

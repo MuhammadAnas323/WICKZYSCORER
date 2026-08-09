@@ -62,10 +62,16 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
   /// restored before the listener was attached).
   void _ensureInitialized() {
     if (_initialized || _isAuthenticating || _resolving) return;
-    final fbUser = fa.FirebaseAuth.instance.currentUser;
-    if (fbUser != null) {
-      _onAuthChanged(fbUser);
-    } else {
+    try {
+      final fbUser = fa.FirebaseAuth.instance.currentUser;
+      if (fbUser != null) {
+        _onAuthChanged(fbUser);
+      } else {
+        _markReady();
+      }
+    } catch (_) {
+      // Firebase not available (e.g. widget tests) — nothing to restore, so the
+      // splash can proceed as an anonymous visitor.
       _markReady();
     }
   }
@@ -204,6 +210,46 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
       );
       state = user;
       await _persistRole(AppUserRole.scorer);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signUpSpectatorWithGoogle() async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
+      state = user;
+      await _persistRole(AppUserRole.spectator);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signUpScorerWithGoogle({String? organization}) async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.signUpWithGoogle(
+        role: AppUserRole.scorer,
+        organization: organization,
+      );
+      state = user;
+      await _persistRole(AppUserRole.scorer);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    _isAuthenticating = true;
+    try {
+      // Default to spectator if new, but signUpWithGoogle handles existing profile roles.
+      final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
+      state = user;
+      await _persistRole(user.role);
       await _cacheUser(user);
     } finally {
       _isAuthenticating = false;

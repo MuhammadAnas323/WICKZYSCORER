@@ -40,6 +40,18 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  Future<void> signUpWithGoogle() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await ref
+          .read(currentUserProvider.notifier)
+          .signUpSpectatorWithGoogle();
+      state = state.copyWith(isLoading: false, success: true);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 }
 
 final spectatorSignupViewModelProvider = StateNotifierProvider.autoDispose<SpectatorSignupViewModel, SpectatorSignupState>((ref) {

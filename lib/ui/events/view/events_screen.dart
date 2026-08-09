@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/shared_widgets/corner_accent.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
@@ -67,22 +68,11 @@ class _EventCard extends StatelessWidget {
     required this.onTap,
   });
 
-  String get _formatLabel {
-    switch (tournament.format) {
-      case MatchFormat.t20:
-        return 'T20';
-      case MatchFormat.odi:
-        return 'ODI';
-      case MatchFormat.test:
-        return 'TEST';
-      case MatchFormat.custom:
-        return '${tournament.customOvers}-OVER';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final gradient = AppColors.tournamentGradientFor(tournament.id);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -90,30 +80,32 @@ class _EventCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(AppConstants.radiusLG),
+          border: Border.all(color: cs.outlineVariant),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
+        child: Stack(
           children: [
+            CornerAccent(gradient: gradient),
+            Column(
+              children: [
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                gradient: AppColors.heroCardGradient,
-              ),
+              color: Colors.transparent,
               child: Row(
                 children: [
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      gradient: gradient,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.emoji_events_rounded,
@@ -125,27 +117,17 @@ class _EventCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(tournament.name,
-                            style: AppTextStyles.titleLarge(Colors.white),
+                            style: AppTextStyles.titleLarge(cs.onSurface),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text(
-                          '$_formatLabel • ${tournament.venue}',
-                          style: AppTextStyles.bodySmall(Colors.white70),
+                          tournament.venue.isNotEmpty
+                              ? tournament.venue
+                              : 'Venue TBA',
+                          style: AppTextStyles.bodySmall(cs.onSurfaceVariant),
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                    child: Text(
-                      _formatLabel,
-                      style: AppTextStyles.labelSmall(Colors.white),
                     ),
                   ),
                 ],
@@ -156,17 +138,19 @@ class _EventCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _statItem(cs, '📅 Dates',
-                        '${tournament.startDate.day}/${tournament.startDate.month} — ${tournament.endDate.day}/${tournament.endDate.month}'),
+                    child: _statItem('📅 Dates',
+                        '${tournament.startDate.day}/${tournament.startDate.month} — ${tournament.endDate.day}/${tournament.endDate.month}', cs),
                   ),
                   Expanded(
-                    child: _statItem(cs, '🏑 Teams', '$teamCount'),
+                    child: _statItem('🏑 Teams', '$teamCount', cs),
                   ),
                   Expanded(
-                    child: _statItem(cs, '🏏 Matches', '$matchCount'),
+                    child: _statItem('🏏 Matches', '$matchCount', cs),
                   ),
                 ],
               ),
+            ),
+              ],
             ),
           ],
         ),
@@ -174,7 +158,7 @@ class _EventCard extends StatelessWidget {
     );
   }
 
-  Widget _statItem(ColorScheme cs, String label, String value) {
+  Widget _statItem(String label, String value, ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

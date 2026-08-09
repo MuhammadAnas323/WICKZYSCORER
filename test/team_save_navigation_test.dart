@@ -4,9 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
@@ -44,6 +46,14 @@ class MockAuthService implements AuthService {
     required String email,
     required String password,
     String? favoriteTournamentId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppUser> signUpWithGoogle({
+    required AppUserRole role,
+    String? organization,
   }) async {
     throw UnimplementedError();
   }
@@ -89,11 +99,19 @@ void main() {
           authServiceProvider.overrideWithValue(MockAuthService()),
         ],
         child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
           routerConfig: router,
           theme: ThemeData.dark(),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();

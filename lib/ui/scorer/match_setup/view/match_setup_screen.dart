@@ -519,7 +519,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             ? null
             : PopupMenuButton<String>(
                 icon: Icon(Icons.arrow_drop_down, color: colorScheme.onSurface.withOpacity(0.7)),
-                tooltip: l10n.translate('select_existing_team'),
+                tooltip: 'Select from existing teams',
                 color: colorScheme.surface,
                 onSelected: (name) => setState(() => controller.text = name),
                 itemBuilder: (_) => _allTeams.map((t) => PopupMenuItem(

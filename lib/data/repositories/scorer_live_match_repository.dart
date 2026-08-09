@@ -6,6 +6,7 @@ import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/scorer/ball_event.dart';
 import 'package:sportyapp/data/models/scorer/dismissal.dart';
+import 'package:sportyapp/data/models/scorer/match_result.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
@@ -845,7 +846,12 @@ class ScorerLiveMatchRepository {
   /// additionally await its persistence before navigating away.
   ScorerMatch? endMatch({
     String? winnerTeamId,
+    String? loserTeamId,
     required String summary,
+    MatchResultType? resultType,
+    int? resultMargin,
+    bool isNoResult = false,
+    bool isDls = false,
     String? playerOfTheMatchId,
     String? bestBatsmanId,
     String? bestBowlerId,
@@ -861,7 +867,12 @@ class ScorerLiveMatchRepository {
     final updatedMatch = match.copyWith(
       status: MatchStatus.completed,
       winnerTeamId: winnerTeamId,
+      loserTeamId: loserTeamId,
       resultSummary: summary,
+      resultType: resultType,
+      resultMargin: resultMargin,
+      isNoResult: isNoResult,
+      isDls: isDls,
       playerOfTheMatchId: playerOfTheMatchId,
       bestBatsmanId: bestBatsmanId,
       bestBowlerId: bestBowlerId,

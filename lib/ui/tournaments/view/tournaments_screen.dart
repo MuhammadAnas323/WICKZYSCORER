@@ -6,6 +6,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/core/extensions/datetime_extensions.dart';
 import 'package:sportyapp/data/models/tournament_model.dart';
+import 'package:sportyapp/shared_widgets/corner_accent.dart';
 import 'package:sportyapp/ui/tournaments/viewmodel/tournaments_viewmodel.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
@@ -53,6 +54,8 @@ class _TournamentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final gradient = AppColors.tournamentGradientFor(tournament.id);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -60,18 +63,20 @@ class _TournamentCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(AppConstants.radiusLG),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+          border: Border.all(color: cs.outlineVariant),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
           children: [
-            // Header with gradient
+            CornerAccent(gradient: gradient),
+            Column(
+              children: [
+            // Header
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                gradient: AppColors.heroCardGradient,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusLG)),
-              ),
+              color: Colors.transparent,
               child: Row(
                 children: [
                   const Text('🏆', style: TextStyle(fontSize: 36)),
@@ -81,9 +86,9 @@ class _TournamentCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(tournament.name,
-                          style: AppTextStyles.titleLarge(Colors.white)),
+                          style: AppTextStyles.titleLarge(cs.onSurface)),
                         Text(tournament.host,
-                          style: AppTextStyles.bodySmall(Colors.white70)),
+                          style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
                       ],
                     ),
                   ),
@@ -92,12 +97,15 @@ class _TournamentCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: tournament.status == 'live' ? AppColors.liveRed
                         : tournament.status == 'upcoming' ? AppColors.floodlightGold
-                        : Colors.white24,
+                        : cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
                       tournament.status.toUpperCase(),
-                      style: AppTextStyles.liveBadge(Colors.white)),
+                      style: AppTextStyles.liveBadge(
+                        tournament.status == 'completed'
+                            ? cs.onSurfaceVariant
+                            : Colors.white)),
                   ),
                 ],
               ),
@@ -108,15 +116,17 @@ class _TournamentCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _statItem(cs, '📅 Dates',
-                      '${tournament.startDate.formattedDate} — ${tournament.endDate.formattedDate}'),
+                    child: _statItem('📅 Dates',
+                      '${tournament.startDate.formattedDate} — ${tournament.endDate.formattedDate}', cs),
                   ),
                   Expanded(
-                    child: _statItem(cs, '🏑 Matches',
-                      '${tournament.completedMatches}/${tournament.totalMatches} played'),
+                    child: _statItem('🏑 Matches',
+                      '${tournament.completedMatches}/${tournament.totalMatches} played', cs),
                   ),
                 ],
               ),
+            ),
+              ],
             ),
           ],
         ),
@@ -124,7 +134,7 @@ class _TournamentCard extends StatelessWidget {
     );
   }
 
-  Widget _statItem(ColorScheme cs, String label, String value) {
+  Widget _statItem(String label, String value, ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
