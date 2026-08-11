@@ -59,8 +59,8 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
         CommonSignupForm(key: _formKey, isScorer: false),
         const SizedBox(height: 32),
         AppPrimaryButton(
-          label: 'Create Account',
-          isLoading: state.isLoading,
+          label: 'Sign Up',
+          isLoading: state.isEmailLoading,
           onPressed: () {
             if (_formKey.currentState?.validate() ?? false) {
               ref.read(spectatorSignupViewModelProvider.notifier).signUp(
@@ -71,25 +71,25 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
             }
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Row(
           children: [
-            const Expanded(child: Divider()),
+            Expanded(child: Divider(color: cs.onSurface.withOpacity(0.2))),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('or',
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'or',
+                style: AppTextStyles.bodyMedium(cs.onSurface.withOpacity(0.5)),
+              ),
             ),
-            const Expanded(child: Divider()),
+            Expanded(child: Divider(color: cs.onSurface.withOpacity(0.2))),
           ],
         ),
         const SizedBox(height: 16),
         GoogleSignInButton(
-          isLoading: state.isLoading,
+          isLoading: state.isGoogleLoading,
           onPressed: () {
-            ref
-                .read(spectatorSignupViewModelProvider.notifier)
-                .signUpWithGoogle();
+            ref.read(spectatorSignupViewModelProvider.notifier).signUpWithGoogle();
           },
         ),
       ],

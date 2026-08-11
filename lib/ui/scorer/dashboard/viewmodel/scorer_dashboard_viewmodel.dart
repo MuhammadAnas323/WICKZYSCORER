@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
@@ -104,33 +105,42 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
 
   Future<void> loadDashboard() async {
     state = state.copyWith(isLoading: true);
-    final repo = ref.read(scorerRepositoryProvider);
-    final user = ref.read(currentUserProvider);
-    final uid = user?.id;
+    try {
+      final repo = ref.read(scorerRepositoryProvider);
+      final user = ref.read(currentUserProvider);
+      final uid = user?.id;
 
-    final allTournaments = await repo.getTournaments();
-    final allMatches = await repo.getMatches();
-    final allTeams = await repo.getAllTeams();
+      final allTournaments = await repo.getTournaments();
+      final allMatches = await repo.getMatches();
+      final allTeams = await repo.getAllTeams();
 
-    // Scorer side: only show tournaments/matches created by the current user.
-    // No fallback to empty createdBy — other users' data must never leak here.
-    final myTournaments = uid == null || uid.isEmpty
-        ? allTournaments
-        : allTournaments
-            .where((t) => t.createdBy == uid || t.ownerId == uid)
-            .toList();
+      // Scorer side: only show tournaments/matches created by the current user.
+      // No fallback to empty createdBy — other users' data must never leak here.
+      final myTournaments = uid == null || uid.isEmpty
+          ? allTournaments
+          : allTournaments
+              .where((t) => t.createdBy == uid || t.ownerId == uid)
+              .toList();
 
-    final myMatches = uid == null || uid.isEmpty
-        ? allMatches
-        : allMatches.where((m) => m.createdBy == uid).toList();
+      final myMatches = uid == null || uid.isEmpty
+          ? allMatches
+          : allMatches.where((m) => m.createdBy == uid).toList();
 
-    state = state.copyWith(
-      isLoading: false,
-      tournaments: myTournaments,
-      matches: myMatches,
-      teams: allTeams,
-      userId: uid,
-    );
+      state = state.copyWith(
+        isLoading: false,
+        tournaments: myTournaments,
+        matches: myMatches,
+        teams: allTeams,
+        userId: uid,
+      );
+    } catch (e, stack) {
+      // Keep the dashboard usable instead of throwing out of the data-version
+      // listener (or the constructor) and leaving isLoading stuck on true.
+      // Log the failure so a load error that empties the list is visible in
+      // the console instead of silently looking like "no tournaments".
+      debugPrint('[ScorerDashboard] loadDashboard failed: $e\n$stack');
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   void setMatchFilter(String filter) {

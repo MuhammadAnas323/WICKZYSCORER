@@ -10,6 +10,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
@@ -29,6 +30,11 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
   Map<String, String> _teamNames = {};
   bool _isLoading = true;
 
+  /// Virtual match id -> the schedule fixture it represents. Entries here are
+  /// scheduled tournament fixtures surfaced in the Matches tab (not real
+  /// [ScorerMatch] records yet), so tapping one runs the find-or-create flow.
+  final Map<String, _FixtureEntry> _fixtureEntries = {};
+
   @override
   void initState() {
     super.initState();
@@ -44,17 +50,77 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     final allMatches = await repo.getMatches();
     final tournaments = await repo.getTournaments();
     final teams = await repo.getAllTeams();
+
+    // Also surface resolved schedule fixtures as match entries, so a built
+    // tournament schedule shows up here even before any fixture has been
+    // started. Fixtures already backed by a real match are skipped to avoid
+    // duplicates (the real match tile already represents them).
+    final fixtureMatches = <ScorerMatch>[];
+    final fixtureEntries = <String, _FixtureEntry>{};
+    for (final tournament in tournaments) {
+      if (uid != null &&
+          uid.isNotEmpty &&
+          tournament.createdBy != uid &&
+          tournament.ownerId != uid) {
+        continue;
+      }
+      final stages = await repo.getSchedule(tournament.id);
+      for (final stage in stages) {
+        for (final fx in stage.fixtures) {
+          final teamA = fx.resolvedTeamAId;
+          final teamB = fx.resolvedTeamBId;
+          if (teamA == null || teamB == null) continue;
+          if (fx.linkedMatchId != null &&
+              allMatches.any((m) => m.id == fx.linkedMatchId)) {
+            continue;
+          }
+          final virtualId = 'fx_${fx.id}';
+          fixtureMatches.add(ScorerMatch(
+            id: virtualId,
+            tournamentId: tournament.id,
+            team1Id: teamA,
+            team2Id: teamB,
+            venue: fx.venue ?? tournament.venue,
+            dateTime: fx.scheduledDateTime ?? DateTime(0),
+            format: tournament.format,
+            overs: tournament.format == MatchFormat.t20
+                ? 20
+                : tournament.format == MatchFormat.odi
+                    ? 50
+                    : tournament.customOvers,
+            status: switch (fx.status) {
+              FixtureStatus.live => MatchStatus.live,
+              FixtureStatus.completed => MatchStatus.completed,
+              FixtureStatus.pending || FixtureStatus.ready =>
+                MatchStatus.scheduled,
+            },
+            playingXI1: const [],
+            playingXI2: const [],
+            currentInnings: 1,
+            createdBy: tournament.createdBy,
+          ));
+          fixtureEntries[virtualId] =
+              _FixtureEntry(fixture: fx, tournamentId: tournament.id);
+        }
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       // Scorer side: only the current user's matches (no empty-createdBy
       // fallback so other users' data never leaks in). All statuses are kept —
       // completed, incompleted, upcoming and live — and grouped into sections
-      // in the build below.
-      _matches = allMatches
-          .where((m) => (uid == null || uid.isEmpty || m.createdBy == uid))
-          .toList();
+      // in the build below. Scheduled fixtures are appended after real matches.
+      _matches = [
+        ...allMatches
+            .where((m) => (uid == null || uid.isEmpty || m.createdBy == uid)),
+        ...fixtureMatches,
+      ];
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};
+      _fixtureEntries
+        ..clear()
+        ..addAll(fixtureEntries);
       _isLoading = false;
     });
   }
@@ -71,6 +137,11 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
   }
 
   void _openMatch(ScorerMatch match) {
+    final entry = _fixtureEntries[match.id];
+    if (entry != null) {
+      _openFixture(entry.fixture, entry.tournamentId);
+      return;
+    }
     if (match.status == MatchStatus.completed) {
       // A completed match has no active live session — show its final summary.
       context.push('/scorer/match-summary?matchId=${match.id}');
@@ -82,6 +153,27 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     } else {
       context.push('/scorer/matches/${match.id}/squad');
     }
+  }
+
+  /// Tapping a scheduled fixture (surfaced from a tournament schedule) starts
+  /// its scoring process: find or create the real match that backs it, then
+  /// route to the right step.
+  Future<void> _openFixture(ScheduleFixture fixture, String tournamentId) async {
+    final l10n = AppLocalizations.of(context);
+    final match = await ref
+        .read(scorerRepositoryProvider)
+        .findOrCreateMatchForFixture(
+          tournamentId: tournamentId,
+          fixture: fixture,
+        );
+    if (!mounted) return;
+    if (match == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.translate('awaiting_result'))),
+      );
+      return;
+    }
+    _openMatch(match);
   }
 
   Future<void> _deleteMatch(ScorerMatch match, AppLocalizations l10n) async {
@@ -199,6 +291,7 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
       tournamentName: (id) => _tournamentName(id, l10n),
       onTap: () => _openMatch(match),
       onDelete: () => _deleteMatch(match, l10n),
+      showDelete: !_fixtureEntries.containsKey(match.id),
       l10n: l10n,
     );
   }
@@ -271,6 +364,7 @@ class _MatchTile extends StatelessWidget {
   final String Function(String) tournamentName;
   final VoidCallback onTap;
   final Future<void> Function() onDelete;
+  final bool showDelete;
   final AppLocalizations l10n;
 
   const _MatchTile({
@@ -279,6 +373,7 @@ class _MatchTile extends StatelessWidget {
     required this.tournamentName,
     required this.onTap,
     required this.onDelete,
+    required this.showDelete,
     required this.l10n,
   });
 
@@ -323,12 +418,13 @@ class _MatchTile extends StatelessWidget {
                   ),
                 ),
                 const Gap(8),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: Colors.redAccent, size: 18),
-                  tooltip: l10n.translate('delete'),
-                  onPressed: onDelete,
-                ),
+                if (showDelete)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent, size: 18),
+                    tooltip: l10n.translate('delete'),
+                    onPressed: onDelete,
+                  ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -389,4 +485,15 @@ class _MatchTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Links a virtual Matches-tab entry back to the schedule fixture it came from.
+class _FixtureEntry {
+  final ScheduleFixture fixture;
+  final String tournamentId;
+
+  const _FixtureEntry({
+    required this.fixture,
+    required this.tournamentId,
+  });
 }

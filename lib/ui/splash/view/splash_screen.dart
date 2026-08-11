@@ -27,11 +27,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
     
-    // The master timeline is exactly 5.0 seconds: the logo spins fast and
-    // decelerates to a stop at ~5s, then the ViewModel navigates away.
+    // The Flutter splash master timeline is exactly 4.0 seconds. The window is
+    // plain white while the Flutter engine starts, then this splash takes over
+    // on the first frame. The logo's continuous rotation runs on its own
+    // repeating controller (see AnimatedLogo) and never decelerates or stops.
+    // The ViewModel navigates away at exactly 4s, when the master timeline
+    // completes.
     _masterController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 4),
     );
 
     // Start the timeline
@@ -65,8 +69,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
 
     return Scaffold(
-      // Matches the native splash background (@color/launch_background) so the
-      // handoff from the Android splash to Flutter's first frame is seamless.
+      // Matches the (removed) native splash background so the handoff from the
+      // white engine-start window to Flutter's first frame is seamless.
       backgroundColor: const Color(0xFF0D2818),
       body: Stack(
         fit: StackFit.expand,

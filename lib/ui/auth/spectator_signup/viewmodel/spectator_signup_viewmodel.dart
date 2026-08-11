@@ -1,16 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 
 class SpectatorSignupState {
-  final bool isLoading;
+  final bool isEmailLoading;
+  final bool isGoogleLoading;
   final String? error;
   final bool success;
 
-  SpectatorSignupState({this.isLoading = false, this.error, this.success = false});
+  SpectatorSignupState({
+    this.isEmailLoading = false,
+    this.isGoogleLoading = false,
+    this.error,
+    this.success = false,
+  });
 
-  SpectatorSignupState copyWith({bool? isLoading, String? error, bool? success}) {
+  SpectatorSignupState copyWith({
+    bool? isEmailLoading,
+    bool? isGoogleLoading,
+    String? error,
+    bool? success,
+  }) {
     return SpectatorSignupState(
-      isLoading: isLoading ?? this.isLoading,
+      isEmailLoading: isEmailLoading ?? this.isEmailLoading,
+      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       error: error,
       success: success ?? this.success,
     );
@@ -27,7 +40,7 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
     required String password,
     String? favoriteTournamentId,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isEmailLoading: true, error: null);
     try {
       await ref.read(currentUserProvider.notifier).signUpSpectator(
         name: name,
@@ -35,21 +48,21 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
         password: password,
         favoriteTournamentId: favoriteTournamentId,
       );
-      state = state.copyWith(isLoading: false, success: true);
+      state = state.copyWith(isEmailLoading: false, success: true);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isEmailLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
   Future<void> signUpWithGoogle() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isGoogleLoading: true, error: null);
     try {
       await ref
           .read(currentUserProvider.notifier)
           .signUpSpectatorWithGoogle();
-      state = state.copyWith(isLoading: false, success: true);
+      state = state.copyWith(isGoogleLoading: false, success: true);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isGoogleLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 }
@@ -57,3 +70,4 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
 final spectatorSignupViewModelProvider = StateNotifierProvider.autoDispose<SpectatorSignupViewModel, SpectatorSignupState>((ref) {
   return SpectatorSignupViewModel(ref);
 });
+

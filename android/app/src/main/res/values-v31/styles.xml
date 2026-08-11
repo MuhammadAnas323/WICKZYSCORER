@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 12+ (API 31+) native SplashScreen API configuration.
-         The OS can only render a STATIC centered icon here, so we keep the
-         window background identical to the Flutter splash and make the
-         native splash as short as possible (~350ms). The Flutter side then
-         continues the icon's rotation/scale/glow so the handoff feels seamless. -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+         The OS still shows a brief mandatory system splash here, so we keep it
+         as close to a plain white screen as possible — white background with the
+         default app icon. Flutter's own splash screen then takes over. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:colorBackground">@color/launch_background</item>
+        <item name="android:windowNoTitle">true</item>
         <item name="android:windowSplashScreenBackground">@color/launch_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/launch_image</item>
-        <item name="android:windowSplashScreenAnimationDuration">350</item>
+        <item name="android:windowSplashScreenAnimationDuration">200</item>
     </style>
 </resources>

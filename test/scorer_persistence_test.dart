@@ -1,10 +1,9 @@
 // test/scorer_persistence_test.dart
-// Guards the scorer persistence contract: tournaments, teams and players added
-// by the scorer must survive leaving/re-entering the screen and app restarts
-// (i.e. a fresh repository instance must reload them from the local cache).
+// Guards the scorer persistence contract: with the local SharedPreferences
+// cache removed, data lives ONLY in Firestore. A repository with no cloud
+// source keeps data purely in memory — a fresh instance must start empty.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
@@ -13,10 +12,8 @@ import 'package:sportyapp/data/repositories/scorer_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('tournament, team and player survive a repository re-instantiation',
+  test('data does not survive a repository re-instantiation without a cloud',
       () async {
-    SharedPreferences.setMockInitialValues({});
-
     // First repository instance = the scorer adding data on a screen.
     final repo1 = ScorerRepository(null);
     await repo1.saveTournament(ScorerTournament(
@@ -32,14 +29,14 @@ void main() {
       teamIds: const ['team1'],
       pointsRules: const PointsRules(),
     ));
-    await repo1.saveTeam(ScorerTeam(
+    await repo1.saveTeam(const ScorerTeam(
       id: 'team1',
       name: 'Kings XI',
       shortCode: 'KX',
       tournamentId: 't1',
-      playerIds: const ['p1'],
+      playerIds: ['p1'],
     ));
-    await repo1.savePlayer(ScorerPlayer(
+    await repo1.savePlayer(const ScorerPlayer(
       id: 'p1',
       name: 'Batsman One',
       teamId: 'team1',
@@ -51,17 +48,14 @@ void main() {
     ));
 
     // Second repository instance = user backed out of the screen / restarted.
+    // With no local cache, a cloud-less repository must start empty.
     final repo2 = ScorerRepository(null);
     final tournaments = await repo2.getTournaments();
     final teams = await repo2.getTeamsByTournament('t1');
     final players = await repo2.getPlayersByTeam('team1');
 
-    expect(tournaments, hasLength(1));
-    expect(tournaments.single.name, 'Test Cup');
-    expect(teams, hasLength(1));
-    expect(teams.single.name, 'Kings XI');
-    expect(teams.single.playerIds, ['p1']);
-    expect(players, hasLength(1));
-    expect(players.single.name, 'Batsman One');
+    expect(tournaments, isEmpty);
+    expect(teams, isEmpty);
+    expect(players, isEmpty);
   });
 }

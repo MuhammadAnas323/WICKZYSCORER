@@ -47,9 +47,10 @@ class TournamentCard extends StatelessWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Left gradient accent bar — scorer management identity.
             Container(
               width: 6,
@@ -186,6 +187,7 @@ child: Row(
               ),
             ),
           ],
+          ),
         ),
       ),
     );

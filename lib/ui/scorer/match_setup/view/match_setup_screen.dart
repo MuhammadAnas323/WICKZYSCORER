@@ -11,6 +11,7 @@ import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/ui/scorer/shared/player_form_dialog.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 
@@ -235,7 +236,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e)), backgroundColor: Colors.red),
           );
         }
       } finally {

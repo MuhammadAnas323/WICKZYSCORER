@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/live_stream_model.dart';
 import 'package:sportyapp/data/repositories/live_stream_repository.dart';
 import 'package:sportyapp/data/providers/live_providers.dart';

@@ -160,4 +160,122 @@ void main() {
     await tester.pump(const Duration(milliseconds: 900));
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets('run pad refuses extra balls during the innings break',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+
+    await repo.saveTournament(ScorerTournament(
+      id: 't1',
+      name: 'Test Cup',
+      ownerId: 'owner',
+      format: MatchFormat.t20,
+      customOvers: 5,
+      startDate: DateTime(2026, 1, 1),
+      endDate: DateTime(2026, 2, 1),
+      venue: 'Ground',
+      numTeams: 2,
+      teamIds: const ['team1', 'team2'],
+      pointsRules: const PointsRules(),
+    ));
+    await repo.saveTeam(const ScorerTeam(
+        id: 'team1',
+        name: 'Kings XI',
+        shortCode: 'KX',
+        tournamentId: 't1',
+        playerIds: ['p1', 'p2']));
+    await repo.saveTeam(const ScorerTeam(
+        id: 'team2',
+        name: 'Lions',
+        shortCode: 'LI',
+        tournamentId: 't1',
+        playerIds: ['p4', 'p5']));
+    for (final p in const [
+      ScorerPlayer(id: 'p1', name: 'Batsman One', teamId: 'team1', tournamentId: 't1', role: PlayerRole.batsman, battingStyle: BattingStyle.rightHand, bowlingStyle: BowlingStyle.none),
+      ScorerPlayer(id: 'p2', name: 'Batsman Two', teamId: 'team1', tournamentId: 't1', role: PlayerRole.batsman, battingStyle: BattingStyle.leftHand, bowlingStyle: BowlingStyle.none),
+      ScorerPlayer(id: 'p4', name: 'Bowler One', teamId: 'team2', tournamentId: 't1', role: PlayerRole.bowler, battingStyle: BattingStyle.rightHand, bowlingStyle: BowlingStyle.rightArmSpin),
+      ScorerPlayer(id: 'p5', name: 'Bowler Two', teamId: 'team2', tournamentId: 't1', role: PlayerRole.bowler, battingStyle: BattingStyle.rightHand, bowlingStyle: BowlingStyle.leftArmSpin),
+    ]) {
+      await repo.savePlayer(p);
+    }
+
+    // 1st innings already complete (4 runs on the board) — we're at the break.
+    final inn1 = Innings(
+      id: 'inn_1',
+      battingTeamId: 'team1',
+      bowlingTeamId: 'team2',
+      inningsNumber: 1,
+      balls: [
+        BallEvent(overNumber: 1, ballInOver: 1, batsmanId: 'p1', bowlerId: 'p4', runs: 4, extrasType: ExtrasType.none, extrasRuns: 0, isWicket: false, isBoundary: true, isSix: false, timestamp: DateTime(2026, 1, 1)),
+      ],
+      battingOrder: ['p1', 'p2'],
+      bowlingOrder: ['p4'],
+      isComplete: true,
+      strikerId: 'p1',
+      nonStrikerId: 'p2',
+      currentBowlerId: 'p4',
+    );
+
+    final match = ScorerMatch(
+      id: 'm1',
+      tournamentId: 't1',
+      team1Id: 'team1',
+      team2Id: 'team2',
+      venue: 'Ground',
+      dateTime: DateTime(2026, 1, 1),
+      format: MatchFormat.t20,
+      overs: 5,
+      status: MatchStatus.inProgress,
+      playingXI1: ['p1', 'p2'],
+      playingXI2: ['p4', 'p5'],
+      innings1: inn1,
+      currentInnings: 1,
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    final liveRepo = container.read(scorerLiveMatchRepositoryProvider);
+    liveRepo.setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          home: const LiveScoringScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(find.text('4/0'), findsOneWidget);
+    expect(find.text('Innings Break'), findsOneWidget);
+
+    // Tapping a run button during the break must NOT add a ball to the
+    // completed 1st innings — instead the scorer is reminded to start the
+    // next innings.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Innings is complete. Start the next innings.'),
+        findsOneWidget);
+    expect(liveRepo.activeMatch!.innings1!.balls.length, 1);
+    expect(liveRepo.activeMatch!.innings1!.totalRuns, 4);
+
+    // Let the 800ms persist-debounce timer fire so the test framework doesn't
+    // report a pending Timer after the widget tree is disposed.
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 }

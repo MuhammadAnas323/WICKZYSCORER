@@ -219,6 +219,88 @@ ScorerMatch buildTiedMatch() {
   );
 }
 
+/// Completed 1-over match: team1 made 10/0, team2 chased 14/0 (won).
+/// Batter P1: 10 runs off 6 balls (SR 166.7). Bowler P1 in innings 2:
+/// 14 runs off 6 balls (Econ 14.00).
+ScorerMatch buildCompletedMatch() {
+  BallEvent b(int over, int ball, String bat, String bowl, int runs,
+          {bool boundary = false, bool six = false}) =>
+      BallEvent(
+          overNumber: over,
+          ballInOver: ball,
+          batsmanId: bat,
+          bowlerId: bowl,
+          runs: runs,
+          extrasType: ExtrasType.none,
+          extrasRuns: 0,
+          isWicket: false,
+          isBoundary: boundary,
+          isSix: six,
+          timestamp: DateTime(2026, 1, 1));
+
+  final inn1 = Innings(
+    id: 'inn_1',
+    battingTeamId: 'team1',
+    bowlingTeamId: 'team2',
+    inningsNumber: 1,
+    balls: [
+      b(1, 1, 'p1', 'p4', 4, boundary: true),
+      b(1, 2, 'p1', 'p4', 1),
+      b(1, 3, 'p1', 'p4', 1),
+      b(1, 4, 'p1', 'p4', 1),
+      b(1, 5, 'p1', 'p4', 1),
+      b(1, 6, 'p1', 'p4', 2),
+    ],
+    battingOrder: const ['p1', 'p2'],
+    bowlingOrder: const ['p4'],
+    isComplete: true,
+    strikerId: 'p1',
+    nonStrikerId: 'p2',
+    currentBowlerId: 'p4',
+  );
+
+  final inn2 = Innings(
+    id: 'inn_2',
+    battingTeamId: 'team2',
+    bowlingTeamId: 'team1',
+    inningsNumber: 2,
+    balls: [
+      b(1, 1, 'p4', 'p1', 1),
+      b(1, 2, 'p4', 'p1', 1),
+      b(1, 3, 'p4', 'p1', 4, boundary: true),
+      b(1, 4, 'p4', 'p1', 6, six: true),
+      b(1, 5, 'p4', 'p1', 1),
+      b(1, 6, 'p4', 'p1', 1),
+    ],
+    battingOrder: const ['p4', 'p5'],
+    bowlingOrder: const ['p1'],
+    isComplete: true,
+    strikerId: 'p4',
+    nonStrikerId: 'p5',
+    currentBowlerId: 'p1',
+  );
+
+  return ScorerMatch(
+    id: 'm1',
+    tournamentId: 't_custom',
+    team1Id: 'team1',
+    team2Id: 'team2',
+    venue: 'Ground',
+    dateTime: DateTime(2026, 1, 1),
+    format: MatchFormat.t20,
+    overs: 1,
+    status: MatchStatus.completed,
+    winnerTeamId: 'team2',
+    loserTeamId: 'team1',
+    resultSummary: 'team2 won',
+    playingXI1: const ['p1', 'p2'],
+    playingXI2: const ['p4', 'p5'],
+    innings1: inn1,
+    innings2: inn2,
+    currentInnings: 2,
+  );
+}
+
 Future<void> seedPlayers(ScorerRepository repo) async {
   await repo.saveTeam(const ScorerTeam(
       id: 'team1',
@@ -401,6 +483,10 @@ void main() {
     expect(find.byType(MatchSummaryScreen), findsOneWidget);
 
     // Tap Complete Match.
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Complete Match'),
+        100,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.widgetWithText(ElevatedButton, 'Complete Match'));
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -617,6 +703,10 @@ void main() {
     await tester.pump();
 
     // Open the award sheet.
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Award Prizes'),
+        100,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.widgetWithText(ElevatedButton, 'Award Prizes'));
     await tester.pumpAndSettle();
 
@@ -664,6 +754,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Complete the match and confirm custom award persisted.
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Complete Match'),
+        100,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.widgetWithText(ElevatedButton, 'Complete Match'));
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -672,5 +766,293 @@ void main() {
     expect(saved, isNotNull);
     expect(saved!.playerOfTheMatchId, 'p1');
     expect(saved.customAwards['Best Fielder'], 'p4');
+  });
+
+  testWidgets('re-opening a completed match by matchId shows its data and '
+      'players even when an unrelated draft is active', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    // A completed match saved to the repo.
+    final completed = buildInProgressMatch().copyWith(
+      status: MatchStatus.completed,
+      winnerTeamId: 'team1',
+      loserTeamId: 'team2',
+      resultSummary: 'team1 won by 5 runs',
+    );
+    await repo.saveMatch(completed);
+
+    // A DIFFERENT in-progress draft is what the live repo currently holds.
+    final draft = buildTiedMatch().copyWith(
+      id: 'm_draft',
+      team1Id: 'team1',
+      team2Id: 'team2',
+    );
+
+    final router = GoRouter(
+      initialLocation: '/scorer/match-summary?matchId=m1',
+      routes: [
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(draft);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    // The summary resolves the COMPLETED match by id, not the active draft.
+    // The completed match has two 10/0 innings; the draft would show 5/0.
+    expect(find.text('10/0'), findsWidgets);
+    expect(find.text('5/0'), findsNothing);
+
+    // The Award & Prizes sheet lists the completed match's players.
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Award Prizes'),
+        100,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Award Prizes'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Player of the Match'), findsWidgets);
+    expect(find.text('P1'), findsWidgets);
+    expect(find.text('P4'), findsWidgets);
+    expect(find.text('P5'), findsWidgets);
+  });
+
+  testWidgets('no extra balls are scored after the chase is won',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    final match = buildInProgressMatch();
+    final liveRepo = container.read(scorerLiveMatchRepositoryProvider);
+    liveRepo.setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    // Win the chase (10 -> 11 runs) — the summary replaces the run pad and the
+    // 2nd innings is marked complete.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+    expect(liveRepo.activeMatch!.currentInningsData!.isComplete, isTrue);
+
+    // A delivery attempted after the match is decided must be ignored — the
+    // finished innings can no longer accept extra balls.
+    liveRepo.recordBall(BallEvent(
+      overNumber: 3,
+      ballInOver: 1,
+      batsmanId: 'p4',
+      bowlerId: 'p1',
+      runs: 6,
+      extrasType: ExtrasType.none,
+      extrasRuns: 0,
+      isWicket: false,
+      isBoundary: true,
+      isSix: true,
+      timestamp: DateTime(2026, 1, 1),
+    ));
+    final inn = liveRepo.activeMatch!.currentInningsData!;
+    expect(inn.balls.length, 11);
+    expect(inn.totalRuns, 11);
+  });
+
+  testWidgets(
+      'tied match: tapping Complete Match declines the super over and opens '
+      'the summary without looping', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    final match = buildTiedMatch();
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    // 6th legal ball ties the match at 6/6 and raises the super-over dialog.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+
+    // Decline the super over.
+    await tester.tap(find.widgetWithText(TextButton, 'Complete Match'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // The summary opens and the tie dialog must NOT re-appear.
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+
+    // Still on the summary after further frames (no re-loop).
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+  });
+
+  testWidgets('match summary shows full batting and bowling scorecards',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/match-summary',
+      routes: [
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    final match = buildCompletedMatch();
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    // Batting scorecard columns and P1's figures (10 off 6 -> SR 166.7).
+    expect(find.text('Batter'), findsWidgets);
+    expect(find.text('4s'), findsWidgets);
+    expect(find.text('SR'), findsWidgets);
+    expect(find.text('P1'), findsWidgets);
+    expect(find.text('166.7'), findsWidgets);
+
+    // In a finished innings the not-out pair is shown as 'not out'.
+    expect(find.text('not out'), findsWidgets);
+
+    // Bowling scorecard columns and Econ figures (P1: 14 off 6 -> 14.00).
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
+    expect(find.text('Bowler'), findsWidgets);
+    expect(find.text('Econ'), findsWidgets);
+    expect(find.text('14.00'), findsWidgets);
   });
 }

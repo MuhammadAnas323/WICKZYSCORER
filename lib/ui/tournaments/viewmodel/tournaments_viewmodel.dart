@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/tournament_model.dart';
 import 'package:sportyapp/data/repositories/tournament_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
@@ -26,7 +27,7 @@ class TournamentsViewModel extends StateNotifier<TournamentsState> {
       final data = await _repo.getAllTournaments();
       state = state.copyWith(isLoading: false, tournaments: data);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 

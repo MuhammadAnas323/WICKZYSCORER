@@ -33,8 +33,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         AnimationController(vsync: this, duration: const Duration(seconds: 1))
           ..repeat(reverse: true);
     // Restore an in-progress draft match (e.g. after app was closed mid-scoring).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(scorerLiveMatchRepositoryProvider).restoreActiveDraft();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(scorerLiveMatchRepositoryProvider).restoreActiveDraft();
+      // A match whose final innings already finished (chase won / all out /
+      // overs done) must not reopen an active run pad — go straight to the
+      // summary instead of letting extra balls be scored.
+      _routeDecidedMatchToSummary();
     });
   }
 
@@ -78,6 +82,27 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     if (match == null) return false;
     final inn = match.currentInningsData;
     if (inn == null) return false;
+
+    // The match is over or this innings is already finished: no more
+    // deliveries can be recorded. A decided match (a final innings complete)
+    // goes straight to the summary; during an innings break just remind the
+    // scorer to start the next innings instead of silently ignoring the tap.
+    if (match.status == MatchStatus.completed || inn.isComplete) {
+      if (match.currentInnings == 2 || match.currentInnings == 4) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _goToMatchSummary();
+        });
+      } else {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(AppLocalizations.of(context)
+                .translate('innings_complete')),
+            backgroundColor: Colors.orange,
+          ));
+      }
+      return false;
+    }
 
     // A retired-hurt bowler leaves an empty bowler slot; the scorer must pick
     // a replacement before any ball can be recorded.
@@ -157,7 +182,13 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                   (updatedMatch.innings1?.totalRuns ?? 0);
           if (isMainTie) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _showTieDialog(updatedMatch);
+              if (!mounted) return;
+              // Re-read the freshly saved match: `updatedMatch` predates the
+              // completeCurrentInnings() call above, so using it can show the
+              // super-over dialog for an already-settled match.
+              final fresh =
+                  ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
+              if (fresh != null) _showTieDialog(fresh);
             });
           } else {
             WidgetsBinding.instance
@@ -262,7 +293,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
             onPressed: () {
               Navigator.pop(ctx, false);
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _goToMatchSummary();
+                if (mounted) _goToMatchSummary(offerSuperOver: false);
               });
             },
             child: Text(
@@ -320,14 +351,31 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     );
   }
 
-  void _goToMatchSummary() {
+  /// If the active match is already decided (its final innings has finished),
+  /// send the scorer straight to the summary instead of showing a run pad that
+  /// can no longer accept deliveries.
+  void _routeDecidedMatchToSummary() {
+    if (!mounted) return;
+    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+    final match = liveRepo.activeMatch;
+    if (match == null) return;
+    final inn = match.currentInningsData;
+    if (inn == null || !inn.isComplete) return;
+    if (match.currentInnings == 2 || match.currentInnings == 4) {
+      _goToMatchSummary();
+    }
+  }
+
+  void _goToMatchSummary({bool offerSuperOver = true}) {
     if (!mounted) return;
     // Replace the live-scoring route so the scorer cannot fall back into
     // a finished match and keep counting runs.
     final match = ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
     // A genuine main-innings tie should always offer the super over instead of
     // declaring a winner, even when the scorer taps "End Match" directly.
-    if (match != null && _isMainInningsTie(match)) {
+    // When the scorer already declined the super over inside the tie dialog,
+    // do not re-offer it here or the dialog would loop forever.
+    if (offerSuperOver && match != null && _isMainInningsTie(match)) {
       _showTieDialog(match);
       return;
     }

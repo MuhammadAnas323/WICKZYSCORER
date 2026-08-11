@@ -2,9 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Brand logo shown directly on the splash (no boxy tile). It spins fast on
-/// entry and decelerates to a stop at the end of the 5s master timeline.
+/// Brand logo shown directly on the splash (no boxy tile). The logo spins
+/// continuously at a constant linear speed on its own dedicated repeating
+/// controller — one full turn per [AnimatedLogo.spinDuration]. Rotation is
+/// decoupled from the master entrance timeline, so it never eases out or stops.
 class AnimatedLogo extends StatefulWidget {
+  /// One full rotation, in milliseconds.
+  static const Duration spinDuration = Duration(milliseconds: 1400);
+
   final AnimationController masterController;
 
   const AnimatedLogo({super.key, required this.masterController});
@@ -18,9 +23,9 @@ class _AnimatedLogoState extends State<AnimatedLogo>
   static const double _logoSize = 140;
   static const String _logoAsset = 'assets/images/Crixora.png';
 
-  // Fast spin (6 full turns) driven by the 5s master timeline, easing out so
-  // the logo spins quickly then settles and stops at exactly 5s.
-  late final Animation<double> _rotationAnimation;
+  // Continuous, constant-speed rotation — fully decoupled from the master
+  // timeline so the logo keeps turning at the same rate throughout the splash.
+  late final AnimationController _spinController;
 
   // Gentle vertical float, repeated indefinitely while the logo spins.
   late final AnimationController _floatController;
@@ -35,13 +40,11 @@ class _AnimatedLogoState extends State<AnimatedLogo>
   void initState() {
     super.initState();
 
-    _rotationAnimation =
-        Tween<double>(begin: 0.0, end: 6 * 2 * math.pi).animate(
-      CurvedAnimation(
-        parent: widget.masterController,
-        curve: Curves.easeInOutCubic,
-      ),
-    );
+    // One full 360° turn every 1400ms, linear, never stopping.
+    _spinController = AnimationController(
+      vsync: this,
+      duration: AnimatedLogo.spinDuration,
+    )..repeat();
 
     // Quick fade-in so the logo is already visible when the native splash hands
     // over to Flutter's first frame.
@@ -79,6 +82,7 @@ class _AnimatedLogoState extends State<AnimatedLogo>
 
   @override
   void dispose() {
+    _spinController.dispose();
     _floatController.dispose();
     super.dispose();
   }
@@ -90,6 +94,7 @@ class _AnimatedLogoState extends State<AnimatedLogo>
         animation: Listenable.merge([
           widget.masterController,
           _floatController,
+          _spinController,
         ]),
         builder: (context, child) {
           return Transform.translate(
@@ -122,9 +127,10 @@ class _AnimatedLogoState extends State<AnimatedLogo>
                         ],
                       ),
                     ),
-                    // Direct logo — spinning fast, no boxy tile around it.
+                    // Direct logo — spinning continuously at a constant speed,
+                    // no boxy tile around it.
                     Transform.rotate(
-                      angle: _rotationAnimation.value,
+                      angle: _spinController.value * 2 * math.pi,
                       child: ClipOval(
                         child: Image.asset(
                           _logoAsset,

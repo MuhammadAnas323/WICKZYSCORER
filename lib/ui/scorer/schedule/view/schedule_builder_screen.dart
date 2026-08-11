@@ -671,17 +671,7 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
             ),
           ),
           Divider(color: theme.dividerColor, height: 1),
-          if (stage.fixtures.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: TextButton.icon(
-                onPressed: () => _addFixture(index),
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(l10n.translate('add_match')),
-              ),
-            )
-          else
-            ...stage.fixtures.asMap().entries.map((entry) {
+          ...stage.fixtures.asMap().entries.map((entry) {
               final f = entry.key;
               final fx = entry.value;
               return Padding(
@@ -770,8 +760,7 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
             child: TextButton.icon(
               onPressed: () => _addFixture(index),
               icon: const Icon(Icons.add, size: 16),
-              label: Text('${l10n.translate('add_match')} ${l10n.translate('vs')} ${stage.name}',
-                  maxLines: 2, overflow: TextOverflow.ellipsis, softWrap: true),
+              label: Text(l10n.translate('add_match')),
             ),
           ),
         ],

@@ -1,16 +1,11 @@
-import 'dart:convert';
-
 import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
-import 'package:sportyapp/data/models/scorer/scorer_serializers.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
-import 'package:sportyapp/data/models/scorer/scorer_schedule_serializers.dart';
 import 'package:sportyapp/data/services/firestore_scorer_service.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 
@@ -80,16 +75,10 @@ class ScorerRepository {
 
   // ── Persistence ─────────────────────────────────────────────────────────
 
-  static const _kTournaments = 'scorer_tournaments_v1';
-  static const _kTeams = 'scorer_teams_v1';
-  static const _kPlayers = 'scorer_players_v1';
-  static const _kMatches = 'scorer_matches_v1';
-  static const _kSchedules = 'scorer_schedules_v1';
+  Future<void> _ensureLoaded() => _loading ??= _loadFromCloud();
 
-  Future<void> _ensureLoaded() => _loading ??= _loadFromDisk();
-
-  /// Re-reads the full scorer data set from Firestore (falling back to the
-  /// local cache when offline) and applies it to the in-memory lists.
+  /// Re-reads the full scorer data set from Firestore and applies it to the
+  /// in-memory lists.
   ///
   /// The spectator side calls this on every load/refresh so tournaments,
   /// teams, players, matches and live results created or edited by OTHER
@@ -101,59 +90,17 @@ class ScorerRepository {
     await _ensureLoaded();
   }
 
-  Future<void> _loadFromDisk() async {
-    // Always read the local cache first so a slow or unavailable network never
-    // leaves the scorer staring at a blank screen.
-    ScorerDataSnapshot? cached;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      cached = ScorerDataSnapshot(
-        tournaments: _readCacheList(prefs, _kTournaments, scorerTournamentFromJson),
-        teams: _readCacheList(prefs, _kTeams, scorerTeamFromJson),
-        players: _readCacheList(prefs, _kPlayers, scorerPlayerFromJson),
-        // Completed matches are dropped from the local cache entirely — finished
-        // results live only in Firestore, never in SharedPreferences.
-        matches: _readCacheList(prefs, _kMatches, scorerMatchFromJson)
-            .where((m) => m.status != MatchStatus.completed)
-            .toList(),
-        schedules: _readCacheSchedules(prefs),
-      );
-    } catch (_) {
-      // Ignore corrupted local data and start fresh.
-    }
-
+  /// Loads the scorer data purely from Firestore — the single source of truth.
+  /// When the cloud is unavailable or not configured the lists simply stay
+  /// empty; there is no local cache to fall back on.
+  Future<void> _loadFromCloud() async {
     final cloud = _cloud;
-    if (cloud != null) {
-      try {
-        final snap = await cloud.hydrate();
-        if (!snap.isEmpty) {
-          // Cloud has data — treat it as the source of truth.
-          _applySnapshot(snap);
-          await _saveToCache();
-          return;
-        }
-        // Cloud came back empty. This normally means local drafts never synced
-        // (e.g. a Firestore write failed earlier). Never clobber local data with
-        // an empty cloud snapshot, otherwise tournaments/teams/players vanish.
-        if (cached != null && !cached.isEmpty) {
-          _applySnapshot(cached);
-          // Best-effort push the local drafts up to the cloud so the next load
-          // finds them there too.
-          try {
-            await cloud.syncAll(cached);
-          } catch (_) {}
-          await _saveToCache();
-          return;
-        }
-        _applySnapshot(snap);
-        return;
-      } catch (_) {
-        // Offline or unconfigured Firestore — fall through to local cache.
-      }
-    }
-
-    if (cached != null) {
-      _applySnapshot(cached);
+    if (cloud == null) return;
+    try {
+      final snap = await cloud.hydrate();
+      _applySnapshot(snap);
+    } catch (_) {
+      // Offline or unconfigured Firestore — start empty.
     }
   }
 
@@ -173,76 +120,11 @@ class ScorerRepository {
       ..addAll(snap.schedules);
   }
 
-  Future<void> _saveToCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _kTournaments,
-          encodeJsonStringList(_tournaments.map(scorerTournamentToJson).toList()));
-      await prefs.setString(
-          _kTeams, encodeJsonStringList(_teams.map(scorerTeamToJson).toList()));
-      await prefs.setString(
-          _kPlayers, encodeJsonStringList(_players.map(scorerPlayerToJson).toList()));
-      // Completed matches are persisted to Firestore only — never written to
-      // local storage. Live/upcoming matches stay cached so the scorer can keep
-      // scoring offline, but finished results always come from the cloud.
-      await prefs.setString(
-          _kMatches,
-          encodeJsonStringList(_matches
-              .where((m) => m.status != MatchStatus.completed)
-              .map(scorerMatchToJson)
-              .toList()));
-      final scheduleList = _schedules.entries.map((e) => {
-            'tournamentId': e.key,
-            'stages': e.value.map(scheduleStageToJson).toList(),
-          }).toList();
-      await prefs.setString(_kSchedules, encodeJsonStringList(scheduleList));
-    } catch (_) {
-      // Persistence is best-effort; never crash scoring over a disk error.
-    }
-  }
-
-  List<T> _readCacheList<T>(
-    SharedPreferences prefs,
-    String key,
-    T Function(Map<String, dynamic>) fromJson,
-  ) {
-    final raw = prefs.getString(key);
-    if (raw == null || raw.isEmpty) return <T>[];
-    final list = decodeJsonStringList(raw);
-    final out = <T>[];
-    for (final item in list) {
-      try {
-        out.add(fromJson(item as Map<String, dynamic>));
-      } catch (_) {
-        // Skip any single corrupt entry.
-      }
-    }
-    return out;
-  }
-
-  Map<String, List<ScheduleStage>> _readCacheSchedules(SharedPreferences prefs) {
-    final out = <String, List<ScheduleStage>>{};
-    final raw = prefs.getString(_kSchedules);
-    if (raw != null && raw.isNotEmpty) {
-      for (final item in decodeJsonStringList(raw)) {
-        try {
-          final tId = (item as Map<String, dynamic>)['tournamentId'] as String;
-          final stages = ((item['stages'] as List? ?? []))
-              .map((e) => scheduleStageFromJson(e as Map<String, dynamic>))
-              .toList();
-          out[tId] = stages;
-        } catch (_) {}
-      }
-    }
-    return out;
-  }
-
   void _bumpVersion() => dataVersion.value++;
 
-  /// Persists a single entity to Firestore (best-effort) and always refreshes
-  /// the local cache. Granular writes keep a failure on one document from
-  /// blocking the rest of the data from reaching the cloud.
+  /// Persists a single entity to Firestore (best-effort). Granular writes keep
+  /// a failure on one document from blocking the rest of the data from reaching
+  /// the cloud.
   ///
   /// Failures are surfaced via [lastCloudError] (and logged) instead of being
   /// silently swallowed, so a Firestore security-rule denial or network error
@@ -254,7 +136,6 @@ class ScorerRepository {
       if (cloud != null) {
         await _cloudWrite(op);
       }
-      await _saveToCache();
     });
     await _writeQueue;
   }
@@ -293,7 +174,19 @@ class ScorerRepository {
     await _ensureLoaded();
     final index = _tournaments.indexWhere((t) => t.id == tournament.id);
     if (index >= 0) {
-      _tournaments[index] = tournament;
+      // Never let an edit wipe the original owner: the form can't always
+      // resolve the profile uid, so keep the stored createdBy/ownerId when the
+      // incoming copy doesn't carry one. Otherwise the tournament would be
+      // filtered out of "My Tournaments" after being edited.
+      var updated = tournament;
+      final existing = _tournaments[index];
+      if (updated.createdBy.isEmpty && existing.createdBy.isNotEmpty) {
+        updated = updated.copyWith(
+          createdBy: existing.createdBy,
+          ownerId: existing.ownerId,
+        );
+      }
+      _tournaments[index] = updated;
     } else {
       // Ownership: newly created tournaments are bound to the signed-in user.
       // Never overwrite createdBy on subsequent edits.
@@ -306,7 +199,6 @@ class ScorerRepository {
       }
       _tournaments.add(t);
       await _cloudWrite((cloud) => cloud.saveTournament(t));
-      await _saveToCache();
       _bumpVersion();
       return;
     }
@@ -325,7 +217,6 @@ class ScorerRepository {
     _schedules.remove(tournamentId);
     _tournaments.removeWhere((t) => t.id == tournamentId);
     await _cloudWrite((cloud) => cloud.deleteTournament(tournamentId));
-    await _saveToCache();
     _bumpVersion();
   }
 
@@ -397,7 +288,6 @@ class ScorerRepository {
         await _cloudWrite((cloud) => cloud.saveTournament(t));
       }
     } catch (_) {}
-    await _saveToCache();
     _bumpVersion();
   }
 
@@ -451,7 +341,6 @@ class ScorerRepository {
         await _cloudWrite((cloud) => cloud.saveTeam(t));
       }
     } catch (_) {}
-    await _saveToCache();
     _bumpVersion();
   }
 
@@ -493,7 +382,6 @@ class ScorerRepository {
       }
       _matches.add(m);
       await _cloudWrite((cloud) => cloud.saveMatch(m));
-      await _saveToCache();
       _bumpVersion();
       return;
     }
@@ -505,7 +393,6 @@ class ScorerRepository {
     await _ensureLoaded();
     _matches.removeWhere((m) => m.id == matchId);
     await _cloudWrite((cloud) => cloud.deleteMatch(matchId));
-    await _saveToCache();
     _bumpVersion();
   }
 
@@ -790,60 +677,6 @@ class ScorerRepository {
       ..sort((a, b) => b.value.compareTo(a.value));
     if (position <= sorted.length) return sorted[position - 1].key;
     return null;
-  }
-
-  /// One-time cleanup used by [main] at startup: removes every tournament
-  /// (cascading into teams/players/matches/schedule) and every standalone
-  /// match so old demo/test data never reaches the spectator side.
-  Future<void> purgeAllForCleanup() async {
-    await _ensureLoaded();
-    for (final t in List.of(_tournaments)) {
-      await deleteTournament(t.id);
-    }
-    for (final m in List.of(_matches)) {
-      await deleteMatch(m.id);
-    }
-    await _saveToCache();
-    _bumpVersion();
-  }
-
-  /// One-time local cache wipe used by [main] at startup: removes the
-  /// SharedPreferences copies of tournaments/teams/players/matches/schedules
-  /// so BOTH the scorer and spectator portions reload purely from Firestore.
-  /// Only stale local copies are cleared — Firestore remains the source of
-  /// truth, and the next `refreshFromCloud` repopulates the cache.
-  Future<void> clearLocalCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kTournaments);
-    await prefs.remove(_kTeams);
-    await prefs.remove(_kPlayers);
-    await prefs.remove(_kMatches);
-    await prefs.remove(_kSchedules);
-    _tournaments.clear();
-    _teams.clear();
-    _players.clear();
-    _matches.clear();
-    _schedules.clear();
-    _bumpVersion();
-  }
-}
-
-// ── JSON helpers ────────────────────────────────────────────────────────────
-
-List<dynamic> decodeJsonStringList(String raw) {
-  try {
-    final decoded = jsonDecode(raw);
-    return decoded is List ? decoded : [];
-  } catch (_) {
-    return [];
-  }
-}
-
-String encodeJsonStringList(List<dynamic> list) {
-  try {
-    return jsonEncode(list);
-  } catch (_) {
-    return '[]';
   }
 }
 

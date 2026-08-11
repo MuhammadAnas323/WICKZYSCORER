@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/match_model.dart';
 import 'package:sportyapp/data/repositories/match_repository.dart';
 import 'package:sportyapp/data/repositories/live_match_repository.dart';
@@ -53,7 +54,7 @@ class AdminDashboardViewModel extends StateNotifier<AdminDashboardState> {
         upcomingMatches: results[1],
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -62,7 +63,7 @@ class AdminDashboardViewModel extends StateNotifier<AdminDashboardState> {
       await _liveRepo.updateLiveMatch(matchId, {'status': 'completed'});
       await load();
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/tournament_model.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
@@ -25,7 +26,7 @@ class PointsTableScreen extends ConsumerWidget {
         style: AppTextStyles.headlineSmall(cs.onBackground))),
       body: async.when(
         loading: () => const MatchListSkeleton(),
-        error: (e, _) => ErrorState(message: e.toString()),
+        error: (e, _) => ErrorState(message: AppErrorHandler.getUserFriendlyMessage(e)),
         data: (t) {
           if (t == null) return const ErrorState(message: 'Tournament not found');
           final entries = t.pointsTable;

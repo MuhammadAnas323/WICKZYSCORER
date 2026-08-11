@@ -119,6 +119,13 @@ class FirebaseAuthService implements AuthService {
     required AppUserRole role,
     String? organization,
   }) async {
+    // Clear any previously cached Google session/account so the account
+    // chooser is shown again on every sign-in. Without this, tapping
+    // "Continue with Google" after a Firebase account is deleted silently
+    // reuses the last selected Google account and never shows a fresh picker.
+    if (_googleSignIn.currentUser != null) {
+      await _googleSignIn.signOut();
+    }
     // Launch the Google account chooser. Returns null if the user cancels.
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {

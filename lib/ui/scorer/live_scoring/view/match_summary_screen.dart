@@ -5,6 +5,8 @@ import 'package:gap/gap.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
+import 'package:sportyapp/data/models/scorer/innings.dart';
+import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/match_result.dart';
 import 'package:sportyapp/data/engines/match_result_engine.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
@@ -65,19 +67,22 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     _dataFutureInitialized = true;
   }
 
-  /// Resolves the match to summarise. Prefers the live repo's active match
-  /// (the normal end-of-match flow), then the matchId passed on the route, then
-  /// the most recent in-progress draft — so the screen keeps working even after
-  /// a warm start or if the live repo has already been cleared.
+  /// Resolves the match to summarise. An explicit `matchId` on the route wins:
+  /// it is used both when re-opening a completed match from the Matches tab and
+  /// after live scoring ends. This matters because the live repo's active match
+  /// may hold an UNRELATED draft — showing that instead of the requested match
+  /// would render an empty summary. Without a matchId we fall back to the live
+  /// session, then the most recent in-progress draft.
   Future<ScorerMatch?> _resolveMatch() async {
     final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
     final repo = ref.read(scorerRepositoryProvider);
-    var match = liveRepo.activeMatch;
-    if (match == null && _matchId != null && _matchId!.isNotEmpty) {
-      match = await repo.getMatch(_matchId!);
+    if (_matchId != null && _matchId!.isNotEmpty) {
+      final byId = await repo.getMatch(_matchId!);
+      if (byId != null) return byId;
+      final active = liveRepo.activeMatch;
+      if (active != null && active.id == _matchId) return active;
     }
-    match ??= await repo.firstInProgressMatch();
-    return match;
+    return liveRepo.activeMatch ?? await repo.firstInProgressMatch();
   }
 
   Future<_SummaryData> _loadData() async {
@@ -93,18 +98,131 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
       repo.getTeam(team1Id),
       repo.getTeam(team2Id),
     ]);
+
+    // Always include the players actually named in the match (both playing XIs
+    // plus every innings' batting/bowling orders and ball references), so the
+    // Award & Prizes sheet never ends up empty even when the team->player
+    // association is missing from the local repo view (e.g. cloud data that has
+    // players but no matching teamId, or a stale cache).
+    final players = await _resolveMatchPlayers(match, repo, [...p1, ...p2]);
+
+    // Re-opening the summary for an already-completed match must show the
+    // awards that were saved at completion time (winner, best batsman/bowler,
+    // prizes and custom awards). Pre-fill the state from the loaded match so
+    // the Award & Prizes sheet displays the real winners instead of starting
+    // blank.
+    if (match != null) {
+      _pomId = match.playerOfTheMatchId;
+      _bestBatsmanId = match.bestBatsmanId;
+      _bestBowlerId = match.bestBowlerId;
+      _pomPrizeCtrl.text = match.playerOfTheMatchPrize ?? '';
+      _bestBatsmanPrizeCtrl.text = match.bestBatsmanPrize ?? '';
+      _bestBowlerPrizeCtrl.text = match.bestBowlerPrize ?? '';
+      _customAwards
+        ..clear()
+        ..addAll(match.customAwards);
+      _customAwardsPrizes
+        ..clear()
+        ..addAll(match.customAwardsPrizes);
+    }
+
     return _SummaryData(
       match: match,
-      players: [...p1, ...p2],
+      players: players,
       team1Name: t1?.name ?? team1Id,
       team2Name: t2?.name ?? team2Id,
     );
+  }
+
+  /// Resolves the list of players shown in the Award & Prizes sheet.
+  ///
+  /// Starts from the players already found via [ScorerRepository.getPlayersByTeam]
+  /// and adds every player referenced by the match itself — `playingXI1`/
+  /// `playingXI2`, plus striker/non-striker/bowler and ball events across all
+  /// innings — so the sheet always lists the actual participants even when the
+  /// team→player mapping is missing.
+  Future<List<ScorerPlayer>> _resolveMatchPlayers(
+    ScorerMatch? match,
+    ScorerRepository repo,
+    List<ScorerPlayer> initial,
+  ) async {
+    if (match == null) return initial;
+    final byId = <String, ScorerPlayer>{
+      for (final p in initial) p.id: p,
+    };
+
+    final referenced = <String>{
+      ...match.playingXI1,
+      ...match.playingXI2,
+    };
+    for (final inn in [
+      match.innings1,
+      match.innings2,
+      match.superOverInnings1,
+      match.superOverInnings2,
+    ]) {
+      if (inn == null) continue;
+      if (inn.strikerId != null) referenced.add(inn.strikerId!);
+      if (inn.nonStrikerId != null) referenced.add(inn.nonStrikerId!);
+      if (inn.currentBowlerId != null) referenced.add(inn.currentBowlerId!);
+      referenced.addAll(inn.battingOrder);
+      referenced.addAll(inn.bowlingOrder);
+      for (final ball in inn.balls) {
+        if (ball.batsmanId.isNotEmpty) referenced.add(ball.batsmanId);
+        if (ball.bowlerId.isNotEmpty) referenced.add(ball.bowlerId);
+      }
+    }
+
+    final missing = referenced
+        .where((id) => !byId.containsKey(id))
+        .toList();
+    for (final id in missing) {
+      final p = await repo.getPlayer(id);
+      if (p != null) byId[id] = p;
+    }
+
+    return byId.values.toList();
   }
 
   Future<void> _finish(ScorerMatch match, _SummaryData data) async {
     if (_finishing) return;
     setState(() => _finishing = true);
     final l10n = AppLocalizations.of(context);
+
+    // The match is already completed (summary re-opened from the Matches tab):
+    // there is no active live session to end, so persist the award/prize edits
+    // directly and leave the result/status untouched.
+    if (match.status == MatchStatus.completed) {
+      try {
+        await ref.read(scorerRepositoryProvider).saveMatch(match.copyWith(
+          playerOfTheMatchId: _pomId,
+          bestBatsmanId: _bestBatsmanId,
+          bestBowlerId: _bestBowlerId,
+          playerOfTheMatchPrize: _pomPrizeCtrl.text.trim().isEmpty
+              ? null
+              : _pomPrizeCtrl.text.trim(),
+          bestBatsmanPrize: _bestBatsmanPrizeCtrl.text.trim().isEmpty
+              ? null
+              : _bestBatsmanPrizeCtrl.text.trim(),
+          bestBowlerPrize: _bestBowlerPrizeCtrl.text.trim().isEmpty
+              ? null
+              : _bestBowlerPrizeCtrl.text.trim(),
+          customAwards: _customAwards,
+          customAwardsPrizes: _customAwardsPrizes,
+        ));
+      } catch (e) {
+        debugPrint('[MatchSummary] save awards failed: $e');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${l10n.translate('complete_match')} failed: $e'),
+        ));
+        setState(() => _finishing = false);
+        return;
+      }
+      if (!mounted) return;
+      context.go('/scorer/dashboard');
+      return;
+    }
 
     final result = _result(match, data, l10n);
     final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
@@ -311,6 +429,8 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
               colorScheme),
         ],
         const Gap(24),
+        ..._scorecards(match, data, teamNameFor, l10n, colorScheme),
+        const Gap(24),
         SizedBox(
           height: 52,
           child: ElevatedButton.icon(
@@ -341,7 +461,11 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
             ),
             onPressed: _finishing ? null : () => _finish(match, data),
             child: Text(
-                _finishing ? '...' : l10n.translate('complete_match'),
+                _finishing
+                    ? '...'
+                    : match.status == MatchStatus.completed
+                        ? l10n.translate('save_awards')
+                        : l10n.translate('complete_match'),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 16)),
           ),
@@ -417,6 +541,247 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
                     fontSize: 20)),
             Text(overs, style: const TextStyle(color: Colors.grey, fontSize: 11)),
           ]),
+        ],
+      ),
+    );
+  }
+
+  // ─── Full scorecards (batting + bowling figures for every innings) ────────
+
+  List<Widget> _scorecards(
+    ScorerMatch match,
+    _SummaryData data,
+    String? Function(String?) teamNameFor,
+    AppLocalizations l10n,
+    ColorScheme cs,
+  ) {
+    final names = <String, String>{
+      for (final p in data.players) p.id: p.name,
+    };
+    String playerName(String? id) =>
+        id == null || id.isEmpty ? '' : (names[id] ?? id);
+
+    final innings = <(Innings?, String)>[
+      (match.innings1, l10n.translate('innings1')),
+      (match.innings2, l10n.translate('innings2')),
+      if (match.superOverInnings1 != null)
+        (match.superOverInnings1, '⚡ ${l10n.translate('super_over_banner')}'),
+      if (match.superOverInnings2 != null)
+        (match.superOverInnings2, '⚡ ${l10n.translate('super_over_banner')}'),
+    ];
+
+    return [
+      for (final entry in innings)
+        if (entry.$1 != null)
+          _scorecardCard(
+            title:
+                '${entry.$2} — ${teamNameFor(entry.$1!.battingTeamId) ?? ''}',
+            score: '${entry.$1!.totalRuns}/${entry.$1!.wickets} '
+                '(${entry.$1!.overs.toStringAsFixed(1)} ${l10n.translate('overs')})',
+            batters: _battersFor(entry.$1!, playerName),
+            bowlers:
+                buildBowlingScorecard(entry.$1!, playerName: playerName),
+            cs: cs,
+          ),
+    ];
+  }
+
+  List<LiveBatter> _battersFor(Innings inn, String Function(String?) name) {
+    // In a finished innings nobody is genuinely "batting" — the last pair is
+    // simply not out.
+    return buildBattingScorecard(inn, playerName: name)
+        .map((b) => inn.isComplete && b.status == 'batting'
+            ? LiveBatter(
+                playerId: b.playerId,
+                name: b.name,
+                runs: b.runs,
+                balls: b.balls,
+                fours: b.fours,
+                sixes: b.sixes,
+                status: 'not out',
+                onStrike: false,
+              )
+            : b)
+        .toList();
+  }
+
+  Widget _scorecardCard({
+    required String title,
+    required String score,
+    required List<LiveBatter> batters,
+    required List<LiveBowler> bowlers,
+    required ColorScheme cs,
+  }) {
+    final batted = batters.where((b) => b.status != 'yet to bat').toList();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.onSurface.withOpacity(0.1)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.pitchGreen.withOpacity(0.15),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: TextStyle(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ),
+                Text(score,
+                    style: const TextStyle(
+                        color: AppColors.pitchGreenLight,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15)),
+              ],
+            ),
+          ),
+          if (batted.isNotEmpty) ...[
+            const Gap(6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                children: [
+                  _tableHeader(
+                      cs, const ['Batter', 'R', 'B', '4s', '6s', 'SR']),
+                  ...batted.map((b) => _batterRow(cs, b)),
+                ],
+              ),
+            ),
+          ],
+          if (bowlers.isNotEmpty) ...[
+            const Gap(8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                children: [
+                  _tableHeader(
+                      cs, const ['Bowler', 'O', 'M', 'R', 'W', 'Econ']),
+                  ...bowlers.map((b) => _bowlerRow(cs, b)),
+                ],
+              ),
+            ),
+          ],
+          const Gap(10),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(ColorScheme cs, List<String> cols) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: cols.asMap().entries.map((e) {
+          return Expanded(
+            flex: e.key == 0 ? 4 : 1,
+            child: Text(e.value,
+                style: TextStyle(
+                    color: cs.onSurface.withOpacity(0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
+                textAlign: e.key == 0 ? TextAlign.left : TextAlign.center),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _batterRow(ColorScheme cs, LiveBatter b) {
+    final cols = [
+      b.runs.toString(),
+      b.balls.toString(),
+      b.fours.toString(),
+      b.sixes.toString(),
+      b.strikeRate.toStringAsFixed(1),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+            bottom:
+                BorderSide(color: cs.onSurface.withOpacity(0.08), width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(b.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12)),
+                Text(b.status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: cs.onSurface.withOpacity(0.5), fontSize: 10)),
+              ],
+            ),
+          ),
+          ...cols.map((v) => Expanded(
+                child: Text(v,
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12),
+                    textAlign: TextAlign.center),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _bowlerRow(ColorScheme cs, LiveBowler b) {
+    final cols = [
+      b.oversLabel,
+      b.maidens.toString(),
+      b.runs.toString(),
+      b.wickets.toString(),
+      b.economy.toStringAsFixed(2),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+            bottom:
+                BorderSide(color: cs.onSurface.withOpacity(0.08), width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(b.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
+          ),
+          ...cols.map((v) => Expanded(
+                child: Text(v,
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12),
+                    textAlign: TextAlign.center),
+              )),
         ],
       ),
     );
@@ -508,14 +873,13 @@ class _AwardsSheetState extends State<_AwardsSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
 
     return Container(
       height: size.height * 0.92,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+      decoration: const BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(5)),
       ),
       child: Column(
         children: [
@@ -1111,7 +1475,6 @@ class _CustomWinnerPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
 
     String teamNameOf(ScorerPlayer p) =>
@@ -1134,9 +1497,9 @@ class _CustomWinnerPicker extends StatelessWidget {
 
     return Container(
       height: size.height * 0.85,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+      decoration: const BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(5)),
       ),
       child: Column(
         children: [
@@ -1230,9 +1593,8 @@ class _CustomCategoryDialogState extends State<_CustomCategoryDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: AppColors.darkSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       title: Text(l10n.translate('add_custom_award'),
           style: const TextStyle(

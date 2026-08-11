@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/comment_model.dart';
 import 'package:sportyapp/data/models/stream_model.dart';
 import 'package:sportyapp/data/repositories/streaming_repository.dart';
@@ -76,7 +77,7 @@ class LiveViewerViewModel extends StateNotifier<LiveViewerState> {
       });
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, error: e.toString());
+        state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
       }
     }
   }

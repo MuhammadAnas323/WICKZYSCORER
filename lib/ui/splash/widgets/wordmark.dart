@@ -25,9 +25,17 @@ class _WordmarkState extends State<Wordmark> {
     _letterFadeAnimations = [];
     _letterSlideAnimations = [];
 
+    // All choreography timings below are expressed as fractions of the master
+    // timeline's total duration (seconds), so the whole sequence rescales
+    // automatically if the splash duration ever changes. With the 4s master
+    // these resolve to: letters type in ~1.4–2.0s, shine sweeps 2.0–2.3s,
+    // tagline fades in 2.3–2.5s.
+    final double totalSeconds =
+        widget.masterController.duration!.inMilliseconds / 1000.0;
+
     // Staggered letter animations from 1.5s to 2.0s
-    final double startTime = 1.5 / 3.0;
-    final double duration = 0.5 / 3.0;
+    final double startTime = 1.5 / totalSeconds;
+    final double duration = 0.5 / totalSeconds;
     final double step = duration / text.length;
 
     for (int i = 0; i < text.length; i++) {
@@ -65,7 +73,11 @@ class _WordmarkState extends State<Wordmark> {
     _shineAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(
         parent: widget.masterController,
-        curve: const Interval(2.0 / 3.0, 2.3 / 3.0, curve: Curves.easeInOut),
+        curve: Interval(
+          2.0 / totalSeconds,
+          2.3 / totalSeconds,
+          curve: Curves.easeInOut,
+        ),
       ),
     );
 
@@ -73,7 +85,11 @@ class _WordmarkState extends State<Wordmark> {
     _taglineFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: widget.masterController,
-        curve: const Interval(2.3 / 3.0, 2.5 / 3.0, curve: Curves.easeIn),
+        curve: Interval(
+          2.3 / totalSeconds,
+          2.5 / totalSeconds,
+          curve: Curves.easeIn,
+        ),
       ),
     );
   }

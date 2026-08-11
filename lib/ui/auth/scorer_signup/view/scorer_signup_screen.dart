@@ -60,7 +60,7 @@ class _ScorerSignupScreenState extends ConsumerState<ScorerSignupScreen> {
         const SizedBox(height: 32),
         AppPrimaryButton(
           label: 'Sign Up',
-          isLoading: state.isLoading,
+          isLoading: state.isEmailLoading,
           onPressed: () {
             if (_formKey.currentState?.validate() ?? false) {
               ref.read(scorerSignupViewModelProvider.notifier).signUp(
@@ -86,7 +86,7 @@ class _ScorerSignupScreenState extends ConsumerState<ScorerSignupScreen> {
         ),
         const SizedBox(height: 16),
         GoogleSignInButton(
-          isLoading: state.isLoading,
+          isLoading: state.isGoogleLoading,
           onPressed: () {
             ref.read(scorerSignupViewModelProvider.notifier).signUpWithGoogle();
           },

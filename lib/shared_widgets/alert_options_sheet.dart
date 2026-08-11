@@ -183,8 +183,9 @@ class _AlertsSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sign in to get match alerts.',
-                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text('Sign in to get match alerts.',
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant, fontSize: 12)),
                     const SizedBox(height: 6),
                     Align(
                       alignment: Alignment.centerRight,
@@ -212,13 +213,13 @@ class _AlertsSheet extends ConsumerWidget {
                 onChanged: onMasterChanged,
               ),
               if (enabled) ...[
-                const Divider(color: Colors.white12, height: 1),
+                Divider(color: cs.outlineVariant, height: 1),
                 ...toggles.map((t) => SwitchListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       title: Text(t.label,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 13)),
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 13)),
                       value: t.value,
                       activeTrackColor: AppColors.pitchGreen,
                       onChanged: t.onChanged,

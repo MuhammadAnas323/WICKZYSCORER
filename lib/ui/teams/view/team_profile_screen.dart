@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/team_model.dart';
 import 'package:sportyapp/data/models/player_model.dart';
 import 'package:sportyapp/ui/teams/viewmodel/team_viewmodel.dart';
@@ -22,7 +23,7 @@ class TeamProfileScreen extends ConsumerWidget {
 
     return async.when(
       loading: () => Scaffold(appBar: AppBar(), body: const MatchListSkeleton()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(message: e.toString())),
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(message: AppErrorHandler.getUserFriendlyMessage(e))),
       data: (team) {
         if (team == null) {
           return Scaffold(appBar: AppBar(),

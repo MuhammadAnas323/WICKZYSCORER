@@ -112,7 +112,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         const SizedBox(height: 32),
         AppPrimaryButton(
           label: 'Sign In',
-          isLoading: state.isLoading,
+          isLoading: state.isEmailLoading,
           onPressed: () {
             ref.read(signInViewModelProvider.notifier).signIn(
               _emailController.text,
@@ -133,7 +133,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         ),
         const SizedBox(height: 16),
         GoogleSignInButton(
-          isLoading: state.isLoading,
+          isLoading: state.isGoogleLoading,
           onPressed: () {
             ref.read(signInViewModelProvider.notifier).signInWithGoogle();
           },

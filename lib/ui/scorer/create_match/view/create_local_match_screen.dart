@@ -12,6 +12,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 class CreateLocalMatchScreen extends ConsumerStatefulWidget {
@@ -151,7 +152,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e)), backgroundColor: Colors.red),
         );
       }
     } finally {

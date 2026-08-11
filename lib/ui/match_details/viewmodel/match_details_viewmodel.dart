@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/match_model.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/repositories/match_repository.dart';
@@ -55,7 +56,7 @@ class MatchDetailsViewModel extends StateNotifier<MatchDetailsState> {
       state = state.copyWith(isLoading: false, match: m);
       _listenToLiveData();
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 

@@ -1,16 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 
 class ScorerSignupState {
-  final bool isLoading;
+  final bool isEmailLoading;
+  final bool isGoogleLoading;
   final String? error;
   final bool success;
 
-  ScorerSignupState({this.isLoading = false, this.error, this.success = false});
+  ScorerSignupState({
+    this.isEmailLoading = false,
+    this.isGoogleLoading = false,
+    this.error,
+    this.success = false,
+  });
 
-  ScorerSignupState copyWith({bool? isLoading, String? error, bool? success}) {
+  ScorerSignupState copyWith({
+    bool? isEmailLoading,
+    bool? isGoogleLoading,
+    String? error,
+    bool? success,
+  }) {
     return ScorerSignupState(
-      isLoading: isLoading ?? this.isLoading,
+      isEmailLoading: isEmailLoading ?? this.isEmailLoading,
+      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       error: error,
       success: success ?? this.success,
     );
@@ -27,7 +40,7 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
     required String password,
     String? organization,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isEmailLoading: true, error: null);
     try {
       await ref.read(currentUserProvider.notifier).signUpScorer(
         name: name,
@@ -35,21 +48,21 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
         password: password,
         organization: organization,
       );
-      state = state.copyWith(isLoading: false, success: true);
+      state = state.copyWith(isEmailLoading: false, success: true);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isEmailLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
   Future<void> signUpWithGoogle({String? organization}) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isGoogleLoading: true, error: null);
     try {
       await ref
           .read(currentUserProvider.notifier)
           .signUpScorerWithGoogle(organization: organization);
-      state = state.copyWith(isLoading: false, success: true);
+      state = state.copyWith(isGoogleLoading: false, success: true);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isGoogleLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 }
@@ -57,3 +70,4 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
 final scorerSignupViewModelProvider = StateNotifierProvider.autoDispose<ScorerSignupViewModel, ScorerSignupState>((ref) {
   return ScorerSignupViewModel(ref);
 });
+

@@ -10,18 +10,25 @@ class SplashLoadingIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final splashState = ref.watch(splashViewModelProvider);
-    
+
+    // Expressed as fractions of the master timeline's total duration so the
+    // bar appears around 2.5–3.0s and rescales if the duration ever changes.
+    final double totalSeconds =
+        masterController.duration!.inMilliseconds / 1000.0;
+    final double loadingStart = 2.5 / totalSeconds;
+    final double loadingEnd = 3.0 / totalSeconds;
+
     final Animation<double> fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: masterController,
-        curve: const Interval(2.5 / 3.0, 3.0 / 3.0, curve: Curves.easeIn),
+        curve: Interval(loadingStart, loadingEnd, curve: Curves.easeIn),
       ),
     );
 
     return AnimatedBuilder(
       animation: masterController,
       builder: (context, child) {
-        if (masterController.value < (2.5 / 3.0)) {
+        if (masterController.value < loadingStart) {
           return const SizedBox.shrink();
         }
         

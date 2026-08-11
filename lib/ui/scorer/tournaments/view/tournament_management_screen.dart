@@ -7,6 +7,7 @@ import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/ui/scorer/dashboard/viewmodel/scorer_dashboard_viewmodel.dart';
 
 class TournamentManagementScreen extends ConsumerStatefulWidget {
@@ -149,13 +150,29 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     try {
       final repo = ref.read(scorerRepositoryProvider);
       final user = ref.read(currentUserProvider);
+      // Bind the tournament to the signed-in user. Prefer the resolved profile
+      // uid, but fall back to the raw Firebase uid so a tournament created
+      // during the cold-start profile refresh is never stored without an owner
+      // (otherwise it gets filtered out of "My Tournaments").
+      final uid = user?.id.isNotEmpty == true ? user!.id : repo.currentUserId;
+      if (uid == null || uid.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not save the tournament. Please sign in and try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
       final id = widget.tournamentId ?? 't_${DateTime.now().millisecondsSinceEpoch}';
 
       final tournament = ScorerTournament(
         id: id,
         name: _nameController.text.trim(),
-        ownerId: user?.id ?? 'user_1',
-        createdBy: user?.id ?? '',
+        ownerId: uid,
+        createdBy: uid,
         organizer: _organizerController.text.trim(),
         format: _defaultFormat,
         customOvers: int.tryParse(_customOversController.text) ?? 20,
@@ -196,7 +213,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e)), backgroundColor: Colors.red),
         );
       }
     }

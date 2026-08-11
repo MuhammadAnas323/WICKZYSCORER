@@ -464,6 +464,12 @@ class ScorerLiveMatchRepository {
     final inn = match.currentInningsData;
     if (inn == null) return;
 
+    // A completed match or a finished innings must never accept another
+    // delivery — the result is already decided and "extra" balls would corrupt
+    // the final scorecard (e.g. scoring past a chased target or after an all
+    // out). The UI routes to the summary instead of relying on this guard.
+    if (match.status == MatchStatus.completed || inn.isComplete) return;
+
     _undoStack.add(_BallUndo(
       matchId: match.id,
       inningsId: inn.id,

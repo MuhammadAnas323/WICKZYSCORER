@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/tournament_model.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
@@ -39,7 +40,7 @@ class _TournamentDetailScreenState extends ConsumerState<TournamentDetailScreen>
 
     return async.when(
       loading: () => Scaffold(appBar: AppBar(), body: const MatchListSkeleton()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(message: e.toString())),
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(message: AppErrorHandler.getUserFriendlyMessage(e))),
       data: (tournament) {
         if (tournament == null) return Scaffold(appBar: AppBar(),
           body: const ErrorState(message: 'Tournament not found'));

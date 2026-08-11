@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/match_model.dart';
 import 'package:sportyapp/data/repositories/match_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
@@ -30,12 +31,12 @@ class MatchesViewModel extends StateNotifier<MatchesState> {
     _upcomingSub = _repo.watchUpcomingMatches().listen((matches) {
       if (mounted) state = state.copyWith(upcoming: matches, isLoading: false);
     }, onError: (e) {
-      if (mounted) state = state.copyWith(error: e.toString(), isLoading: false);
+      if (mounted) state = state.copyWith(error: AppErrorHandler.getUserFriendlyMessage(e), isLoading: false);
     });
     _completedSub = _repo.watchCompletedMatches().listen((matches) {
       if (mounted) state = state.copyWith(completed: matches, isLoading: false);
     }, onError: (e) {
-      if (mounted) state = state.copyWith(error: e.toString(), isLoading: false);
+      if (mounted) state = state.copyWith(error: AppErrorHandler.getUserFriendlyMessage(e), isLoading: false);
     });
   }
 
@@ -52,7 +53,7 @@ class MatchesViewModel extends StateNotifier<MatchesState> {
         completed: results[1],
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 

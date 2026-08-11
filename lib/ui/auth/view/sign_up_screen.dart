@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
@@ -40,7 +41,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       debugPrint('Auth submit error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e))),
         );
       }
     }

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/data/models/match_model.dart';
 import 'package:sportyapp/data/models/team_model.dart';
 import 'package:sportyapp/data/repositories/match_repository.dart';
@@ -94,7 +95,7 @@ class CreateMatchViewModel extends StateNotifier<CreateMatchState> {
         matchId: match.id,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
