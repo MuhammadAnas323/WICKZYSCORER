@@ -81,7 +81,9 @@ class ScorerDashboardScreen extends ConsumerWidget {
                       onTap: () => context.push('/scorer/tournaments'),
                     ),
 
-                    // 2. Friendly Matches Card
+                    // 2. Friendly Matches Card — only local/friendly matches
+                    // (pseudo-tournament 't_custom'). Tournament matches must
+                    // never appear in this list, so always pass onlyFriendly.
                     _LargeNavCard(
                       title: l10n.translate('friendly_matches'),
                       subtitle: l10n.translate('individual_matches'),
@@ -91,7 +93,8 @@ class ScorerDashboardScreen extends ConsumerWidget {
                           : const [Color(0xFFD1FAE5), Color(0xA110B981)],
                       iconColor: isDark ? AppColors.pitchGreenLight : const Color(0xFF047857),
                       textColor: isDark ? Colors.white : const Color(0xFF065F46),
-                      onTap: () => context.push('/scorer/all-matches'),
+                      onTap: () =>
+                          context.push('/scorer/all-matches?onlyFriendly=true'),
                     ),
 
                     // 3. Profile Card

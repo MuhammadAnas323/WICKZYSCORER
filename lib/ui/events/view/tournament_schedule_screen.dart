@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
+import 'package:sportyapp/data/engines/tournament_progression_engine.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
+import 'package:sportyapp/shared_widgets/fixture_progression_view.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
@@ -43,6 +45,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
     final scheduleStages = state.scheduleForTournament(tournamentId)
         .where((s) => s.fixtures.isNotEmpty)
         .toList();
+    final progressionResolver = TournamentProgressionResolver(scheduleStages);
     final linkedMatchIds = <String>{
       for (final s in scheduleStages)
         for (final fx in s.fixtures)
@@ -89,7 +92,7 @@ class TournamentScheduleScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 children: [
                   for (final stage in scheduleStages)
-                    _buildStageSection(stage, state, cs, l10n),
+                    _buildStageSection(stage, state, cs, l10n, progressionResolver),
                   if (standalone.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -140,7 +143,8 @@ class TournamentScheduleScreen extends ConsumerWidget {
   }
 
   Widget _buildStageSection(
-      ScheduleStage stage, SpectatorHomeState state, ColorScheme cs, AppLocalizations l10n) {
+      ScheduleStage stage, SpectatorHomeState state, ColorScheme cs, AppLocalizations l10n,
+      TournamentProgressionResolver progressionResolver) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -169,7 +173,12 @@ class TournamentScheduleScreen extends ConsumerWidget {
         ),
         const Gap(6),
         for (final fx in stage.fixtures)
-          _ScheduleFixtureCard(fixture: fx, state: state, cs: cs),
+          _ScheduleFixtureCard(
+            fixture: fx,
+            state: state,
+            cs: cs,
+            progression: progressionResolver.resolve(fx),
+          ),
         const Gap(12),
       ],
     );
@@ -180,11 +189,13 @@ class _ScheduleFixtureCard extends StatelessWidget {
   final ScheduleFixture fixture;
   final SpectatorHomeState state;
   final ColorScheme cs;
+  final FixtureProgression progression;
 
   const _ScheduleFixtureCard({
     required this.fixture,
     required this.state,
     required this.cs,
+    required this.progression,
   });
 
   String _teamLabel(String? id, AppLocalizations l10n) =>
@@ -342,6 +353,16 @@ class _ScheduleFixtureCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+          if (progression.fixture.isCompleted ||
+              progression.waitingForOpponent) ...[
+            const Gap(6),
+            FixtureProgressionView(
+              progression: progression,
+              teamName: (id) => id == null
+                  ? l10n.translate('awaiting_result')
+                  : state.teamName(id),
             ),
           ],
         ],

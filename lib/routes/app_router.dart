@@ -1,5 +1,5 @@
 // lib/routes/app_router.dart
-// go_router configuration for CRIXORA.
+// go_router configuration for WICKZYSCORER.
 // Spectator shell: 4-tab bottom navigation (Home, Live, Events, Profile).
 
 import 'package:flutter/foundation.dart';
@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // Screen imports
-import 'package:sportyapp/ui/splash/view/splash_screen.dart';
 import 'package:sportyapp/ui/onboarding/view/onboarding_screen.dart';
 import 'package:sportyapp/ui/auth/view/sign_up_screen.dart';
 import 'package:sportyapp/ui/auth/sign_in/view/sign_in_screen.dart';
@@ -64,12 +63,11 @@ import 'package:sportyapp/ui/scorer/squad_setup/view/squad_setup_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_builder_screen.dart';
 import 'package:sportyapp/ui/scorer/schedule/view/schedule_view_screen.dart';
 
-
 /// The app's GoRouter instance.
 final appRouterProvider = Provider<GoRouter>((ref) {
   // The router instance is created ONCE. A plain Provider that returns a new
   // GoRouter every time auth changes would reset to [initialLocation]
-  // (`/splash`) on every login/sign-out/role-switch. Instead we ping a
+  // (`/role-selection`) on every login/sign-out/role-switch. Instead we ping a
   // `refreshListenable` so go_router re-runs the redirect while keeping the
   // same instance and current location.
   final authHeartbeat = ValueNotifier(0);
@@ -77,25 +75,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen<AppUser?>(currentUserProvider, (_, __) => authHeartbeat.value++);
 
   return GoRouter(
-    initialLocation: '/splash',
+    initialLocation: '/role-selection',
     debugLogDiagnostics: false,
     refreshListenable: authHeartbeat,
     redirect: (context, state) {
       final currentUser = ref.read(currentUserProvider);
       final location = state.uri.toString();
 
-      // The splash screen is a self-governed gate: it waits for the auth
-      // session to be restored AND its minimum display time before navigating.
-      // Exempt it from the automatic redirect so it can't be interrupted early.
-      if (location == '/splash') return null;
-
       final publicRoutes = [
-        '/splash', '/onboarding', '/signup',
-        '/signin', '/role-selection',
-        '/spectator-signup', '/scorer-signup',
+        '/onboarding',
+        '/signup',
+        '/signin',
+        '/role-selection',
+        '/spectator-signup',
+        '/scorer-signup',
         '/forgot-password',
       ];
       final isPublic = publicRoutes.any(location.startsWith);
+
+      // Hold on the public landing screen until the cold-start auth session
+      // restore finishes, so an already-logged-in user never flashes the
+      // role-selection screen (the native launch screen with the default logo
+      // covers the engine start).
+      final authReady = ref.read(authReadyProvider);
+      if (!authReady && !isPublic) return '/role-selection';
 
       if (currentUser == null) {
         if (!isPublic) return '/role-selection';
@@ -138,11 +141,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         name: 'forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: '/splash',
-        name: 'splash',
-        builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -225,8 +223,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/events/:id',
         name: 'event-detail',
-        builder: (context, state) => EventDetailScreen(
-            tournamentId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            EventDetailScreen(tournamentId: state.pathParameters['id']!),
         routes: [
           GoRoute(
             path: 'schedule',
@@ -239,8 +237,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/spectator/match/:id',
         name: 'spectator-match-detail',
-        builder: (context, state) => SpectatorMatchDetailScreen(
-            matchId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            SpectatorMatchDetailScreen(matchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/matches',
@@ -291,8 +289,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scorer/tournaments/:id/edit',
         name: 'scorer-tournament-edit',
-        builder: (context, state) =>
-            TournamentManagementScreen(tournamentId: state.pathParameters['id']),
+        builder: (context, state) => TournamentManagementScreen(
+            tournamentId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/scorer/tournaments/:id/schedule',
@@ -364,8 +362,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scorer/schedule-match',
         name: 'scorer-schedule-match',
-        builder: (context, state) =>
-            ScheduleMatchScreen(tournamentId: state.uri.queryParameters['tournamentId']),
+        builder: (context, state) => ScheduleMatchScreen(
+            tournamentId: state.uri.queryParameters['tournamentId']),
       ),
       GoRoute(
         path: '/scorer/toss',
@@ -471,4 +469,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-

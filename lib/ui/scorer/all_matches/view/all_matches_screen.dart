@@ -30,6 +30,11 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   Map<String, String> _teamNames = {};
   bool _isLoading = true;
 
+  /// Match ids that back a tournament schedule fixture. Even when such a match
+  /// carries a 't_custom' tournamentId (stale/mis-flagged data), it must never
+  /// surface in the friendly/local list — it is a tournament match.
+  final Set<String> _scheduledMatchIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +57,20 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     final tournaments = await repo.getTournaments();
     final teams = await repo.getAllTeams();
 
+    // Collect every match that backs a tournament schedule fixture so those can
+    // be excluded from the friendly list even if their tournamentId is wrong.
+    final scheduledMatchIds = <String>{};
+    for (final tournament in tournaments) {
+      final stages = await repo.getSchedule(tournament.id);
+      for (final stage in stages) {
+        for (final fx in stage.fixtures) {
+          if (fx.linkedMatchId != null) {
+            scheduledMatchIds.add(fx.linkedMatchId!);
+          }
+        }
+      }
+    }
+
     final matches = (uid == null || uid.isEmpty)
         ? allMatches
         : allMatches.where((m) => m.createdBy == uid).toList();
@@ -61,6 +80,9 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
       _matches = matches;
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};
+      _scheduledMatchIds
+        ..clear()
+        ..addAll(scheduledMatchIds);
       _isLoading = false;
     });
   }
@@ -68,7 +90,11 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   List<ScorerMatch> get _filtered {
     var list = _matches;
     if (widget.onlyFriendly) {
-      list = list.where((m) => m.tournamentId == 't_custom').toList();
+      list = list
+          .where((m) =>
+              m.tournamentId == 't_custom' &&
+              !_scheduledMatchIds.contains(m.id))
+          .toList();
     }
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return list;

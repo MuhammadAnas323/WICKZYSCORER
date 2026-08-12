@@ -14,7 +14,7 @@ class LiveBrandHeader extends StatelessWidget {
 
   const LiveBrandHeader({
     super.key,
-    this.appName = 'CRIXORA',
+    this.appName = 'WickzyScorer',
     this.appLogoUrl = 'assets/images/Crixora.png',
     this.streamName,
     this.broadcasterName,
@@ -29,17 +29,20 @@ class LiveBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
         final logoSize = compact
             ? (maxWidth < 260 ? 22.0 : 28.0)
             : (maxWidth < 280 ? 28.0 : 36.0);
         final textScale = maxWidth < 280 ? 0.92 : 1.0;
 
         return Container(
-          padding: padding ?? EdgeInsets.symmetric(
-            horizontal: compact ? 10 : 12,
-            vertical: compact ? 8 : 10,
-          ),
+          padding: padding ??
+              EdgeInsets.symmetric(
+                horizontal: compact ? 10 : 12,
+                vertical: compact ? 8 : 10,
+              ),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.55),
             borderRadius: BorderRadius.circular(18),
@@ -83,7 +86,8 @@ class LiveBrandHeader extends StatelessWidget {
                         if (showLiveBadge) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.liveRed,
                               borderRadius: BorderRadius.circular(999),
@@ -114,7 +118,8 @@ class LiveBrandHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    if (broadcasterName != null && broadcasterName!.isNotEmpty) ...[
+                    if (broadcasterName != null &&
+                        broadcasterName!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         broadcasterName!,
@@ -134,7 +139,8 @@ class LiveBrandHeader extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(999),
@@ -142,11 +148,15 @@ class LiveBrandHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.remove_red_eye_outlined, size: 12, color: Colors.white70),
+                        const Icon(Icons.remove_red_eye_outlined,
+                            size: 12, color: Colors.white70),
                         const SizedBox(width: 4),
                         Text(
                           '$viewerCount',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),

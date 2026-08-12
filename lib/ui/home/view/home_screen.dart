@@ -54,11 +54,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   colors: [AppColors.pitchGreen, AppColors.pitchGreenDark],
                 ),
               ),
-              child: const Icon(Icons.sports_cricket, color: Colors.white, size: 20),
+              child: const Icon(Icons.sports_cricket,
+                  color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             Text(
-              'CRIXORA',
+              'WICKZYSCORER',
               style: AppTextStyles.titleLarge(cs.onBackground)
                   .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold),
             ),
@@ -225,10 +226,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ? 'Search tournaments by name...'
                     : 'Search matches by team or venue...',
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
-                prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                prefixIcon:
+                    const Icon(Icons.search, size: 18, color: Colors.grey),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                        icon: const Icon(Icons.clear,
+                            size: 16, color: Colors.grey),
                         onPressed: () {
                           _searchController.clear();
                           notifier.setSearchQuery('');
@@ -266,12 +269,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         borderRadius: BorderRadius.circular(5),
                         gradient: isSelected
                             ? const LinearGradient(
-                                colors: [AppColors.pitchGreen, AppColors.pitchGreenDark],
+                                colors: [
+                                  AppColors.pitchGreen,
+                                  AppColors.pitchGreenDark
+                                ],
                               )
                             : null,
                         color: isSelected
                             ? null
-                            : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04)),
+                            : (isDark
+                                ? Colors.white.withOpacity(0.06)
+                                : Colors.black.withOpacity(0.04)),
                         border: Border.all(
                           color: isSelected
                               ? AppColors.pitchGreen
@@ -387,4 +395,3 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
-

@@ -81,6 +81,67 @@ class ScheduleSource {
 
 enum FixtureStatus { pending, ready, live, completed }
 
+/// Where a fixture's winner or loser is routed once its match completes.
+enum ProgressionDestinationType {
+  fixture,
+  stage,
+  waiting,
+  qualify,
+  champion,
+  eliminated
+}
+
+/// Per-fixture, creator-configured progression rule: what happens to the
+/// winner (or loser) of a [ScheduleFixture] after it completes.
+///
+/// The destination is resolved by [destinationType]:
+///  - fixture:     routed into the empty slot of another fixture
+///  - stage:       routed into the first empty fixture of a stage
+///  - waiting:     stays in the flow, waiting for an opponent / next round
+///  - champion:    wins the tournament (no further match)
+///  - eliminated:  out of the tournament (no further match)
+class FixtureProgressionRule {
+  final String sourceFixtureId;
+  final String outcome; // 'winner' | 'loser'
+  final ProgressionDestinationType destinationType;
+  final String? destinationFixtureId;
+  final String? destinationStageId;
+
+  const FixtureProgressionRule({
+    required this.sourceFixtureId,
+    required this.outcome,
+    required this.destinationType,
+    this.destinationFixtureId,
+    this.destinationStageId,
+  });
+
+  bool get isWaiting => destinationType == ProgressionDestinationType.waiting;
+  bool get isQualify => destinationType == ProgressionDestinationType.qualify;
+  bool get isEliminated =>
+      destinationType == ProgressionDestinationType.eliminated;
+  bool get isChampion =>
+      destinationType == ProgressionDestinationType.champion;
+  bool get isExplicit =>
+      destinationType == ProgressionDestinationType.fixture ||
+      destinationType == ProgressionDestinationType.stage;
+
+  FixtureProgressionRule copyWith({
+    String? outcome,
+    ProgressionDestinationType? destinationType,
+    String? destinationFixtureId,
+    String? destinationStageId,
+  }) {
+    return FixtureProgressionRule(
+      sourceFixtureId: sourceFixtureId,
+      outcome: outcome ?? this.outcome,
+      destinationType: destinationType ?? this.destinationType,
+      destinationFixtureId:
+          destinationFixtureId ?? this.destinationFixtureId,
+      destinationStageId: destinationStageId ?? this.destinationStageId,
+    );
+  }
+}
+
 class ScheduleFixture {
   final String id;
   final int order;
@@ -88,10 +149,18 @@ class ScheduleFixture {
   final Source teamBSource;
   final String? resolvedTeamAId;
   final String? resolvedTeamBId;
+
+  /// Winning team id once the fixture is [FixtureStatus.completed].
+  final String? winnerTeamId;
   final DateTime? scheduledDateTime;
   final String? venue;
   final String? linkedMatchId;
   final FixtureStatus status;
+
+  /// Creator-configured routing for this fixture's winner/loser. When present,
+  /// these rules take priority over stage config inference.
+  final FixtureProgressionRule? winnerRule;
+  final FixtureProgressionRule? loserRule;
 
   const ScheduleFixture({
     required this.id,
@@ -100,10 +169,13 @@ class ScheduleFixture {
     required this.teamBSource,
     this.resolvedTeamAId,
     this.resolvedTeamBId,
+    this.winnerTeamId,
     this.scheduledDateTime,
     this.venue,
     this.linkedMatchId,
     this.status = FixtureStatus.pending,
+    this.winnerRule,
+    this.loserRule,
   });
 
   bool get isReady => status == FixtureStatus.ready;
@@ -116,11 +188,16 @@ class ScheduleFixture {
     Source? teamBSource,
     String? resolvedTeamAId,
     String? resolvedTeamBId,
+    String? winnerTeamId,
     DateTime? scheduledDateTime,
     String? venue,
     String? linkedMatchId,
     FixtureStatus? status,
+    FixtureProgressionRule? winnerRule,
+    FixtureProgressionRule? loserRule,
     bool clearResolved = false,
+    bool clearWinner = false,
+    bool clearRules = false,
   }) {
     return ScheduleFixture(
       id: id,
@@ -129,10 +206,13 @@ class ScheduleFixture {
       teamBSource: teamBSource ?? this.teamBSource,
       resolvedTeamAId: clearResolved ? null : (resolvedTeamAId ?? this.resolvedTeamAId),
       resolvedTeamBId: clearResolved ? null : (resolvedTeamBId ?? this.resolvedTeamBId),
+      winnerTeamId: clearWinner ? null : (winnerTeamId ?? this.winnerTeamId),
       scheduledDateTime: scheduledDateTime ?? this.scheduledDateTime,
       venue: venue ?? this.venue,
       linkedMatchId: linkedMatchId ?? this.linkedMatchId,
       status: status ?? this.status,
+      winnerRule: clearRules ? null : (winnerRule ?? this.winnerRule),
+      loserRule: clearRules ? null : (loserRule ?? this.loserRule),
     );
   }
 }

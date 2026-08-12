@@ -119,52 +119,63 @@ class FirebaseAuthService implements AuthService {
     required AppUserRole role,
     String? organization,
   }) async {
-    // Clear any previously cached Google session/account so the account
-    // chooser is shown again on every sign-in. Without this, tapping
-    // "Continue with Google" after a Firebase account is deleted silently
-    // reuses the last selected Google account and never shows a fresh picker.
-    if (_googleSignIn.currentUser != null) {
-      await _googleSignIn.signOut();
-    }
-    // Launch the Google account chooser. Returns null if the user cancels.
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) {
-      throw Exception('Google sign-in was cancelled');
-    }
-    final googleAuth = await googleUser.authentication;
-    final credential = fa.GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    final userCredential = await _auth.signInWithCredential(credential);
-    final uid = userCredential.user!.uid;
+    try {
+      // Clear any previously cached Google session/account so the account
+      // chooser is shown again on every sign-in. Without this, tapping
+      // "Continue with Google" after a Firebase account is deleted silently
+      // reuses the last selected Google account and never shows a fresh picker.
+      if (_googleSignIn.currentUser != null) {
+        await _googleSignIn.signOut();
+      }
+      // Launch the Google account chooser. Returns null if the user cancels.
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        throw Exception('Google sign-in was cancelled');
+      }
+      final googleAuth = await googleUser.authentication;
+      final credential = fa.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final userCredential = await _auth.signInWithCredential(credential);
+      final uid = userCredential.user!.uid;
 
-    final docRef = _firestore.collection('users').doc(uid);
-    final doc = await docRef.get();
-    final now = DateTime.now();
-    if (doc.exists) {
-      // Same Google account used again: adopt the freshly-chosen role so the
-      // profile always matches where the user signed up from.
-      final existing = AppUser.fromJson(doc.data()!);
-      final updated = existing.copyWith(role: role, organization: organization);
-      await docRef.set(updated.toJson());
-      _currentUser = updated;
-      return updated;
-    }
+      final docRef = _firestore.collection('users').doc(uid);
+      final doc = await docRef.get();
+      final now = DateTime.now();
+      if (doc.exists) {
+        // Same Google account used again: adopt the freshly-chosen role so the
+        // profile always matches where the user signed up from.
+        final existing = AppUser.fromJson(doc.data()!);
+        final updated = existing.copyWith(role: role, organization: organization);
+        await docRef.set(updated.toJson());
+        _currentUser = updated;
+        return updated;
+      }
 
-    final user = AppUser(
-      id: uid,
-      name: googleUser.displayName ?? userCredential.user!.displayName ?? 'User',
-      email: googleUser.email,
-      phone: '',
-      address: '',
-      role: role,
-      organization: organization,
-      createdAt: now,
-    );
-    await docRef.set(user.toJson());
-    _currentUser = user;
-    return user;
+      final user = AppUser(
+        id: uid,
+        name: googleUser.displayName ?? userCredential.user!.displayName ?? 'User',
+        email: googleUser.email,
+        phone: '',
+        address: '',
+        role: role,
+        organization: organization,
+        createdAt: now,
+      );
+      await docRef.set(user.toJson());
+      _currentUser = user;
+      return user;
+    } on fa.FirebaseAuthException catch (e) {
+      debugPrint('Firebase Auth Google error: ${e.code} - ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('Google Sign-In service error: $e');
+      if (e.toString().contains('sign_in_canceled') || e.toString().contains('12501')) {
+        throw Exception('Google sign-in was cancelled');
+      }
+      rethrow;
+    }
   }
 
   @override

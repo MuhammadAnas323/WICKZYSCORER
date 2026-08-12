@@ -175,12 +175,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
           // Final innings is over — mark it complete so tie detection and the
           // summary reflect the finished state.
           liveRepo.completeCurrentInnings();
-          // Match decided. A tie on the main innings offers a super over.
+          // Match decided. A tie on the main innings offers a super over, and
+          // a tie in the super over itself offers a fresh one.
           final isMainTie = inningsCount == 2 &&
               !updatedMatch.superOverPlayed &&
               updatedInn.totalRuns ==
                   (updatedMatch.innings1?.totalRuns ?? 0);
-          if (isMainTie) {
+          final isSuperOverTie = inningsCount == 4 &&
+              updatedMatch.superOverInnings1 != null &&
+              updatedMatch.superOverInnings1!.totalRuns ==
+                  updatedInn.totalRuns;
+          if (isMainTie || isSuperOverTie) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               // Re-read the freshly saved match: `updatedMatch` predates the
@@ -371,11 +376,12 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     // Replace the live-scoring route so the scorer cannot fall back into
     // a finished match and keep counting runs.
     final match = ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
-    // A genuine main-innings tie should always offer the super over instead of
-    // declaring a winner, even when the scorer taps "End Match" directly.
-    // When the scorer already declined the super over inside the tie dialog,
-    // do not re-offer it here or the dialog would loop forever.
-    if (offerSuperOver && match != null && _isMainInningsTie(match)) {
+    // A finished tie (main innings or super over) should always offer the
+    // super over instead of declaring a winner, even when the scorer taps
+    // "End Match" directly. When the scorer already declined the super over
+    // inside the tie dialog, do not re-offer it here or the dialog would loop
+    // forever.
+    if (offerSuperOver && match != null && _isTie(match)) {
       _showTieDialog(match);
       return;
     }
@@ -427,11 +433,17 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     });
   }
 
-  /// True when the main two innings have both finished on equal totals and a
-  /// super over has not yet been played — i.e. a genuine tie worth offering a
-  /// super over for.
-  bool _isMainInningsTie(ScorerMatch match) {
-    if (match.superOverPlayed || match.currentInnings >= 3) return false;
+  /// True when the match has finished as a tie that is still worth offering a
+  /// super over for: either the main two innings are level (a super over has
+  /// not been played yet) or the super over itself ended level.
+  bool _isTie(ScorerMatch match) {
+    if (match.currentInnings >= 3) {
+      final so1 = match.superOverInnings1;
+      final so2 = match.superOverInnings2;
+      if (so1 == null || so2 == null) return false;
+      return so1.isComplete && so2.isComplete && so1.totalRuns == so2.totalRuns;
+    }
+    if (match.superOverPlayed) return false;
     final i1 = match.innings1;
     final i2 = match.innings2;
     if (i1 == null || i2 == null) return false;

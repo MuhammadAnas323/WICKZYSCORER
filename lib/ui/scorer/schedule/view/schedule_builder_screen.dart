@@ -296,6 +296,44 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     _persist();
   }
 
+  /// All fixtures across every stage, for the progression destination pickers.
+  List<({String id, String label, String stageId})> _allFixtureItems() => [
+        for (final s in _stages)
+          for (final f in s.fixtures)
+            (
+              id: f.id,
+              label:
+                  '${s.name} — ${_teamName(f.resolvedTeamAId)} vs ${_teamName(f.resolvedTeamBId)}',
+              stageId: s.id,
+            ),
+      ];
+
+  /// Configures where this fixture's winner and loser go once it completes.
+  Future<void> _configureProgression(int stageIdx, int fxIdx) async {
+    final stage = _stages[stageIdx];
+    final fx = stage.fixtures[fxIdx];
+    final result = await showModalBottomSheet<_FixtureProgressionResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ProgressionSheet(
+        fixture: fx,
+        stages: _stages,
+        fixtureItems: _allFixtureItems(),
+      ),
+    );
+    if (result == null) return;
+    setState(() {
+      final fixtures = List<ScheduleFixture>.from(stage.fixtures);
+      fixtures[fxIdx] = fx.copyWith(
+        winnerRule: result.winnerRule,
+        loserRule: result.loserRule,
+      );
+      _stages[stageIdx] = _stages[stageIdx].copyWith(fixtures: fixtures);
+    });
+    _persist();
+  }
+
   /// Declares the winner of a fixture: the winner stays in the tournament and is
   /// available in the next level, while the loser is marked eliminated (kept in the
   /// list but no longer shown in new-match team pickers of later stages).
@@ -306,7 +344,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
     if (fx.status == FixtureStatus.completed) {
       setState(() {
         final fixtures = List<ScheduleFixture>.from(stage.fixtures);
-        fixtures[fxIdx] = fx.copyWith(status: FixtureStatus.ready);
+        fixtures[fxIdx] = fx.copyWith(
+            status: FixtureStatus.ready, clearWinner: true);
         _stages[stageIdx] = _stages[stageIdx].copyWith(fixtures: fixtures);
       });
       _persist();
@@ -427,7 +466,8 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
 
     setState(() {
       final fixtures = List<ScheduleFixture>.from(stage.fixtures);
-      fixtures[fxIdx] = fx.copyWith(status: FixtureStatus.completed);
+      fixtures[fxIdx] =
+          fx.copyWith(status: FixtureStatus.completed, winnerTeamId: winnerId);
       _stages[stageIdx] = _stages[stageIdx].copyWith(fixtures: fixtures);
     });
 
@@ -702,12 +742,15 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                             ),
                             const Gap(4),
                             Row(children: [
-                              Icon(Icons.schedule,
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), size: 12),
+                              const Icon(Icons.schedule,
+                                  size: 12,
+                                  color: Colors.grey),
                               const Gap(4),
-                              Text(_fmtTime(fx.scheduledDateTime),
-                                  style: const TextStyle(
-                                      color: Colors.grey, fontSize: 11)),
+                              Flexible(
+                                  child: Text(_fmtTime(fx.scheduledDateTime),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.grey, fontSize: 11))),
                               if ((fx.venue ?? '').isNotEmpty) ...[
                                 const Gap(10),
                                 Icon(Icons.location_on,
@@ -724,6 +767,21 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                               _eliminatedTag(_teamName(fx.resolvedTeamAId))
                             else if (_isEliminated(fx.resolvedTeamBId))
                               _eliminatedTag(_teamName(fx.resolvedTeamBId)),
+                            if (fx.winnerRule != null ||
+                                fx.loserRule != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (fx.winnerRule != null)
+                                      _ruleChip('W', fx.winnerRule!),
+                                    if (fx.loserRule != null)
+                                      _ruleChip('L', fx.loserRule!),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -742,6 +800,11 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
                             : l10n.translate('declare_result'),
                         onPressed: () => _declareResult(index, f),
                       ),
+                      IconButton(
+                          icon: const Icon(Icons.alt_route,
+                              color: AppColors.floodlightGold, size: 18),
+                          tooltip: l10n.translate('progression'),
+                          onPressed: () => _configureProgression(index, f)),
                       IconButton(
                           icon: Icon(Icons.edit_outlined,
                               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), size: 16),
@@ -785,6 +848,56 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
       ),
     );
   }
+
+  Widget _ruleChip(String prefix, FixtureProgressionRule rule) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      constraints: const BoxConstraints(maxWidth: 220),
+      decoration: BoxDecoration(
+        color: AppColors.floodlightGold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: AppColors.floodlightGold.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$prefix → ${_ruleDestinationLabel(rule, l10n)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+            color: AppColors.floodlightGold,
+            fontSize: 10,
+            fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  String _ruleDestinationLabel(
+      FixtureProgressionRule rule, AppLocalizations l10n) {
+    switch (rule.destinationType) {
+      case ProgressionDestinationType.fixture:
+        for (final item in _allFixtureItems()) {
+          if (item.id == rule.destinationFixtureId) return item.label;
+        }
+        return _idShort(rule.destinationFixtureId);
+      case ProgressionDestinationType.stage:
+        final s =
+            _stages.where((s) => s.id == rule.destinationStageId).firstOrNull;
+        return s?.name ?? _idShort(rule.destinationStageId);
+      case ProgressionDestinationType.waiting:
+        return l10n.translate('waiting_for_opponent');
+      case ProgressionDestinationType.qualify:
+        return 'Qualify';
+      case ProgressionDestinationType.champion:
+        return l10n.translate('champion');
+      case ProgressionDestinationType.eliminated:
+        return l10n.translate('eliminated');
+    }
+  }
+
+  String _idShort(String? id) => id == null || id.length < 8
+      ? (id ?? '—')
+      : id.substring(0, 8);
 
   IconData _stageIcon(ScheduleStage stage) {
     final lower = stage.name.toLowerCase();
@@ -1007,6 +1120,317 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
           .toList(),
       onChanged: onChanged,
       hint: Text(l10n.translate('select_teams'), style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38))),
+    );
+  }
+}
+
+/// Configures the winner/loser destinations for a fixture.
+class _FixtureProgressionResult {
+  final FixtureProgressionRule? winnerRule;
+  final FixtureProgressionRule? loserRule;
+  const _FixtureProgressionResult({this.winnerRule, this.loserRule});
+}
+
+class _ProgressionSheet extends StatefulWidget {
+  final ScheduleFixture fixture;
+  final List<ScheduleStage> stages;
+  final List<({String id, String label, String stageId})> fixtureItems;
+
+  const _ProgressionSheet({
+    required this.fixture,
+    required this.stages,
+    required this.fixtureItems,
+  });
+
+  @override
+  State<_ProgressionSheet> createState() => _ProgressionSheetState();
+}
+
+class _ProgressionSheetState extends State<_ProgressionSheet> {
+  late ProgressionDestinationType _winnerType;
+  late ProgressionDestinationType _loserType;
+  String? _winnerFixtureId;
+  String? _winnerStageId;
+  String? _loserFixtureId;
+  String? _loserStageId;
+
+  @override
+  void initState() {
+    super.initState();
+    final w = widget.fixture.winnerRule;
+    final l = widget.fixture.loserRule;
+    _winnerType = w?.destinationType ?? ProgressionDestinationType.waiting;
+    _loserType = l?.destinationType ?? ProgressionDestinationType.eliminated;
+    _winnerFixtureId = w?.destinationFixtureId;
+    _winnerStageId = w?.destinationStageId;
+    _loserFixtureId = l?.destinationFixtureId;
+    _loserStageId = l?.destinationStageId;
+  }
+
+  static const _winnerOptions = [
+    ProgressionDestinationType.fixture,
+    ProgressionDestinationType.stage,
+    ProgressionDestinationType.waiting,
+    ProgressionDestinationType.qualify,
+    ProgressionDestinationType.champion,
+  ];
+
+  static const _loserOptions = [
+    ProgressionDestinationType.fixture,
+    ProgressionDestinationType.stage,
+    ProgressionDestinationType.waiting,
+    ProgressionDestinationType.qualify,
+    ProgressionDestinationType.eliminated,
+  ];
+
+  FixtureProgressionRule? _buildRule(
+    String outcome,
+    ProgressionDestinationType type, {
+    String? fixtureId,
+    String? stageId,
+  }) {
+    switch (type) {
+      case ProgressionDestinationType.fixture:
+        if (fixtureId == null) return null;
+        final target =
+            widget.fixtureItems.where((i) => i.id == fixtureId).firstOrNull;
+        return FixtureProgressionRule(
+          sourceFixtureId: widget.fixture.id,
+          outcome: outcome,
+          destinationType: type,
+          destinationFixtureId: fixtureId,
+          destinationStageId: target?.stageId ?? stageId,
+        );
+      case ProgressionDestinationType.stage:
+        if (stageId == null) return null;
+        return FixtureProgressionRule(
+          sourceFixtureId: widget.fixture.id,
+          outcome: outcome,
+          destinationType: type,
+          destinationStageId: stageId,
+        );
+      case ProgressionDestinationType.waiting:
+      case ProgressionDestinationType.qualify:
+      case ProgressionDestinationType.champion:
+      case ProgressionDestinationType.eliminated:
+        return FixtureProgressionRule(
+          sourceFixtureId: widget.fixture.id,
+          outcome: outcome,
+          destinationType: type,
+        );
+    }
+  }
+
+  void _save() {
+    // "waiting" for the winner collapses to no explicit rule (default path).
+    FixtureProgressionRule? winner;
+    if (_winnerType != ProgressionDestinationType.waiting) {
+      winner = _buildRule('winner', _winnerType,
+          fixtureId: _winnerFixtureId, stageId: _winnerStageId);
+    }
+    Navigator.of(context).pop(_FixtureProgressionResult(
+      winnerRule: winner,
+      loserRule: _buildRule('loser', _loserType,
+          fixtureId: _loserFixtureId, stageId: _loserStageId),
+    ));
+  }
+
+  String _destKindLabel(
+      ProgressionDestinationType type, AppLocalizations l10n) {
+    switch (type) {
+      case ProgressionDestinationType.fixture:
+        return l10n.translate('target_fixture');
+      case ProgressionDestinationType.stage:
+        return l10n.translate('target_stage');
+      case ProgressionDestinationType.waiting:
+        return l10n.translate('waiting_for_opponent');
+      case ProgressionDestinationType.qualify:
+        return 'Qualify';
+      case ProgressionDestinationType.champion:
+        return l10n.translate('champion');
+      case ProgressionDestinationType.eliminated:
+        return l10n.translate('eliminated');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+
+    Widget destPicker(
+      String label,
+      List<ProgressionDestinationType> types,
+      ProgressionDestinationType current,
+      ValueChanged<ProgressionDestinationType> onChanged,
+    ) {
+      return DropdownButtonFormField<ProgressionDestinationType>(
+        value: current,
+        dropdownColor: theme.colorScheme.surface,
+        isExpanded: true,
+        style: TextStyle(color: theme.colorScheme.onSurface),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+          filled: true,
+          fillColor: theme.inputDecorationTheme.fillColor ??
+              theme.colorScheme.surfaceVariant,
+          border: const OutlineInputBorder(),
+        ),
+        items: types
+            .map((t) => DropdownMenuItem(
+                value: t,
+                child: Text(_destKindLabel(t, l10n),
+                    overflow: TextOverflow.ellipsis)))
+            .toList(),
+        onChanged: (v) => v == null ? null : onChanged(v),
+      );
+    }
+
+    Widget fixtureDropdown(String? value, ValueChanged<String?> onChange) {
+      return DropdownButtonFormField<String>(
+        value: value,
+        dropdownColor: theme.colorScheme.surface,
+        isExpanded: true,
+        style: TextStyle(color: theme.colorScheme.onSurface),
+        decoration: InputDecoration(
+          labelText: l10n.translate('target_fixture'),
+          labelStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+          filled: true,
+          fillColor: theme.inputDecorationTheme.fillColor ??
+              theme.colorScheme.surfaceVariant,
+          border: const OutlineInputBorder(),
+        ),
+        items: widget.fixtureItems
+            .map((i) => DropdownMenuItem(
+                value: i.id,
+                child: Text(i.label, overflow: TextOverflow.ellipsis)))
+            .toList(),
+        onChanged: onChange,
+      );
+    }
+
+    Widget stageDropdown(String? value, ValueChanged<String?> onChange) {
+      return DropdownButtonFormField<String>(
+        value: value,
+        dropdownColor: theme.colorScheme.surface,
+        isExpanded: true,
+        style: TextStyle(color: theme.colorScheme.onSurface),
+        decoration: InputDecoration(
+          labelText: l10n.translate('target_stage'),
+          labelStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+          filled: true,
+          fillColor: theme.inputDecorationTheme.fillColor ??
+              theme.colorScheme.surfaceVariant,
+          border: const OutlineInputBorder(),
+        ),
+        items: widget.stages
+            .map((s) => DropdownMenuItem(
+                value: s.id, child: Text(s.name, overflow: TextOverflow.ellipsis)))
+            .toList(),
+        onChanged: onChange,
+      );
+    }
+
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.translate('progression'),
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+              const Gap(4),
+              Text(
+                  '${widget.fixture.resolvedTeamAId} vs '
+                  '${widget.fixture.resolvedTeamBId}',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.54),
+                      fontSize: 12)),
+              const Gap(16),
+              Text(l10n.translate('winner_destination'),
+                  style: const TextStyle(
+                      color: AppColors.pitchGreenLight,
+                      fontWeight: FontWeight.bold)),
+              const Gap(8),
+              destPicker(
+                l10n.translate('winner_destination'),
+                _winnerOptions,
+                _winnerType,
+                (v) => setState(() => _winnerType = v),
+              ),
+              if (_winnerType == ProgressionDestinationType.fixture) ...[
+                const Gap(8),
+                fixtureDropdown(_winnerFixtureId,
+                    (v) => setState(() => _winnerFixtureId = v)),
+              ],
+              if (_winnerType == ProgressionDestinationType.stage) ...[
+                const Gap(8),
+                stageDropdown(_winnerStageId,
+                    (v) => setState(() => _winnerStageId = v)),
+              ],
+              const Gap(16),
+              Text(l10n.translate('loser_destination'),
+                  style: const TextStyle(
+                      color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              const Gap(8),
+              destPicker(
+                l10n.translate('loser_destination'),
+                _loserOptions,
+                _loserType,
+                (v) => setState(() => _loserType = v),
+              ),
+              if (_loserType == ProgressionDestinationType.fixture) ...[
+                const Gap(8),
+                fixtureDropdown(_loserFixtureId,
+                    (v) => setState(() => _loserFixtureId = v)),
+              ],
+              if (_loserType == ProgressionDestinationType.stage) ...[
+                const Gap(8),
+                stageDropdown(_loserStageId,
+                    (v) => setState(() => _loserStageId = v)),
+              ],
+              const Gap(20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(l10n.translate('cancel')),
+                    ),
+                  ),
+                  const Gap(10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _save,
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.pitchGreen,
+                          foregroundColor: Colors.white),
+                      child: Text(l10n.translate('save'),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

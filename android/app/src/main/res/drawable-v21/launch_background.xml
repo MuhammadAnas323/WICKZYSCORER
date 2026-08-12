@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Plain white background while the Flutter engine starts. The branded
-     Flutter splash screen takes over on the first rendered frame. -->
+<!-- Pre-Android-12 (API 21-30) launch screen: brand navy behind the vector
+     mark. Static by OS design on these versions; real motion comes from the
+     Android 12+ SplashScreen API (values-v31) and the Flutter Phase-2 anim.
+     The <scale> wrapper keeps the 160dp vector centered at icon size. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/launch_background" />
+    <item android:drawable="@color/splash_navy" />
+    <item>
+        <scale
+            android:drawable="@drawable/wikzy_splash_mark"
+            android:scaleWidth="32%"
+            android:scaleHeight="32%"
+            android:scaleGravity="center" />
+    </item>
 </layer-list>

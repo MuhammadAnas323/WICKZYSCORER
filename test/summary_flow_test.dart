@@ -219,6 +219,83 @@ ScorerMatch buildTiedMatch() {
   );
 }
 
+/// 2-over-per-side match tied at 6 runs each, with innings 2 already 9 wickets
+/// down. The next (10th) wicket makes it all out on the same total.
+ScorerMatch buildAllOutTieMatch() {
+  final inn1 = Innings(
+    id: 'inn_1',
+    battingTeamId: 'team1',
+    bowlingTeamId: 'team2',
+    inningsNumber: 1,
+    balls: List.generate(
+      6,
+      (i) => BallEvent(
+          overNumber: 1,
+          ballInOver: i + 1,
+          batsmanId: 'p1',
+          bowlerId: 'p4',
+          runs: 1,
+          extrasType: ExtrasType.none,
+          extrasRuns: 0,
+          isWicket: false,
+          isBoundary: false,
+          isSix: false,
+          timestamp: DateTime(2026, 1, 1)),
+    ),
+    battingOrder: const ['p1', 'p2'],
+    bowlingOrder: const ['p4'],
+    isComplete: true,
+    strikerId: 'p1',
+    nonStrikerId: 'p2',
+    currentBowlerId: 'p4',
+  );
+
+  final inn2 = Innings(
+    id: 'inn_2',
+    battingTeamId: 'team2',
+    bowlingTeamId: 'team1',
+    inningsNumber: 2,
+    balls: List.generate(
+      9,
+      (i) => BallEvent(
+          overNumber: (i ~/ 6) + 1,
+          ballInOver: (i % 6) + 1,
+          batsmanId: 'p4',
+          bowlerId: 'p1',
+          runs: i < 6 ? 1 : 0,
+          extrasType: ExtrasType.none,
+          extrasRuns: 0,
+          isWicket: true,
+          isBoundary: false,
+          isSix: false,
+          timestamp: DateTime(2026, 1, 1)),
+    ),
+    battingOrder: const ['p4', 'p5'],
+    bowlingOrder: const ['p1'],
+    isComplete: false,
+    strikerId: 'p4',
+    nonStrikerId: 'p5',
+    currentBowlerId: 'p1',
+  );
+
+  return ScorerMatch(
+    id: 'm1',
+    tournamentId: 't_custom',
+    team1Id: 'team1',
+    team2Id: 'team2',
+    venue: 'Ground',
+    dateTime: DateTime(2026, 1, 1),
+    format: MatchFormat.t20,
+    overs: 2,
+    status: MatchStatus.inProgress,
+    playingXI1: const ['p1', 'p2'],
+    playingXI2: const ['p4', 'p5'],
+    innings1: inn1,
+    innings2: inn2,
+    currentInnings: 2,
+  );
+}
+
 /// Completed 1-over match: team1 made 10/0, team2 chased 14/0 (won).
 /// Batter P1: 10 runs off 6 balls (SR 166.7). Bowler P1 in innings 2:
 /// 14 runs off 6 balls (Econ 14.00).
@@ -995,6 +1072,379 @@ void main() {
     expect(find.byType(MatchSummaryScreen), findsOneWidget);
   });
 
+  testWidgets('tied match: summary shows the tie even when the match is '
+      'completed within the persist debounce window', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    final match = buildTiedMatch();
+    // Simulate real usage: the match is already persisted to the repo cache
+    // from earlier balls, so the repo holds a snapshot that is stale until the
+    // next 800ms debounced flush lands.
+    await repo.saveMatch(match);
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.text('5/0'), findsOneWidget);
+
+    // 6th legal ball ties the match at 6/6. Keep the total elapsed time under
+    // the 800ms persist debounce so the repo cache still holds the stale
+    // pre-tying-ball snapshot when the summary resolves the match.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+
+    // Decline the super over and open the summary immediately (zero-duration
+    // pumps keep the clock under the 800ms persist debounce).
+    await tester.tap(find.widgetWithText(TextButton, 'Complete Match'));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump();
+    }
+
+    // The summary must reflect the FRESH match: tied card and both innings at
+    // 6/0 (the stale pre-ball snapshot would still show the 2nd innings at 5/0).
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+    expect(find.text('6/0'), findsWidgets);
+    expect(find.text('5/0'), findsNothing);
+
+    // Let the pending 800ms persist debounce fire so the test ends cleanly.
+    await tester.pump(const Duration(milliseconds: 900));
+  });
+
+  testWidgets('tied mid-innings with balls remaining does NOT raise a super '
+      'over dialog and scoring continues', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    // Two overs per innings: the chasing side can tie at 6/0 after its first
+    // over (6 legal balls) with a whole over still to bat.
+    final match = buildTiedMatch().copyWith(overs: 2);
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.text('5/0'), findsOneWidget);
+
+    // 6th legal ball takes the chase to 6/0 — level with innings 1, but the
+    // over ISN'T done (it's a 2-over match) and the side is NOT all out.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // No super-over dialog and no summary: the match is not over, scoring goes
+    // on (a next-bowler prompt may appear for the new over, which is expected).
+    expect(find.textContaining('Match Tied!'), findsNothing);
+    expect(find.byType(MatchSummaryScreen), findsNothing);
+    expect(find.byType(LiveScoringScreen), findsOneWidget);
+
+    // Let the pending persist debounce fire so the test ends cleanly.
+    await tester.pump(const Duration(milliseconds: 900));
+  });
+
+  testWidgets('all-out tie on the final ball raises the super over dialog',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    // Innings 2 is 9 wickets down on 6 runs (level with innings 1's 6). The
+    // next (10th) wicket makes them all out at the same total.
+    final match = buildAllOutTieMatch();
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.text('6/9'), findsOneWidget);
+
+    // Record the 10th wicket via the wicket sheet.
+    await tester.ensureVisible(find.text('WICKET'));
+    await tester.pump();
+    await tester.tap(find.text('WICKET'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.textContaining('Wicket!'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Confirm Wicket'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Confirm Wicket'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // All out on the same total -> the super-over offer appears.
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+    expect(find.byType(MatchSummaryScreen), findsNothing);
+
+    // Let the pending persist debounce fire so the test ends cleanly.
+    await tester.pump(const Duration(milliseconds: 900));
+  });
+
+  testWidgets('super over tied: dialog offers to start again or accept the '
+      'tie', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/live-scoring',
+      routes: [
+        GoRoute(
+          path: '/scorer/live-scoring',
+          name: 'live',
+          builder: (context, state) => const LiveScoringScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    final match = buildTiedMatch();
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(match);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.text('5/0'), findsOneWidget);
+
+    // Main innings tie at 6/6 -> the super-over dialog with the new text.
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.text('1')).first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+    expect(find.textContaining('Do you want to start the Super Over'),
+        findsOneWidget);
+
+    // Start the super over.
+    await tester.tap(find.text('Start Super Over'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // Super over setup: openers for team2 (Strike) + bowler from team1.
+    expect(find.textContaining('Super Over Setup'), findsOneWidget);
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog), matching: find.text('Strike')).first);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog), matching: find.text('Non-S')).at(1));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(RadioListTile<String>, 'P1')));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Start Match'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // Super over innings 1: 6 singles -> 6/0, the over is done.
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.descendant(
+          of: find.byType(GridView), matching: find.text('1')).first);
+      for (var j = 0; j < 6; j++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+    expect(find.text('6/0'), findsOneWidget);
+
+    // Banner to start the super over chase.
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Start Match'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // Chase openers dialog (team1 bats the chase).
+    expect(
+        find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('⚡ Super Over')),
+        findsOneWidget);
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog), matching: find.text('Strike')).first);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog), matching: find.text('Non-S')).at(1));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(RadioListTile<String>, 'P4')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(ElevatedButton, 'Start Match')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // Super over chase: 6 singles tie it at 6/6 with the over done.
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.descendant(
+          of: find.byType(GridView), matching: find.text('1')).first);
+      for (var j = 0; j < 6; j++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    // A tied super over re-opens the same dialog: start again or stop.
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+    expect(find.text('Start Super Over'), findsOneWidget);
+
+    // Accept the tie: the summary shows the tied result with both teams.
+    await tester.tap(find.widgetWithText(TextButton, 'Complete Match'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+    expect(find.textContaining('Match Tied!'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 900));
+  });
+
   testWidgets('match summary shows full batting and bowling scorecards',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -1054,5 +1504,94 @@ void main() {
     expect(find.text('Bowler'), findsWidgets);
     expect(find.text('Econ'), findsWidgets);
     expect(find.text('14.00'), findsWidgets);
+  });
+
+  testWidgets(
+      'summary completes the opened match even when a different match is active',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = ScorerRepository(null);
+    await seedPlayers(repo);
+
+    // m1 is the match to complete via the summary; m2 is a different draft
+    // that is currently the active live session.
+    final m1 = buildCompletedMatch().copyWith(
+      status: MatchStatus.inProgress,
+      winnerTeamId: null,
+      loserTeamId: null,
+      resultSummary: null,
+    );
+    final m2 = buildInProgressMatch().copyWith(id: 'm2');
+    await repo.saveMatch(m1);
+    await repo.saveMatch(m2);
+
+    final router = GoRouter(
+      initialLocation: '/scorer/match-summary?matchId=m1',
+      routes: [
+        GoRoute(
+          path: '/scorer/match-summary',
+          name: 'summary',
+          builder: (context, state) => const MatchSummaryScreen(),
+        ),
+        GoRoute(
+          path: '/scorer/dashboard',
+          name: 'dashboard',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('DASHBOARD'))),
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [scorerRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    container.read(scorerLiveMatchRepositoryProvider).setActiveMatch(m2);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('ur', '')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.byType(MatchSummaryScreen), findsOneWidget);
+
+    // The summary shows the recomputed result for the opened match, not the
+    // active session's.
+    expect(find.textContaining('won by'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Complete Match'),
+        100,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Complete Match'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('DASHBOARD'), findsOneWidget);
+
+    final saved1 = await repo.getMatch('m1');
+    expect(saved1, isNotNull);
+    expect(saved1!.status, MatchStatus.completed);
+    expect(saved1.resultSummary, isNotEmpty);
+
+    // The unrelated active draft is left untouched.
+    final saved2 = await repo.getMatch('m2');
+    expect(saved2, isNotNull);
+    expect(saved2!.status, MatchStatus.inProgress);
   });
 }

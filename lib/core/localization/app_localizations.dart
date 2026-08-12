@@ -6,7 +6,7 @@ class AppLocalizations {
 
   static final Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'scorer_dashboard': 'CRIXORA SCORER',
+      'scorer_dashboard': 'WICKZYSCORER SCORER',
       'welcome': 'Welcome',
       'tournaments': 'Tournaments',
       'manage_score_tournaments': 'Manage & score tournaments',
@@ -88,7 +88,8 @@ class AppLocalizations {
       'start_second_innings': 'Start 2nd Innings',
       'innings_complete': 'Innings is complete. Start the next innings.',
       'match_tied': 'Match Tied!',
-      'super_over_question': 'The match ended in a tie. Would you like to play a Super Over to decide the winner?',
+      'super_over_question':
+          'The match is tied. Do you want to start the Super Over?',
       'start_super_over': 'Start Super Over',
       'no': 'No',
       'yes': 'Yes',
@@ -96,8 +97,8 @@ class AppLocalizations {
       'who_bats_first': 'Who bats first in the Super Over?',
       'super_over_description':
           'Each team bats one over of 6 balls. The team with the higher score '
-          'after both overs wins the match. Choose the batting team, then tap '
-          'Strike / Non-S for the two batters and pick a bowler.',
+              'after both overs wins the match. Choose the batting team, then tap '
+              'Strike / Non-S for the two batters and pick a bowler.',
       'start_match': 'Start Match',
       'super_over_banner': 'Super Over',
       'complete_match': 'Complete Match',
@@ -244,7 +245,8 @@ class AppLocalizations {
       'available_bowlers': 'Available Bowlers',
       'next_batsman': 'Next Batsman',
       'who_comes_to_bat': 'Who comes in to bat?',
-      'no_batsmen_available': 'No players available to bat. Add players to the batting team first.',
+      'no_batsmen_available':
+          'No players available to bat. Add players to the batting team first.',
 
       // Scheduling
       'manual_schedule': 'Manual Schedule',
@@ -260,6 +262,20 @@ class AppLocalizations {
       'next_stage': 'Next Stage',
       'next_match': 'Next Match',
       'eliminate': 'Eliminate',
+      'eliminated': 'Eliminated',
+      'waiting_for_opponent': 'Waiting for opponent',
+      'next_match_ready': 'Next match ready',
+      'advances_to': 'Advances to',
+      'qualified': 'Qualified',
+      'champion': 'Champion',
+      'tournament_progress': 'Tournament Progress',
+      'progression_hint': 'See how both teams continue in this tournament.',
+      'continue': 'Continue',
+      'progression': 'Progression',
+      'winner_destination': 'Winner goes to',
+      'loser_destination': 'Loser goes to',
+      'target_fixture': 'Destination match',
+      'target_stage': 'Destination stage',
 
       // Direct Tournament Schedule Flow
       'select_tournament': 'Select Tournament',
@@ -284,7 +300,7 @@ class AppLocalizations {
       'no_data': 'No Data',
     },
     'ur': {
-      'scorer_dashboard': 'کرکسورا اسکورر',
+      'scorer_dashboard': 'وکسزی اسکورر',
       'welcome': 'خوش آمدید',
       'tournaments': 'ٹورنامنٹس',
       'manage_score_tournaments': 'ٹورنامنٹس کا انتظام اور اسکورنگ کریں',
@@ -366,7 +382,8 @@ class AppLocalizations {
       'start_second_innings': 'دوسری اننگز شروع کریں',
       'innings_complete': 'اننگز مکمل ہے۔ اگلی اننگز شروع کریں۔',
       'match_tied': 'میچ برابر ہو گیا!',
-      'super_over_question': 'میچ برابر رہا۔ کیا آپ سپر اوور کھیل کر فاتح کا فیصلہ کرنا چاہیں گے؟',
+      'super_over_question':
+          'میچ برابر ہے۔ کیا آپ سپر اوور شروع کرنا چاہیں گے؟',
       'start_super_over': 'سپر اوور شروع کریں',
       'no': 'نہیں',
       'yes': 'ہاں',
@@ -374,8 +391,8 @@ class AppLocalizations {
       'who_bats_first': 'سپر اوور میں پہلے کون بیٹنگ کرے گا؟',
       'super_over_description':
           'ہر ٹیم 6 گیندوں کا ایک اوور کھیلتی ہے۔ دونوں اوور کے بعد جس ٹیم کے '
-          'زیادہ رنز ہوں گے وہ میچ جیت جائے گی۔ بیٹنگ ٹیم منتخب کریں، پھر دو '
-          'کھلاڑیوں کو سٹرائیک/نان سٹرائیک کے طور پر منتخب کریں اور ایک بولر چنیں۔',
+              'زیادہ رنز ہوں گے وہ میچ جیت جائے گی۔ بیٹنگ ٹیم منتخب کریں، پھر دو '
+              'کھلاڑیوں کو سٹرائیک/نان سٹرائیک کے طور پر منتخب کریں اور ایک بولر چنیں۔',
       'start_match': 'میچ شروع کریں',
       'super_over_banner': 'سپر اوور',
       'complete_match': 'میچ مکمل کریں',
@@ -412,7 +429,8 @@ class AppLocalizations {
       'scoring_choice': 'آپ کیا کرنا چاہیں گے؟',
       'scoring_choice_hint':
           'ٹورنامنٹ کا انتخاب کریں یا انفرادی میچ ترتیب دیں۔',
-      'tournament_card_subtitle': 'ٹورنامنٹ منتخب کریں اور اس کے آنے والے میچ دیکھیں',
+      'tournament_card_subtitle':
+          'ٹورنامنٹ منتخب کریں اور اس کے آنے والے میچ دیکھیں',
       'match_card_subtitle': 'انفرادی میچ ترتیب دیں - مقام، ٹیمیں اور کھلاڑی',
       'schedule_match': 'میچ شیڈول کریں',
       'select_different_teams': 'دو مختلف ٹیمیں منتخب کریں',
@@ -511,15 +529,15 @@ class AppLocalizations {
       'retired_hurt': 'ریٹائرڈ ہرٹ',
       'retired_hurt_confirm':
           'یہ بولر اس اننگز میں مزید بولنگ نہیں کر سکے گا۔ اسکورنگ جاری رکھنے کے لیے نیا بولر منتخب کریں۔',
-      'select_bowler_to_continue':
-          'اسکورنگ جاری رکھنے کے لیے بولر منتخب کریں۔',
+      'select_bowler_to_continue': 'اسکورنگ جاری رکھنے کے لیے بولر منتخب کریں۔',
       'select_bowler_first': 'پہلے بولر منتخب کریں',
       'change_bowler_hint':
           'موجودہ بولر کو تبدیل کریں یا انہیں ریٹائرڈ ہرٹ کریں۔',
       'available_bowlers': 'دستیاب بولرز',
       'next_batsman': 'اگلا بیٹسمین',
       'who_comes_to_bat': 'کون بیٹنگ کرنے آئے گا؟',
-      'no_batsmen_available': 'بیٹنگ کے لیے کوئی کھلاڑی دستیاب نہیں۔ پہلے بیٹنگ ٹیم میں کھلاڑی شامل کریں۔',
+      'no_batsmen_available':
+          'بیٹنگ کے لیے کوئی کھلاڑی دستیاب نہیں۔ پہلے بیٹنگ ٹیم میں کھلاڑی شامل کریں۔',
 
       // Scheduling
       'manual_schedule': 'دستی شیڈول',
@@ -535,6 +553,21 @@ class AppLocalizations {
       'next_stage': 'اگلا مرحلہ',
       'next_match': 'اگلا میچ',
       'eliminate': 'باہر (Eliminate)',
+      'eliminated': 'باہر ہو گئی',
+      'waiting_for_opponent': 'مخالف کا انتظار',
+      'next_match_ready': 'اگلا میچ تیار',
+      'advances_to': 'آگے بڑھتی ہے',
+      'qualified': 'کوالیفائی',
+      'champion': 'چیمپئن',
+      'tournament_progress': 'ٹورنامنٹ پیش رفت',
+      'progression_hint':
+          'دیکھیں کہ دونوں ٹیمیں اس ٹورنامنٹ میں کیسے آگے بڑھتی ہیں۔',
+      'continue': 'جاری رکھیں',
+      'progression': 'اگلا مرحلہ',
+      'winner_destination': 'فاتح جائے گا',
+      'loser_destination': 'ہارنے والا جائے گا',
+      'target_fixture': 'منزل میچ',
+      'target_stage': 'منزل مرحلہ',
 
       // Direct Tournament Schedule Flow
       'select_tournament': 'ٹورنامنٹ منتخب کریں',
@@ -583,4 +616,3 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   @override
   bool shouldReload(AppLocalizationsDelegate old) => false;
 }
-

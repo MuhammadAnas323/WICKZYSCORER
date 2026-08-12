@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WickzyScorer brand mark as a pure vector (no PNG anywhere in the splash).
+     Metallic silver "W" merging into an electric-blue "S", a diagonal speed
+     streak, a partial blue arc (solid + dashed tail) and a lens-flare spark
+     where the arc breaks. Content is kept inside the inner ~2/3 of the
+     Android 12 splash mask (the outer group scales 0.95 around the center). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="300"
+    android:viewportHeight="300">
+
+    <!-- Keeps the glyph clear of the Android 12 splplash circle mask. -->
+    <group
+        android:pivotX="150"
+        android:pivotY="150"
+        android:scaleX="0.95"
+        android:scaleY="0.95">
+
+        <!-- Fade + scale-in group (driven by splash_mark_fade_scale animator). -->
+        <group
+            android:name="mark_scale"
+            android:pivotX="150"
+            android:pivotY="150">
+
+            <!-- "W" — wide bevel underline (metallic depth) -->
+            <path
+                android:pathData="M30,84 L52,196 L73,124 L95,196 L118,84"
+                android:strokeColor="#9AA7BB"
+                android:strokeWidth="30"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:fillColor="#00000000" />
+            <!-- "W" — metallic silver core -->
+            <path
+                android:pathData="M30,84 L52,196 L73,124 L95,196 L118,84"
+                android:strokeColor="#E3E9F2"
+                android:strokeWidth="14"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:fillColor="#00000000" />
+
+            <!-- "S" — wide glow underline (electric depth) -->
+            <path
+                android:pathData="M150,84 C186,50 238,64 234,98 C230,132 178,116 180,150 C182,186 232,174 228,210"
+                android:strokeColor="#0E5BD4"
+                android:strokeWidth="30"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+            <!-- "S" — electric blue core -->
+            <path
+                android:pathData="M150,84 C186,50 238,64 234,98 C230,132 178,116 180,150 C182,186 232,174 228,210"
+                android:strokeColor="#2E86FF"
+                android:strokeWidth="14"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+
+            <!-- Diagonal speed-streak slash through the center -->
+            <path
+                android:pathData="M206,70 L94,230"
+                android:strokeColor="#8FB2FF"
+                android:strokeWidth="9"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+
+            <!-- Solid part of the circular arc; draws itself via trimPathEnd. -->
+            <path
+                android:name="arc_solid"
+                android:pathData="M59.93,98 A104,104 0 0 1 247.73,114.43"
+                android:strokeColor="#58B3FF"
+                android:strokeWidth="6"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000"
+                android:trimPathEnd="1" />
+
+            <!-- Dashed tail of the arc (pre-computed 5° on / 3.5° off dashes). -->
+            <path
+                android:pathData="M247.73,114.43 A104,104 0 0 1 250.46,123.08 A104,104 0 0 1 253.33,138.23 A104,104 0 0 1 253.94,153.63 A104,104 0 0 1 252.26,168.95 A104,104 0 0 1 248.33,183.86 A104,104 0 0 1 242.25,198.02 A104,104 0 0 1 234.14,211.13 A104,104 0 0 1 224.18,222.89 A104,104 0 0 1 212.59,233.06 A104,104 0 0 1 199.62,241.4 A104,104 0 0 1 185.57,247.73 A104,104 0 0 1 170.73,251.91 A104,104 0 0 1 155.44,253.86 A104,104 0 0 1 140.03,253.52 A104,104 0 0 1 124.84,250.91"
+                android:strokeColor="#58B3FF"
+                android:strokeWidth="6"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+
+            <!-- Lens-flare spark where the arc breaks (pulses in at the end). -->
+            <group
+                android:name="spark_scale"
+                android:pivotX="123.08"
+                android:pivotY="250.46">
+                <path
+                    android:pathData="M123.08,234.46 L128.08,246.46 L140.08,250.46 L128.08,254.46 L123.08,266.46 L118.08,254.46 L106.08,250.46 L118.08,246.46 Z"
+                    android:fillColor="#EAF4FF" />
+            </group>
+        </group>
+    </group>
+</vector>

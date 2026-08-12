@@ -20,9 +20,13 @@ class ScorerTeam {
     this.ownerName,
     this.whatsappNumber,
     this.isEliminated = false,
+    this.isQualified = false,
+    this.isChampion = false,
   });
 
   final bool isEliminated;
+  final bool isQualified;
+  final bool isChampion;
 
   String get shortName => shortCode;
   List<String> get playersIds => playerIds;
@@ -38,6 +42,8 @@ class ScorerTeam {
     String? ownerName,
     String? whatsappNumber,
     bool? isEliminated,
+    bool? isQualified,
+    bool? isChampion,
   }) {
     return ScorerTeam(
       id: id ?? this.id,
@@ -50,6 +56,8 @@ class ScorerTeam {
       ownerName: ownerName ?? this.ownerName,
       whatsappNumber: whatsappNumber ?? this.whatsappNumber,
       isEliminated: isEliminated ?? this.isEliminated,
+      isQualified: isQualified ?? this.isQualified,
+      isChampion: isChampion ?? this.isChampion,
     );
   }
 }

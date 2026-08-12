@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:sportyapp/core/providers/auth_provider.dart';
+import 'package:sportyapp/core/utils/app_error_handler.dart';
+
 final authStateProvider = StreamProvider<User?>((ref) {
   try {
     return FirebaseAuth.instance.authStateChanges();
@@ -25,17 +28,17 @@ final userDetailProvider = Provider<User?>((ref) {
 });
 
 class AuthViewModel extends StateNotifier<bool> {
-  AuthViewModel() : super(false);
+  final Ref ref;
+  AuthViewModel(this.ref) : super(false);
 
   Future<void> signUpWithEmail(String email, String password, String name) async {
     state = true;
     try {
-      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await ref.read(currentUserProvider.notifier).signUpSpectator(
+        name: name,
         email: email,
         password: password,
       );
-      await credential.user?.updateDisplayName(name);
-      await credential.user?.reload();
     } catch (e, stack) {
       debugPrint('SignUp error: $e\n$stack');
       rethrow;
@@ -47,10 +50,7 @@ class AuthViewModel extends StateNotifier<bool> {
   Future<void> signInWithEmail(String email, String password) async {
     state = true;
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await ref.read(currentUserProvider.notifier).signIn(email, password);
     } catch (e, stack) {
       debugPrint('SignIn error: $e\n$stack');
       rethrow;
@@ -62,10 +62,7 @@ class AuthViewModel extends StateNotifier<bool> {
   Future<void> signInWithGoogle() async {
     state = true;
     try {
-      // Direct access to FirebaseAuth is okay here if we use standard Google provider,
-      // but CurrentUserNotifier/AuthService handle role sync which is better.
-      // However AuthViewModel seems to be used mainly by SignUpScreen which is a bit messy.
-      // I'll stick to the pattern but it's redundant with SignInViewModel.
+      await ref.read(currentUserProvider.notifier).signInWithGoogle();
     } catch (e, stack) {
       debugPrint('Google Sign-In error: $e\n$stack');
       rethrow;
@@ -83,5 +80,5 @@ class AuthViewModel extends StateNotifier<bool> {
 }
 
 final authViewModelProvider = StateNotifierProvider<AuthViewModel, bool>((ref) {
-  return AuthViewModel();
+  return AuthViewModel(ref);
 });

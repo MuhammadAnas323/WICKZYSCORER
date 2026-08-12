@@ -1,5 +1,5 @@
 // lib/ui/scorer/shell/scorer_shell.dart
-// Bottom navigation shell for the scorer area of CRIXORA.
+// Bottom navigation shell for the scorer area of WICKZYSCORER.
 // Tabs: Home · Tournaments · Create Match (center) · Settings · Profile
 
 import 'package:flutter/material.dart';

@@ -1,8 +1,6 @@
 // lib/data/models/scorer/tournament_progression.dart
 // Tournament Progression Engine data models
 
-import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
-
 /// Indicates the current progression status of a team in the tournament
 enum TeamProgressionStatus {
   active,       // Still playing

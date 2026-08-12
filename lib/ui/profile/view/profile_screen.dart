@@ -25,11 +25,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final displayName = fbUser?.displayName ?? (state.displayName.isNotEmpty ? state.displayName : (appUser?.name ?? 'User'));
-    final email = fbUser?.email ?? (appUser?.email.isNotEmpty == true ? appUser!.email : 'user@crixora.com');
+    final displayName = fbUser?.displayName ??
+        (state.displayName.isNotEmpty
+            ? state.displayName
+            : (appUser?.name ?? 'User'));
+    final email = fbUser?.email ??
+        (appUser?.email.isNotEmpty == true
+            ? appUser!.email
+            : 'user@wickzyscorer.com');
     final isScorer = appUser?.role == AppUserRole.scorer;
     final l10n = AppLocalizations.of(context);
-    final switchTarget = isScorer ? l10n.translate('spectator') : l10n.translate('scorer');
+    final switchTarget =
+        isScorer ? l10n.translate('spectator') : l10n.translate('scorer');
     final switchSubtitle = isScorer
         ? l10n.translate('switch_to_spectator_subtitle')
         : l10n.translate('switch_to_scorer_subtitle');
@@ -41,7 +48,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           SliverAppBar(
             pinned: true,
             expandedHeight: 200,
-            backgroundColor: isDark ? const Color(0xFF141414) : AppColors.pitchGreenDark,
+            backgroundColor:
+                isDark ? const Color(0xFF141414) : AppColors.pitchGreenDark,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -99,7 +107,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Mode Switch Tile ─────────────────────────────────────
-                  Text(l10n.translate('mode'), style: AppTextStyles.titleLarge(cs.onBackground)),
+                  Text(l10n.translate('mode'),
+                      style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 8),
                   _actionTile(
                     context,
@@ -109,7 +118,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     AppColors.pitchGreen,
                     () async {
                       final notifier = ref.read(currentUserProvider.notifier);
-                      final targetRole = isScorer ? AppUserRole.spectator : AppUserRole.scorer;
+                      final targetRole =
+                          isScorer ? AppUserRole.spectator : AppUserRole.scorer;
                       final hasTargetAccount = isScorer
                           ? await notifier.hasSpectatorAccount()
                           : await notifier.hasScorerAccount();
@@ -132,11 +142,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 24),
 
                   // ── Main Settings & Info Section ─────────────────────────
-                  Text(l10n.translate('settings_and_info'), style: AppTextStyles.titleLarge(cs.onBackground)),
+                  Text(l10n.translate('settings_and_info'),
+                      style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 12),
-                  _navTile(context, Icons.settings_rounded, l10n.translate('settings'), '/settings'),
-                  _navTile(context, Icons.info_rounded, l10n.translate('about_crixora'), '/about'),
-                  _navTile(context, Icons.support_agent_rounded, l10n.translate('contact_support'), '/support'),
+                  _navTile(context, Icons.settings_rounded,
+                      l10n.translate('settings'), '/settings'),
+                  _navTile(context, Icons.info_rounded,
+                      l10n.translate('about_crixora'), '/about'),
+                  _navTile(context, Icons.support_agent_rounded,
+                      l10n.translate('contact_support'), '/support'),
                   const SizedBox(height: 16),
 
                   // ── Sign Out Button ─────────────────────────────────────
@@ -146,20 +160,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          backgroundColor: isDark ? const Color(0xFF222222) : Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                          title: Text(l10n.translate('sign_out'), style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold)),
-                          content: Text(l10n.translate('sign_out_confirm'), style: TextStyle(color: cs.onSurfaceVariant)),
+                          backgroundColor:
+                              isDark ? const Color(0xFF222222) : Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5)),
+                          title: Text(l10n.translate('sign_out'),
+                              style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontWeight: FontWeight.bold)),
+                          content: Text(l10n.translate('sign_out_confirm'),
+                              style: TextStyle(color: cs.onSurfaceVariant)),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
-                              child: Text(l10n.translate('cancel'), style: const TextStyle(color: Colors.grey)),
+                              child: Text(l10n.translate('cancel'),
+                                  style: const TextStyle(color: Colors.grey)),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(5)),
                               ),
                               onPressed: () => Navigator.pop(ctx, true),
                               child: Text(l10n.translate('sign_out')),
@@ -176,8 +198,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: cs.surface,
-                        borderRadius: BorderRadius.circular(5), // 5px border radius as required
-                        border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                        borderRadius: BorderRadius.circular(
+                            5), // 5px border radius as required
+                        border: Border.all(
+                            color: Colors.redAccent.withOpacity(0.4)),
                       ),
                       child: Row(
                         children: [
@@ -188,15 +212,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               color: Colors.red.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(5),
                             ),
-                            child: const Icon(Icons.logout_rounded, color: Colors.red, size: 20),
+                            child: const Icon(Icons.logout_rounded,
+                                color: Colors.red, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(l10n.translate('sign_out'), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-                                Text(l10n.translate('sign_out_subtitle'), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                Text(l10n.translate('sign_out'),
+                                    style: const TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w600)),
+                                Text(l10n.translate('sign_out_subtitle'),
+                                    style: const TextStyle(
+                                        color: Colors.grey, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -232,7 +262,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: BorderRadius.circular(5), // 5px border radius as required
+          borderRadius:
+              BorderRadius.circular(5), // 5px border radius as required
           border: Border.all(
             color: isDark ? Colors.white10 : Colors.black.withOpacity(0.08),
           ),
@@ -258,7 +289,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     style: AppTextStyles.bodyMedium(cs.onBackground)
                         .copyWith(fontWeight: FontWeight.bold),
                   ),
-                  Text(subtitle, style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                  Text(subtitle,
+                      style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
                 ],
               ),
             ),
@@ -269,7 +301,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _navTile(BuildContext context, IconData icon, String title, String route) {
+  Widget _navTile(
+      BuildContext context, IconData icon, String title, String route) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -277,16 +310,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         color: cs.surface,
         borderRadius: BorderRadius.circular(5), // 5px border radius as required
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.black.withOpacity(0.05),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white10
+              : Colors.black.withOpacity(0.05),
         ),
       ),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         leading: Icon(icon, color: AppColors.pitchGreen),
-        title: Text(title, style: AppTextStyles.bodyMedium(cs.onBackground).copyWith(fontWeight: FontWeight.w600)),
+        title: Text(title,
+            style: AppTextStyles.bodyMedium(cs.onBackground)
+                .copyWith(fontWeight: FontWeight.w600)),
         trailing: const Icon(Icons.chevron_right, size: 18),
         onTap: () => context.push(route),
       ),
     );
   }
-}
+}

@@ -8,10 +8,12 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/data/engines/tournament_progression_engine.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
+import 'package:sportyapp/shared_widgets/fixture_progression_view.dart';
 
 class ScheduleViewScreen extends ConsumerStatefulWidget {
   final String tournamentId;
@@ -24,8 +26,10 @@ class ScheduleViewScreen extends ConsumerStatefulWidget {
 class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   List<ScheduleStage> _stages = [];
   List<ScorerTeam> _teams = [];
+  TournamentProgressionResolver? _progression;
   bool _isLoading = true;
   bool _opening = false;
+  final Set<String> _expandedStages = {};
 
   @override
   void initState() {
@@ -41,6 +45,7 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
     setState(() {
       _stages = stages;
       _teams = teams;
+      _progression = TournamentProgressionResolver(stages);
       _isLoading = false;
     });
   }
@@ -159,6 +164,13 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
   Widget _stageCard(ScheduleStage stage) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final expanded = _expandedStages.contains(stage.id);
+    final completed = stage.fixtures
+        .where((f) => f.status == FixtureStatus.completed)
+        .length;
+    final upcoming = stage.fixtures
+        .where((f) => f.status != FixtureStatus.completed)
+        .length;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -169,36 +181,77 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            child: Row(
-              children: [
-                Icon(
-                  stage.type == ScheduleStageType.knockout
-                      ? Icons.emoji_events_outlined
-                      : stage.type == ScheduleStageType.roundRobin
-                          ? Icons.repeat_rounded
-                          : Icons.more_horiz,
-                  color: AppColors.pitchGreenLight,
-                  size: 18,
-                ),
-                const Gap(8),
-                Expanded(
-                  child: Text(stage.name,
-                      style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
-                Text('${stage.fixtures.length} ${l10n.translate('matches')}',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 11)),
-              ],
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => setState(() {
+              if (!_expandedStages.add(stage.id)) {
+                _expandedStages.remove(stage.id);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(
+                children: [
+                  Icon(
+                    stage.type == ScheduleStageType.knockout
+                        ? Icons.emoji_events_outlined
+                        : stage.type == ScheduleStageType.roundRobin
+                            ? Icons.repeat_rounded
+                            : Icons.more_horiz,
+                    color: AppColors.pitchGreenLight,
+                    size: 18,
+                  ),
+                  const Gap(8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(stage.name,
+                            style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15)),
+                        const Gap(2),
+                        Text(
+                          stage.fixtures.isEmpty
+                              ? l10n.translate('no_data')
+                              : '$completed ${l10n.translate('completed')}  ·  '
+                                  '$upcoming ${l10n.translate('upcoming')}',
+                          style: TextStyle(
+                              color:
+                                  theme.colorScheme.onSurfaceVariant.withValues(
+                                      alpha: 0.6),
+                              fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.expand_more,
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
           ),
           Divider(color: theme.dividerColor, height: 1),
-          if (stage.fixtures.isEmpty)
-            Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(l10n.translate('no_data'), style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.38), fontSize: 12)))
-          else
-            ...stage.fixtures.map((f) => _fixtureRow(f)),
+          if (expanded)
+            stage.fixtures.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                        l10n.translate('no_data'),
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.38),
+                            fontSize: 12)),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: stage.fixtures.map((f) => _fixtureRow(f)).toList(),
+                  ),
         ],
       ),
     );
@@ -257,6 +310,14 @@ class _ScheduleViewScreenState extends ConsumerState<ScheduleViewScreen> {
                         const SizedBox(width: 4),
                         Text(fx.venue!, style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 10)),
                       ]),
+                    ),
+                  if (_progression != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 7, top: 2),
+                      child: FixtureProgressionView(
+                        progression: _progression!.resolve(fx),
+                        teamName: _teamName,
+                      ),
                     ),
                 ],
               ),

@@ -171,19 +171,19 @@ void main() {
       {
         'matchId': _matchId,
         'type': 'start',
-        'title': 'CRIXORA',
+        'title': 'WickzyScorer',
         'body': 'Alpha vs Beta has started',
       },
       {
         'matchId': _matchId,
         'type': 'wicket',
-        'title': 'CRIXORA',
+        'title': 'WickzyScorer',
         'body': 'Alpha vs Beta — Wicket!',
       },
       {
         'matchId': _matchId,
         'type': 'complete',
-        'title': 'CRIXORA',
+        'title': 'WickzyScorer',
         'body': 'Alpha vs Beta — Match completed',
       },
     ]);

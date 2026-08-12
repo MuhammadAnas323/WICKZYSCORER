@@ -9,9 +9,12 @@ import 'package:sportyapp/data/models/scorer/innings.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/scorer/match_result.dart';
 import 'package:sportyapp/data/engines/match_result_engine.dart';
+import 'package:sportyapp/data/engines/tournament_progression_engine.dart';
+import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/repositories/scorer_live_match_repository.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/shared_widgets/tournament_progression_dialog.dart';
 
 class MatchSummaryScreen extends ConsumerStatefulWidget {
   const MatchSummaryScreen({super.key});
@@ -77,9 +80,15 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
     final repo = ref.read(scorerRepositoryProvider);
     if (_matchId != null && _matchId!.isNotEmpty) {
+      // The live session is authoritative for the very match being summarised
+      // (e.g. right after the final ball, before the debounced persist lands):
+      // the repo cache can lag ~800ms, which would render a stale result — a
+      // tie showing "no result", or a wrong winner. Fall back to the repo only
+      // when the active match is an unrelated draft.
+      final active = liveRepo.activeMatch;
+      if (active != null && active.id == _matchId) return active;
       final byId = await repo.getMatch(_matchId!);
       if (byId != null) return byId;
-      final active = liveRepo.activeMatch;
       if (active != null && active.id == _matchId) return active;
     }
     return liveRepo.activeMatch ?? await repo.firstInProgressMatch();
@@ -188,28 +197,30 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     if (_finishing) return;
     setState(() => _finishing = true);
     final l10n = AppLocalizations.of(context);
+    final repo = ref.read(scorerRepositoryProvider);
+    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
+
+    String? prizeOrNull(TextEditingController c) =>
+        c.text.trim().isEmpty ? null : c.text.trim();
+
+    // Build the award/prize payload shared by both completion paths.
+    ScorerMatch withAwards(ScorerMatch m) => m.copyWith(
+          playerOfTheMatchId: _pomId,
+          bestBatsmanId: _bestBatsmanId,
+          bestBowlerId: _bestBowlerId,
+          playerOfTheMatchPrize: prizeOrNull(_pomPrizeCtrl),
+          bestBatsmanPrize: prizeOrNull(_bestBatsmanPrizeCtrl),
+          bestBowlerPrize: prizeOrNull(_bestBowlerPrizeCtrl),
+          customAwards: _customAwards,
+          customAwardsPrizes: _customAwardsPrizes,
+        );
 
     // The match is already completed (summary re-opened from the Matches tab):
     // there is no active live session to end, so persist the award/prize edits
     // directly and leave the result/status untouched.
     if (match.status == MatchStatus.completed) {
       try {
-        await ref.read(scorerRepositoryProvider).saveMatch(match.copyWith(
-          playerOfTheMatchId: _pomId,
-          bestBatsmanId: _bestBatsmanId,
-          bestBowlerId: _bestBowlerId,
-          playerOfTheMatchPrize: _pomPrizeCtrl.text.trim().isEmpty
-              ? null
-              : _pomPrizeCtrl.text.trim(),
-          bestBatsmanPrize: _bestBatsmanPrizeCtrl.text.trim().isEmpty
-              ? null
-              : _bestBatsmanPrizeCtrl.text.trim(),
-          bestBowlerPrize: _bestBowlerPrizeCtrl.text.trim().isEmpty
-              ? null
-              : _bestBowlerPrizeCtrl.text.trim(),
-          customAwards: _customAwards,
-          customAwardsPrizes: _customAwardsPrizes,
-        ));
+        await repo.saveMatch(withAwards(match));
       } catch (e) {
         debugPrint('[MatchSummary] save awards failed: $e');
         if (!mounted) return;
@@ -225,40 +236,54 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     }
 
     final result = _result(match, data, l10n);
-    final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
 
     // 1. Persist the completed match. This is the critical step — if it fails,
     // stay on this screen and let the scorer retry.
+    //
+    // The live session may hold a DIFFERENT match (or none) than the one being
+    // summarised — e.g. the summary was opened for a paused draft while another
+    // match is active. endMatch() completes whatever `_activeMatch` is, so only
+    // route through the live session when it IS this match (that path also
+    // publishes the RTDB 'complete' event for spectators). Otherwise complete
+    // the resolved match directly.
+    ScorerMatch? completed;
     try {
-      final completed = liveRepo.endMatch(
-        winnerTeamId: result.winnerTeamId,
-        loserTeamId: result.loserTeamId,
-        summary: result.resultText,
-        resultType: result.type,
-        resultMargin: result.margin,
-        isNoResult: result.isNoResult,
-        isDls: result.isDls,
-        playerOfTheMatchId: _pomId,
-        bestBatsmanId: _bestBatsmanId,
-        bestBowlerId: _bestBowlerId,
-        playerOfTheMatchPrize: _pomPrizeCtrl.text.trim().isEmpty
-            ? null
-            : _pomPrizeCtrl.text.trim(),
-        bestBatsmanPrize: _bestBatsmanPrizeCtrl.text.trim().isEmpty
-            ? null
-            : _bestBatsmanPrizeCtrl.text.trim(),
-        bestBowlerPrize: _bestBowlerPrizeCtrl.text.trim().isEmpty
-            ? null
-            : _bestBowlerPrizeCtrl.text.trim(),
-        customAwards: _customAwards,
-        customAwardsPrizes: _customAwardsPrizes,
-      );
-      liveRepo.setActiveMatch(null);
+      if (liveRepo.activeMatch?.id == match.id) {
+        completed = liveRepo.endMatch(
+          winnerTeamId: result.winnerTeamId,
+          loserTeamId: result.loserTeamId,
+          summary: result.resultText,
+          resultType: result.type,
+          resultMargin: result.margin,
+          isNoResult: result.isNoResult,
+          isDls: result.isDls,
+          playerOfTheMatchId: _pomId,
+          bestBatsmanId: _bestBatsmanId,
+          bestBowlerId: _bestBowlerId,
+          playerOfTheMatchPrize: prizeOrNull(_pomPrizeCtrl),
+          bestBatsmanPrize: prizeOrNull(_bestBatsmanPrizeCtrl),
+          bestBowlerPrize: prizeOrNull(_bestBowlerPrizeCtrl),
+          customAwards: _customAwards,
+          customAwardsPrizes: _customAwardsPrizes,
+        );
+        liveRepo.setActiveMatch(null);
+      } else {
+        completed = withAwards(match.copyWith(
+          status: MatchStatus.completed,
+          winnerTeamId: result.winnerTeamId,
+          loserTeamId: result.loserTeamId,
+          resultSummary: result.resultText,
+          resultType: result.type,
+          resultMargin: result.margin,
+          isNoResult: result.isNoResult,
+          isDls: result.isDls,
+        ));
+      }
       // Explicitly await the persistence (cache + Firestore) so the completed
       // match with its full innings/ball data is saved before leaving the
       // screen — otherwise spectators could read a stale draft with no balls.
       if (completed != null) {
-        await ref.read(scorerRepositoryProvider).saveMatch(completed);
+        await repo.saveMatch(completed);
       }
     } catch (e) {
       debugPrint('[MatchSummary] endMatch failed: $e');
@@ -270,26 +295,109 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
       return;
     }
 
+    // Nothing was completed (no active session and the resolved match could not
+    // be completed) — keep the scorer here to retry instead of pretending the
+    // match finished.
+    if (completed == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${l10n.translate('complete_match')} failed'),
+      ));
+      setState(() => _finishing = false);
+      return;
+    }
+
     // 2. Advance tournament schedule/tables. Best-effort — the match itself is
     // already completed and persisted, so a schedule sync failure must never
-    // strand the scorer on this screen. A tie/no-result has no winner/loser to
-    // advance.
+    // strand the scorer on this screen. A tie has no winner/loser to advance,
+    // but the fixture still needs marking completed so the bracket shows the
+    // tied decision instead of leaving it blank; a no-result just skips.
     if (result.winnerTeamId != null && result.loserTeamId != null) {
       try {
-        await ref.read(scorerRepositoryProvider).applyScheduleResult(
+        await repo.applyScheduleResult(
               tournamentId: match.tournamentId,
               winnerTeamId: result.winnerTeamId!,
               loserTeamId: result.loserTeamId!,
               matchTeam1Id: match.team1Id,
               matchTeam2Id: match.team2Id,
+              matchId: match.id,
             );
       } catch (e) {
         debugPrint('[MatchSummary] schedule sync failed: $e');
+      }
+    } else if (result.isTie) {
+      try {
+        await repo.applyScheduleTie(
+              tournamentId: match.tournamentId,
+              matchTeam1Id: match.team1Id,
+              matchTeam2Id: match.team2Id,
+              matchId: match.id,
+            );
+      } catch (e) {
+        debugPrint('[MatchSummary] schedule tie sync failed: $e');
+      }
+    }
+
+    // 3. Immediately after a tournament match with a winner/loser is completed,
+    // show the progression dialog: it surfaces the updated bracket path for
+    // BOTH teams (winner → next match/champion, loser → eliminated/lower match,
+    // waiting for opponent). It only READS the shared resolver output — it
+    // never re-derives or mutates the schedule. Non-tournament matches, ties
+    // and no-results skip it. Best-effort: a missing schedule or fixture just
+    // skips the dialog so completion is never blocked.
+    final isTournamentMatch = match.tournamentId.isNotEmpty &&
+        match.tournamentId != 't_custom';
+    if (isTournamentMatch &&
+        result.winnerTeamId != null &&
+        result.loserTeamId != null) {
+      try {
+        final stages = await repo.getSchedule(match.tournamentId);
+        final fixture = _fixtureForMatch(stages, match);
+        if (fixture != null) {
+          final progression =
+              TournamentProgressionResolver(stages).resolve(fixture);
+          if (!mounted) return;
+          await showTournamentProgressionDialog(
+            context: context,
+            progression: progression,
+            teamName: (id) => id == match.team1Id
+                ? data.team1Name
+                : id == match.team2Id
+                    ? data.team2Name
+                    : (id ?? ''),
+          );
+          if (!mounted) return;
+        }
+      } catch (e) {
+        debugPrint('[MatchSummary] progression dialog failed: $e');
       }
     }
 
     if (!mounted) return;
     context.go('/scorer/dashboard');
+  }
+
+  /// Locates the schedule fixture backing a completed tournament match — by
+  /// linked match id first, then by the two resolved team ids (either order),
+  /// mirroring how [ScorerRepository.applyScheduleResult] identifies it.
+  ScheduleFixture? _fixtureForMatch(
+      List<ScheduleStage> stages, ScorerMatch match) {
+    for (final stage in stages) {
+      for (final fx in stage.fixtures) {
+        if (fx.linkedMatchId == match.id) return fx;
+      }
+    }
+    for (final stage in stages) {
+      for (final fx in stage.fixtures) {
+        final a = fx.resolvedTeamAId;
+        final b = fx.resolvedTeamBId;
+        if ((a == match.team1Id && b == match.team2Id) ||
+            (a == match.team2Id && b == match.team1Id)) {
+          return fx;
+        }
+      }
+    }
+    return null;
   }
 
   /// Computes the match result through the centralized [MatchResultEngine],

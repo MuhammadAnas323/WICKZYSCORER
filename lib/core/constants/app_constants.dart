@@ -1,17 +1,16 @@
 // lib/core/constants/app_constants.dart
-// Core application constants used throughout CRIXORA.
+// Core application constants used throughout WICKZYSCORER.
 
-/// Application-wide constants for CRIXORA.
+/// Application-wide constants for WICKZYSCORER.
 class AppConstants {
   AppConstants._();
 
   // App info
-  static const String appName = 'CRIXORA';
+  static const String appName = 'WickzyScorer';
   static const String appTagline = 'Live Cricket. Every Ball.';
   static const String appVersion = '1.0.0';
 
   // Animation durations
-  static const Duration splashDuration = Duration(milliseconds: 2500);
   static const Duration animFast = Duration(milliseconds: 200);
   static const Duration animNormal = Duration(milliseconds: 350);
   static const Duration animSlow = Duration(milliseconds: 600);
@@ -53,5 +52,4 @@ class AppConstants {
   static const String statusLive = 'live';
   static const String statusUpcoming = 'upcoming';
   static const String statusCompleted = 'completed';
-
 }

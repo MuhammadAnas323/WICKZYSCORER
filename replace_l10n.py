@@ -57,7 +57,7 @@ for file_path in files:
     texts += re.findall(r'Text\(\s*"([^"\$]+)"', content)
     
     # Filter
-    texts = [t for t in texts if t.strip() and t != 'CRIXORA' and not t.isdigit()]
+    texts = [t for t in texts if t.strip() and t != 'WICKZYSCORER' and not t.isdigit()]
     
     if not texts:
         continue

@@ -292,6 +292,8 @@ Map<String, dynamic> scorerTeamToJson(ScorerTeam t) => {
       'ownerName': t.ownerName,
       'whatsappNumber': t.whatsappNumber,
       'isEliminated': t.isEliminated,
+      'isQualified': t.isQualified,
+      'isChampion': t.isChampion,
     };
 
 ScorerTeam scorerTeamFromJson(Map<String, dynamic> json) => ScorerTeam(
@@ -305,6 +307,8 @@ ScorerTeam scorerTeamFromJson(Map<String, dynamic> json) => ScorerTeam(
       ownerName: json['ownerName'],
       whatsappNumber: json['whatsappNumber'],
       isEliminated: json['isEliminated'] ?? false,
+      isQualified: json['isQualified'] ?? false,
+      isChampion: json['isChampion'] ?? false,
     );
 
 // ─── ScorerPlayer ──────────────────────────────────────────────────────────

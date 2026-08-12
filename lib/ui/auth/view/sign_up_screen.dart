@@ -5,9 +5,6 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
-import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
-import 'package:sportyapp/core/providers/auth_provider.dart';
-
 import 'package:sportyapp/ui/auth/widgets/google_sign_in_button.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -139,10 +136,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         const SizedBox(height: 16),
         GoogleSignInButton(
           isLoading: isLoading,
-          onPressed: () {
-            // Reusing the notifier from specific signup viewmodels if needed, 
-            // but CurrentUserNotifier is the source of truth.
-            ref.read(currentUserProvider.notifier).signInWithGoogle();
+          onPressed: () async {
+            try {
+              await ref.read(authViewModelProvider.notifier).signInWithGoogle();
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e))),
+                );
+              }
+            }
           },
         ),
       ],

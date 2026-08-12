@@ -46,10 +46,20 @@ class AppErrorHandler {
     }
 
     if (e is PlatformException) {
-      if (e.code == 'sign_in_failed') {
-        return 'Google Sign-In failed. Please try again.';
+      if (e.code == 'sign_in_failed' || e.code == '12501' || e.code == 'sign_in_canceled') {
+        return 'Google Sign-In was cancelled.';
+      }
+      if (e.code == 'network_error') {
+        return 'A network error occurred. Please check your internet connection.';
       }
       return e.message ?? 'A platform error occurred. Please try again.';
+    }
+
+    if (e is Exception) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('cancelled') || msg.contains('canceled')) {
+        return 'Sign-in was cancelled.';
+      }
     }
 
     if (e is SocketException) {

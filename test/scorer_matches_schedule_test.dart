@@ -175,7 +175,9 @@ void main() {
     await _pump(tester, repo);
 
     expect(find.text('Kings XI  vs  Lions'), findsOneWidget);
-    expect(find.text('Test Cup'), findsOneWidget);
+    // The tile labels the fixture with its stage (tournament • stage).
+    expect(find.textContaining('Test Cup'), findsOneWidget);
+    expect(find.textContaining('Group A'), findsOneWidget);
     // Fixture tiles are not deletable (they are not real matches yet).
     expect(find.byIcon(Icons.delete_outline), findsNothing);
   });
@@ -190,5 +192,116 @@ void main() {
     // Only the real match tile (with delete) shows, not a second fixture tile.
     expect(find.text('Kings XI  vs  Lions'), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+  });
+
+  testWidgets('completed match tiles hide the delete icon but long-press '
+      'opens the delete dialog', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await _seed(linkedMatch: true, standaloneMatch: true);
+    // Complete the standalone match so it shows in the Completed section.
+    final existing = await repo.getMatch('m1');
+    expect(existing, isNotNull);
+    await repo.saveMatch(existing!.copyWith(
+      status: MatchStatus.completed,
+      winnerTeamId: 'team1',
+      loserTeamId: 'team2',
+    ));
+
+    await _pump(tester, repo);
+
+    // No delete icon on a completed match card.
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+    // Long-pressing the card surfaces the delete confirmation dialog.
+    await tester.longPress(find.text('Kings XI  vs  Lions'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete match?'), findsOneWidget);
+
+    // Silent cancel keeps the match.
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kings XI  vs  Lions'), findsOneWidget);
+  });
+
+  test('applyScheduleResult records the winner on the completed fixture',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await _seed();
+
+    await repo.applyScheduleResult(
+      tournamentId: 't1',
+      winnerTeamId: 'team1',
+      loserTeamId: 'team2',
+      matchTeam1Id: 'team1',
+      matchTeam2Id: 'team2',
+      linkedFixtureId: 'fx1',
+      matchId: 'm1',
+    );
+
+    final stages = await repo.getSchedule('t1');
+    final fx1 = stages.first.fixtures.first;
+    expect(fx1.status, FixtureStatus.completed);
+    expect(fx1.winnerTeamId, 'team1');
+  });
+
+  test('applyScheduleTie marks the fixture completed without a winner and '
+      'leaves the next match waiting', () async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await _seed();
+
+    await repo.saveSchedule('t1', [
+      ScheduleStage(
+        id: 'sf',
+        name: 'Semi',
+        order: 0,
+        type: ScheduleStageType.knockout,
+        fixtures: [
+          ScheduleFixture(
+            id: 'sf1',
+            order: 1,
+            teamASource: const ScheduleSource.team('team1'),
+            teamBSource: const ScheduleSource.team('team2'),
+            resolvedTeamAId: 'team1',
+            resolvedTeamBId: 'team2',
+            status: FixtureStatus.ready,
+          ),
+        ],
+      ),
+      ScheduleStage(
+        id: 'fin',
+        name: 'Final',
+        order: 1,
+        type: ScheduleStageType.knockout,
+        fixtures: [
+          ScheduleFixture(
+            id: 'fin',
+            order: 1,
+            teamASource: ScheduleSource.matchResult('sf1', 'winner'),
+            teamBSource: ScheduleSource.matchResult('sf1', 'loser'),
+            status: FixtureStatus.pending,
+          ),
+        ],
+      ),
+    ]);
+
+    await repo.applyScheduleTie(
+      tournamentId: 't1',
+      matchTeam1Id: 'team1',
+      matchTeam2Id: 'team2',
+      linkedFixtureId: 'sf1',
+      matchId: 'm1',
+    );
+
+    final stages = await repo.getSchedule('t1');
+    final sf1 = stages.first.fixtures.first;
+    expect(sf1.status, FixtureStatus.completed);
+    expect(sf1.winnerTeamId, isNull);
+
+    // A tie has no winner, so nothing advances: the Final has no resolved
+    // teams and stays pending (awaiting a decider).
+    final fin = stages[1].fixtures.first;
+    expect(fin.status, FixtureStatus.pending);
+    expect(fin.resolvedTeamAId, isNull);
+    expect(fin.resolvedTeamBId, isNull);
   });
 }

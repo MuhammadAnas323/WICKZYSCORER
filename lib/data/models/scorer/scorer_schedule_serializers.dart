@@ -38,6 +38,26 @@ ScheduleSource scheduleSourceFromJson(Map<String, dynamic> json) {
 
 // ─── Fixture ────────────────────────────────────────────────────────────────
 
+Map<String, dynamic> fixtureProgressionRuleToJson(FixtureProgressionRule r) => {
+      'sourceFixtureId': r.sourceFixtureId,
+      'outcome': r.outcome,
+      'destinationType': r.destinationType.name,
+      'destinationFixtureId': r.destinationFixtureId,
+      'destinationStageId': r.destinationStageId,
+    };
+
+FixtureProgressionRule fixtureProgressionRuleFromJson(Map<String, dynamic> json) =>
+    FixtureProgressionRule(
+      sourceFixtureId: json['sourceFixtureId'] ?? '',
+      outcome: json['outcome'] ?? 'winner',
+      destinationType: _nameToEnum(
+          ProgressionDestinationType.values,
+          json['destinationType'] as String?,
+          ProgressionDestinationType.waiting),
+      destinationFixtureId: json['destinationFixtureId'],
+      destinationStageId: json['destinationStageId'],
+    );
+
 Map<String, dynamic> scheduleFromFixtureToJson(ScheduleFixture f) => {
       'id': f.id,
       'order': f.order,
@@ -45,10 +65,17 @@ Map<String, dynamic> scheduleFromFixtureToJson(ScheduleFixture f) => {
       'teamBSource': scheduleSourceToJson(f.teamBSource),
       'resolvedTeamAId': f.resolvedTeamAId,
       'resolvedTeamBId': f.resolvedTeamBId,
+      'winnerTeamId': f.winnerTeamId,
       'scheduledDateTime': f.scheduledDateTime?.toIso8601String(),
       'venue': f.venue,
       'linkedMatchId': f.linkedMatchId,
       'status': f.status.name,
+      'winnerRule': f.winnerRule == null
+          ? null
+          : fixtureProgressionRuleToJson(f.winnerRule!),
+      'loserRule': f.loserRule == null
+          ? null
+          : fixtureProgressionRuleToJson(f.loserRule!),
     };
 
 ScheduleFixture scheduleFixtureFromJson(Map<String, dynamic> json) => ScheduleFixture(
@@ -60,6 +87,7 @@ ScheduleFixture scheduleFixtureFromJson(Map<String, dynamic> json) => ScheduleFi
           json['teamBSource'] as Map<String, dynamic>? ?? const {'type': 'tbd'}),
       resolvedTeamAId: json['resolvedTeamAId'],
       resolvedTeamBId: json['resolvedTeamBId'],
+      winnerTeamId: json['winnerTeamId'],
       scheduledDateTime: json['scheduledDateTime'] == null
           ? null
           : DateTime.tryParse(json['scheduledDateTime'] as String),
@@ -67,6 +95,12 @@ ScheduleFixture scheduleFixtureFromJson(Map<String, dynamic> json) => ScheduleFi
       linkedMatchId: json['linkedMatchId'],
       status: _nameToEnum(
           FixtureStatus.values, json['status'], FixtureStatus.pending),
+      winnerRule: json['winnerRule'] == null
+          ? null
+          : fixtureProgressionRuleFromJson(json['winnerRule'] as Map<String, dynamic>),
+      loserRule: json['loserRule'] == null
+          ? null
+          : fixtureProgressionRuleFromJson(json['loserRule'] as Map<String, dynamic>),
     );
 
 // ─── StageConfiguration ───────────────────────────────────────────────────────

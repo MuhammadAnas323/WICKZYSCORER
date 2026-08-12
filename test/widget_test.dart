@@ -1,5 +1,5 @@
 // test/widget_test.dart
-// Basic smoke test for CRIXORA.
+// Basic smoke test for WICKZYSCORER.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,7 +68,7 @@ void main() {
       ),
     );
 
-    // Verify that the splash screen or initial layout builds.
+    // Verify that the initial layout builds.
     expect(find.byType(SportyApp), findsOneWidget);
   });
 }

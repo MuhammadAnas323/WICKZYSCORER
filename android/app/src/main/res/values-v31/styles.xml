@@ -1,14 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 12+ (API 31+) native SplashScreen API configuration.
-         The OS still shows a brief mandatory system splash here, so we keep it
-         as close to a plain white screen as possible — white background with the
-         default app icon. Flutter's own splash screen then takes over. -->
+         Phase-1 native splash runs the animated vector mark on brand navy,
+         then postSplashScreenTheme (NormalTheme) keeps the same navy so the
+         Flutter Phase-2 splash continues with zero visual jump. -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">@drawable/launch_background</item>
-        <item name="android:colorBackground">@color/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_navy</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_mark_anim</item>
+        <item name="android:windowSplashScreenAnimationDuration">1050</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/splash_navy</item>
+        <item name="android:colorBackground">@color/splash_navy</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
-        <item name="android:windowSplashScreenAnimationDuration">200</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <!-- Used after the native splash: plain navy so the Flutter first frame
+         (Phase 2) paints over an identical background. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_navy</item>
+        <item name="android:colorBackground">@color/splash_navy</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

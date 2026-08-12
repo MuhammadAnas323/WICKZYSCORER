@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Animated vector drawable used as android:windowSplashScreenAnimatedIcon.
+     Phase 1 never shows a static icon — the mark scales in, the arc strokes on
+     and the lens-flare spark pops at the break. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/wikzy_splash_mark">
+    <target
+        android:name="mark_scale"
+        android:animation="@animator/splash_mark_fade_scale" />
+    <target
+        android:name="arc_solid"
+        android:animation="@animator/splash_arc_trim" />
+    <target
+        android:name="spark_scale"
+        android:animation="@animator/splash_spark_fade" />
+</animated-vector>

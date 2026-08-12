@@ -6,6 +6,8 @@ import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
+import 'package:sportyapp/data/models/scorer/tournament_progression.dart';
+import 'package:sportyapp/data/engines/tournament_progression_engine.dart';
 import 'package:sportyapp/data/services/firestore_scorer_service.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 
@@ -514,11 +516,10 @@ class ScorerRepository {
 
   /// Auto-advancement: called after a match is completed.
   ///
-  /// Finds the fixture (matched by link, or by the two team ids) and:
+  /// Finds the fixture and:
   ///  - marks it completed,
-  ///  - resolves every downstream `matchResult` source referencing it,
-  ///  - re-resolves `tablePosition` sources when a stage's RR fixtures finish,
-  ///  - flips each fixture to `ready` once both sides are known.
+  ///  - resolves every downstream destination (push model) or source (pull model),
+  ///  - flips destination fixtures to `ready` once both sides are known.
   Future<void> applyScheduleResult({
     required String tournamentId,
     required String winnerTeamId,
@@ -526,157 +527,72 @@ class ScorerRepository {
     String? matchTeam1Id,
     String? matchTeam2Id,
     String? linkedFixtureId,
+    String? matchId,
   }) async {
     await _ensureLoaded();
-    List<ScheduleStage>? stages = _schedules[tournamentId];
+    final stages = _schedules[tournamentId];
     if (stages == null) return;
 
-    // Identify the fixture that was just completed.
-    int completedStage = -1;
-    int completedFixture = -1;
-    for (var s = 0; s < stages.length; s++) {
-      for (var f = 0; f < stages[s].fixtures.length; f++) {
-        final fx = stages[s].fixtures[f];
-        final matchesLink = linkedFixtureId != null && fx.id == linkedFixtureId;
-        final matchesTeams = matchTeam1Id != null && fx.resolvedTeamAId == matchTeam1Id
-            && fx.resolvedTeamBId == matchTeam2Id; // ignore order
-        final matchesTeamsReversed = matchTeam1Id != null && fx.resolvedTeamAId == matchTeam2Id
-            && fx.resolvedTeamBId == matchTeam1Id;
-        if (matchesLink || matchesTeams || matchesTeamsReversed) {
-          completedStage = s;
-          completedFixture = f;
-          break;
-        }
-      }
-      if (completedStage >= 0) break;
-    }
+    final outcome = MatchResultOutcome(
+      matchId: matchId ?? linkedFixtureId ?? '',
+      winnerTeamId: winnerTeamId,
+      loserTeamId: loserTeamId,
+    );
 
-    if (completedStage >= 0) {
-      final fixtures = List<ScheduleFixture>.from(stages[completedStage].fixtures);
-      fixtures[completedFixture] = fixtures[completedFixture].copyWith(
-        status: FixtureStatus.completed,
-        linkedMatchId: fixtures[completedFixture].linkedMatchId,
-      );
-      stages[completedStage] = stages[completedStage].copyWith(fixtures: fixtures);
-    }
-
-    // Resolve all fixtures across all stages using known results.
-    stages = _resolveAll(stages,
-        winnerTeamId: winnerTeamId,
-        loserTeamId: loserTeamId,
-        completedFixtureId: completedFixture >= 0
-            ? stages[completedStage].fixtures[completedFixture].id
-            : null);
-    _schedules[tournamentId] = stages;
-    final resolvedStages = stages;
-    await _persistToCloud((cloud) => cloud.saveSchedule(tournamentId, resolvedStages));
-    _bumpVersion();
-  }
-
-  List<ScheduleStage> _resolveAll(
-    List<ScheduleStage> stages, {
-    required String winnerTeamId,
-    required String loserTeamId,
-    String? completedFixtureId,
-  }) {
-    // Build a lookup of team id -> (fixtureId -> winner loser) per stage that
-    // is a completed round-robin we can compute the table for.
-    var result = List<ScheduleStage>.from(stages);
-
-    // Pass 1: resolve fixed-team sources and matchResult references.
-    // Multiple passes because winners chain to later rounds.
-    for (var pass = 0; pass < result.length + 2; pass++) {
-      var changed = false;
-      for (var s = 0; s < result.length; s++) {
-        final stage = result[s];
-        final fixtures = List<ScheduleFixture>.from(stage.fixtures);
-        for (var f = 0; f < fixtures.length; f++) {
-          final fx = fixtures[f];
-          if (fx.status == FixtureStatus.completed) continue;
-          final resolvedA = _resolveSource(stage, result, fx.teamASource,
-              winnerTeamId: winnerTeamId, loserTeamId: loserTeamId);
-          final resolvedB = _resolveSource(stage, result, fx.teamBSource,
-              winnerTeamId: winnerTeamId, loserTeamId: loserTeamId);
-          if (resolvedA != null && resolvedA != fx.resolvedTeamAId ||
-              resolvedB != null && resolvedB != fx.resolvedTeamBId) {
-            changed = true;
-          }
-          fixtures[f] = fx.copyWith(
-            resolvedTeamAId: resolvedA,
-            resolvedTeamBId: resolvedB,
-            status: (resolvedA != null && resolvedB != null &&
-                    fx.status != FixtureStatus.completed)
-                ? FixtureStatus.ready
-                : fx.status,
+    final engine = TournamentProgressionEngine();
+    final updatedStages = engine.processMatchResult(
+      stages,
+      outcome,
+      onTeamUpdate: (teamId, {eliminated, qualified, champion}) async {
+        final team = _teams.where((t) => t.id == teamId).firstOrNull;
+        if (team != null) {
+          final updatedTeam = team.copyWith(
+            isEliminated: eliminated ?? team.isEliminated,
+            isQualified: qualified ?? team.isQualified,
+            isChampion: champion ?? team.isChampion,
           );
+          await saveTeam(updatedTeam);
         }
-        result[s] = stage.copyWith(fixtures: fixtures);
-      }
-      if (!changed) break;
+      },
+    );
+
+    await saveSchedule(tournamentId, updatedStages);
+  }
+
+  /// Marks the fixture for a tied match ([tournamentId]) as completed.
+  ///
+  /// A tie produces no winner, so no team advances: the fixture itself shows a
+  /// tied decision and every downstream `matchResult` stays unresolved (waiting
+  /// for an opponent) until a decider is played.
+  Future<void> applyScheduleTie({
+    required String tournamentId,
+    required String matchTeam1Id,
+    required String matchTeam2Id,
+    String? linkedFixtureId,
+    String? matchId,
+  }) async {
+    await _ensureLoaded();
+    final stages = _schedules[tournamentId];
+    if (stages == null) return;
+
+    // For a tie, we mark the source fixture completed but provide no winner/loser to advance.
+    final engine = TournamentProgressionResolver(stages);
+    final fx = engine.findFixtureByMatchId(matchId ?? linkedFixtureId ?? '') ??
+               engine.findFixtureByTeams('', matchTeam1Id, matchTeam2Id);
+    
+    if (fx != null) {
+        final updatedStages = stages.map((s) {
+            final idx = s.fixtures.indexWhere((f) => f.id == fx.id);
+            if (idx < 0) return s;
+            final fixtures = List<ScheduleFixture>.from(s.fixtures);
+            fixtures[idx] = fixtures[idx].copyWith(
+                status: FixtureStatus.completed,
+                clearWinner: true,
+            );
+            return s.copyWith(fixtures: fixtures);
+        }).toList();
+        await saveSchedule(tournamentId, updatedStages);
     }
-    return result;
-  }
-
-  String? _resolveSource(
-    ScheduleStage stage,
-    List<ScheduleStage> stages,
-    Source source, {
-    required String winnerTeamId,
-    required String loserTeamId,
-  }) {
-    switch (source.type) {
-      case FixtureSourceType.team:
-        return source.teamId;
-      case FixtureSourceType.tbd:
-        return null; // leaves unresolved
-      case FixtureSourceType.matchResult:
-        final ref = _findFixture(stages, source.fixtureId!);
-        if (ref == null) return null;
-        if (ref.status != FixtureStatus.completed) return null;
-        // The completed fixture fed its resolved winner/loser into the resolver.
-        return source.outcome == 'winner'
-            ? _winnerOfCompleted(ref, winnerTeamId)
-            : _loserOfCompleted(ref, loserTeamId);
-      case FixtureSourceType.tablePosition:
-        // Resolve Nth place using the stage's completed RR fixtures.
-        return _resolveTablePosition(stages, source.stageId, source.position!);
-    }
-  }
-
-  String? _winnerOfCompleted(ScheduleFixture ref, String winnerTeamId) {
-    // If this ref corresponds to the just-completed match fed in via winnerTeamId.
-    return winnerTeamId;
-  }
-
-  String? _loserOfCompleted(ScheduleFixture ref, String loserTeamId) {
-    return loserTeamId;
-  }
-
-  ScheduleFixture? _findFixture(List<ScheduleStage> stages, String fixtureId) {
-    for (final s in stages) {
-      for (final f in s.fixtures) {
-        if (f.id == fixtureId) return f;
-      }
-    }
-    return null;
-  }
-
-  String? _resolveTablePosition(List<ScheduleStage> stages, String? stageId, int position) {
-    final stage = stages.where((s) => s.id == stageId).firstOrNull;
-    if (stage == null) return null;
-    final completed = stage.fixtures.where((f) => f.status == FixtureStatus.completed).toList();
-    final allDone = completed.length == stage.fixtures.length;
-    if (!allDone) return null;
-    // Naive standings: count wins per team among completed RR fixtures.
-    final points = <String, int>{};
-    for (final fx in completed) {
-      final w = fx.resolvedTeamAId; // placeholder — real table needs results
-      if (w != null) points[w] = (points[w] ?? 0) + 1;
-    }
-    final sorted = points.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    if (position <= sorted.length) return sorted[position - 1].key;
-    return null;
   }
 }
 

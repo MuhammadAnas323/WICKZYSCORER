@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Plain white background while the Flutter engine starts. The branded
-     Flutter splash screen takes over on the first rendered frame. -->
+<!-- Fallback launch screen only used on API < 21 — unreal in practice because
+     minSdk is 24 and this folder is never selected on API 24+ (drawable-v21
+     wins). Kept as a pure navy layer so nothing ever renders white. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/launch_background" />
+    <item android:drawable="@color/splash_navy" />
 </layer-list>

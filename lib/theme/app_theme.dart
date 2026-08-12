@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// Builds light and dark ThemeData for CRIXORA.
+/// Builds light and dark ThemeData for WICKZYSCORER.
 class AppTheme {
   AppTheme._();
 

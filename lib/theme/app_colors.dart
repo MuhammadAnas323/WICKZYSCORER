@@ -1,10 +1,10 @@
 // lib/theme/app_colors.dart
-// Cricket-inspired color palette for CRIXORA.
+// Cricket-inspired color palette for WICKZYSCORER.
 // Defines light and dark variants for every semantic color.
 
 import 'package:flutter/material.dart';
 
-/// Central color constants for CRIXORA.
+/// Central color constants for WICKZYSCORER.
 class AppColors {
   AppColors._();
 
@@ -53,18 +53,6 @@ class AppColors {
   static const Color info = Color(0xFF42A5F5);
 
   // ── Gradient presets ────────────────────────────────────────────────────
-  static const Gradient splashGradientDark = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF0D2818), Color(0xFF121212)],
-  );
-
-  static const Gradient splashGradientLight = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF1A7A3E), Color(0xFF2C3E50)],
-  );
-
   static const Gradient heroCardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

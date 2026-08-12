@@ -35,6 +35,12 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
   /// [ScorerMatch] records yet), so tapping one runs the find-or-create flow.
   final Map<String, _FixtureEntry> _fixtureEntries = {};
 
+  /// Real match id -> the tournament stage (Group A, Knockout, Quarter Final…
+  /// ) its schedule fixture belongs to. Used to label tournament matches by the
+  /// stage they are played in, so they are never confused with friendly/local
+  /// matches.
+  final Map<String, String> _stageNameByMatch = {};
+
   @override
   void initState() {
     super.initState();
@@ -54,9 +60,11 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
     // Also surface resolved schedule fixtures as match entries, so a built
     // tournament schedule shows up here even before any fixture has been
     // started. Fixtures already backed by a real match are skipped to avoid
-    // duplicates (the real match tile already represents them).
+    // duplicates (the real match tile already represents them). In the same
+    // pass, record which tournament stage every match belongs to.
     final fixtureMatches = <ScorerMatch>[];
     final fixtureEntries = <String, _FixtureEntry>{};
+    final stageNameByMatch = <String, String>{};
     for (final tournament in tournaments) {
       if (uid != null &&
           uid.isNotEmpty &&
@@ -70,6 +78,19 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
           final teamA = fx.resolvedTeamAId;
           final teamB = fx.resolvedTeamBId;
           if (teamA == null || teamB == null) continue;
+          // Real matches: label by the stage their fixture is played in. Linked
+          // by id first, then by the team pair (either order).
+          if (fx.linkedMatchId != null) {
+            stageNameByMatch[fx.linkedMatchId!] = stage.name;
+          } else {
+            for (final m in allMatches) {
+              if (m.tournamentId == tournament.id &&
+                  ((m.team1Id == teamA && m.team2Id == teamB) ||
+                      (m.team1Id == teamB && m.team2Id == teamA))) {
+                stageNameByMatch[m.id] = stage.name;
+              }
+            }
+          }
           if (fx.linkedMatchId != null &&
               allMatches.any((m) => m.id == fx.linkedMatchId)) {
             continue;
@@ -99,8 +120,8 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
             currentInnings: 1,
             createdBy: tournament.createdBy,
           ));
-          fixtureEntries[virtualId] =
-              _FixtureEntry(fixture: fx, tournamentId: tournament.id);
+          fixtureEntries[virtualId] = _FixtureEntry(
+              fixture: fx, tournamentId: tournament.id, stageName: stage.name);
         }
       }
     }
@@ -121,6 +142,9 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
       _fixtureEntries
         ..clear()
         ..addAll(fixtureEntries);
+      _stageNameByMatch
+        ..clear()
+        ..addAll(stageNameByMatch);
       _isLoading = false;
     });
   }
@@ -285,13 +309,21 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen> {
 
   Widget _tile(BuildContext context, ScorerMatch match,
       AppLocalizations l10n) {
+    final entry = _fixtureEntries[match.id];
+    final stageName = match.tournamentId == 't_custom'
+        ? null
+        : (_stageNameByMatch[match.id] ?? entry?.stageName);
     return _MatchTile(
       match: match,
       teamName: _teamName,
       tournamentName: (id) => _tournamentName(id, l10n),
+      stageName: stageName,
       onTap: () => _openMatch(match),
       onDelete: () => _deleteMatch(match, l10n),
-      showDelete: !_fixtureEntries.containsKey(match.id),
+      // Real matches are deletable via long-press; virtual fixture tiles are
+      // not (deleting them only makes sense once a real match backs them).
+      onLongPress: entry == null ? () => _deleteMatch(match, l10n) : null,
+      showDelete: entry == null,
       l10n: l10n,
     );
   }
@@ -362,8 +394,10 @@ class _MatchTile extends StatelessWidget {
   final ScorerMatch match;
   final String Function(String) teamName;
   final String Function(String) tournamentName;
+  final String? stageName;
   final VoidCallback onTap;
   final Future<void> Function() onDelete;
+  final VoidCallback? onLongPress;
   final bool showDelete;
   final AppLocalizations l10n;
 
@@ -371,8 +405,10 @@ class _MatchTile extends StatelessWidget {
     required this.match,
     required this.teamName,
     required this.tournamentName,
+    this.stageName,
     required this.onTap,
     required this.onDelete,
+    this.onLongPress,
     required this.showDelete,
     required this.l10n,
   });
@@ -383,6 +419,8 @@ class _MatchTile extends StatelessWidget {
         match.status == MatchStatus.inProgress;
     final canStart = match.status == MatchStatus.upcoming ||
         match.status == MatchStatus.scheduled;
+    final isCompleted = match.status == MatchStatus.completed ||
+        match.status == MatchStatus.abandoned;
 
     String statusText = match.status.name.toUpperCase();
     if (isLive) statusText = l10n.translate('live');
@@ -394,6 +432,7 @@ class _MatchTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -418,7 +457,7 @@ class _MatchTile extends StatelessWidget {
                   ),
                 ),
                 const Gap(8),
-                if (showDelete)
+                if (showDelete && !isCompleted)
                   IconButton(
                     icon: const Icon(Icons.delete_outline,
                         color: Colors.redAccent, size: 18),
@@ -452,10 +491,24 @@ class _MatchTile extends StatelessWidget {
                     color: AppColors.floodlightGoldLight,
                     size: 14),
                 const Gap(4),
-                Expanded(
-                  child: Text(
-                    tournamentName(match.tournamentId),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      text: tournamentName(match.tournamentId),
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 12),
+                      children: [
+                        if (stageName != null)
+                          TextSpan(
+                            text: ' • $stageName',
+                            style: const TextStyle(
+                                color: AppColors.floodlightGoldLight,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3),
+                          ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -491,9 +544,11 @@ class _MatchTile extends StatelessWidget {
 class _FixtureEntry {
   final ScheduleFixture fixture;
   final String tournamentId;
+  final String? stageName;
 
   const _FixtureEntry({
     required this.fixture,
     required this.tournamentId,
+    this.stageName,
   });
 }

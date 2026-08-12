@@ -1,5 +1,5 @@
 // lib/ui/shell/spectator_shell.dart
-// Bottom navigation shell for the spectator area of CRIXORA.
+// Bottom navigation shell for the spectator area of WICKZYSCORER.
 // Tabs: Home · Live · Events · Profile
 
 import 'package:flutter/material.dart';

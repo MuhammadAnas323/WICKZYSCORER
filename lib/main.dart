@@ -1,5 +1,5 @@
 // lib/main.dart
-// Entry point for CRIXORA.
+// Entry point for WICKZYSCORER.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,7 @@ import 'package:sportyapp/routes/app_router.dart';
 import 'package:sportyapp/theme/app_theme.dart';
 import 'package:sportyapp/ui/scorer/shared/widgets/cloud_error_toast.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
+import 'package:sportyapp/ui/splash/view/wickzy_splash_screen.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/core/services/match_alert_service.dart';
 import 'package:sportyapp/core/services/notification_service.dart';
@@ -81,38 +82,43 @@ class SportyApp extends ConsumerWidget {
       router.push('/spectator/match/$matchId');
     };
 
-    return MaterialApp.router(
-      title: 'CRIXORA',
-      debugShowCheckedModeBanner: false,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            if (child != null) child,
-            const CloudErrorToast(),
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: SplashGate(
+        child: MaterialApp.router(
+          title: 'WickzyScorer',
+          debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return Stack(
+              children: [
+                if (child != null) child,
+                const CloudErrorToast(),
+              ],
+            );
+          },
+
+          // Theme Mode configurations
+          themeMode: themeMode,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+
+          // Localization
+          locale: locale,
+          supportedLocales: const [
+            Locale('en', ''),
+            Locale('ur', ''),
           ],
-        );
-      },
+          localizationsDelegates: [
+            const AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
 
-      // Theme Mode configurations
-      themeMode: themeMode,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-
-      // Localization
-      locale: locale,
-      supportedLocales: const [
-        Locale('en', ''),
-        Locale('ur', ''),
-      ],
-      localizationsDelegates: [
-        const AppLocalizationsDelegate(),
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-
-      // Router configuration
-      routerConfig: router,
+          // Router configuration
+          routerConfig: router,
+        ),
+      ),
     );
   }
 }

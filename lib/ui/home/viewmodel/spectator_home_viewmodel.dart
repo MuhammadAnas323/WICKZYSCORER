@@ -11,7 +11,7 @@ import 'package:sportyapp/data/providers/live_match_providers.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
-/// Data state for the spectator side of CRIXORA.
+/// Data state for the spectator side of WICKZYSCORER.
 ///
 /// Everything the spectator sees (tournaments, teams, squads, matches) is
 /// driven by data created in the scorer portion via [ScorerRepository].
@@ -237,38 +237,46 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   ///   • fresh player stats (runs, balls, wickets) in the match detail screen.
   void _listenToLiveMatches() {
     _liveSubscription?.cancel();
-    _liveSubscription =
-        ref.read(firestoreScorerServiceProvider).watchLiveMatches().listen(
-      (liveMatches) {
-        if (!mounted) return;
+    try {
+      _liveSubscription =
+          ref.read(firestoreScorerServiceProvider).watchLiveMatches().listen(
+        (liveMatches) {
+          if (!mounted) return;
 
-        // A match went live that we have never loaded before (created by another
-        // user after our last Firestore sync) — pull its tournament/team/player
-        // context so it renders properly for every spectator. This only fires
-        // when an unknown match id shows up, so constant score updates during a
-        // match never trigger a reload.
-        final known = state.matches.map((m) => m.id).toSet();
+          // A match went live that we have never loaded before (created by another
+          // user after our last Firestore sync) — pull its tournament/team/player
+          // context so it renders properly for every spectator. This only fires
+          // when an unknown match id shows up, so constant score updates during a
+          // match never trigger a reload.
+          final known = state.matches.map((m) => m.id).toSet();
 
-        // Merge the live matches into the cached list so the live section,
-        // filters and match cards all see the freshest ball-by-ball data.
-        final byId = <String, ScorerMatch>{
-          for (final m in state.matches) m.id: m,
-        };
-        for (final m in liveMatches) {
-          byId[m.id] = m;
-        }
-        state = state.copyWith(matches: byId.values.toList());
+          // Merge the live matches into the cached list so the live section,
+          // filters and match cards all see the freshest ball-by-ball data.
+          final byId = <String, ScorerMatch>{
+            for (final m in state.matches) m.id: m,
+          };
+          for (final m in liveMatches) {
+            byId[m.id] = m;
+          }
+          state = state.copyWith(matches: byId.values.toList());
 
-        if (liveMatches.any((m) => !known.contains(m.id))) {
-          load(showLoading: false);
-        }
-      },
-      onError: (e) {
-        // Firestore connection issue — keep existing state, don't crash.
-        // ignore: avoid_print
-        print('[Live] Live match listener error: $e');
-      },
-    );
+          if (liveMatches.any((m) => !known.contains(m.id))) {
+            load(showLoading: false);
+          }
+        },
+        onError: (e) {
+          // Firestore connection issue — keep existing state, don't crash.
+          // ignore: avoid_print
+          print('[Live] Live match listener error: $e');
+        },
+      );
+    } catch (e) {
+      // Firebase not available (e.g. widget tests / pre-initialization) — keep
+      // the spectator home functional without the live-matches feed.
+      _liveSubscription = null;
+      // ignore: avoid_print
+      print('[Live] Live match listener could not start: $e');
+    }
   }
 
   /// Watches RTDB for the compact live payloads of every live match. These
@@ -276,13 +284,21 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   /// the latest ball in real time, while Firestore stays the permanent record.
   void _listenToRtdbLive() {
     _rtdbSubscription?.close();
-    _rtdbSubscription = ref.listen(allLiveMatchesProvider, (_, next) {
-      if (!mounted) return;
-      final data = next.valueOrNull;
-      if (data != null) {
-        state = state.copyWith(rtdbLiveMatches: data);
-      }
-    });
+    try {
+      _rtdbSubscription = ref.listen(allLiveMatchesProvider, (_, next) {
+        if (!mounted) return;
+        final data = next.valueOrNull;
+        if (data != null) {
+          state = state.copyWith(rtdbLiveMatches: data);
+        }
+      });
+    } catch (e) {
+      // Firebase not available (e.g. widget tests / pre-initialization) — keep
+      // the spectator home functional without the RTDB live payload feed.
+      _rtdbSubscription = null;
+      // ignore: avoid_print
+      print('[Live] RTDB live listener could not start: $e');
+    }
   }
 
   Future<void> load({bool showLoading = true}) async {

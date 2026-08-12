@@ -33,7 +33,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 const SizedBox(height: 40),
                 Center(
                   child: Text(
-                    'CRIXORA',
+                    'WICKZYSCORER',
                     style: AppTextStyles.displayLarge(cs.onBackground),
                   ),
                 ),
@@ -73,7 +73,8 @@ class RoleSelectionScreen extends StatelessWidget {
                         children: [
                           TextSpan(
                             text: 'Sign In',
-                            style: AppTextStyles.titleMedium(AppColors.pitchGreen),
+                            style:
+                                AppTextStyles.titleMedium(AppColors.pitchGreen),
                           ),
                         ],
                       ),
@@ -119,9 +120,14 @@ class _RoleCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : AppColors.glassFill,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : AppColors.glassFill,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.glassBorder),
+              border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : AppColors.glassBorder),
             ),
             child: Row(
               children: [
@@ -138,9 +144,11 @@ class _RoleCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: AppTextStyles.titleLarge(cs.onSurface)),
+                      Text(title,
+                          style: AppTextStyles.titleLarge(cs.onSurface)),
                       const SizedBox(height: 4),
-                      Text(subtitle, style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
+                      Text(subtitle,
+                          style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
