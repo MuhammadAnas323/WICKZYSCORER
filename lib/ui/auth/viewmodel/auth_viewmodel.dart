@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sportyapp/core/providers/auth_provider.dart';
-import 'package:sportyapp/core/utils/app_error_handler.dart';
 
 final authStateProvider = StreamProvider<User?>((ref) {
   try {

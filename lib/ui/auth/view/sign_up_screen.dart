@@ -5,6 +5,7 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
+import 'package:sportyapp/ui/auth/viewmodel/auth_viewmodel.dart';
 import 'package:sportyapp/ui/auth/widgets/google_sign_in_button.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
