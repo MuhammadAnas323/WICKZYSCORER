@@ -57,6 +57,9 @@ class AppLocalizations {
       'local_match': 'Local Match',
       'search_hint': 'Search matches, teams, venue…',
       'no_matches_found': 'No matches found',
+      'tournament_matches': 'Tournament Matches',
+      'no_friendly_matches': 'No friendly matches yet',
+      'no_tournament_matches': 'No tournament matches yet',
       'start_scoring_title': 'Start Scoring',
       'delete_match_permanently':
           'This permanently removes the match and its score data.',
@@ -350,6 +353,9 @@ class AppLocalizations {
       'local_match': 'مقامی میچ',
       'search_hint': 'میچ، ٹیم، یا مقام تلاش کریں...',
       'no_matches_found': 'کوئی میچ نہیں ملا',
+      'tournament_matches': 'ٹورنامنٹ میچز',
+      'no_friendly_matches': 'ابھی کوئی فرینڈلی میچ نہیں',
+      'no_tournament_matches': 'ابھی کوئی ٹورنامنٹ میچ نہیں',
       'start_scoring_title': 'اسکورنگ شروع کریں',
       'delete_match_permanently':
           'یہ مستقل طور پر میچ اور اس کا اسکور ڈیٹا ختم کر دے گا۔',

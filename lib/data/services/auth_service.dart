@@ -31,7 +31,10 @@ abstract class AuthService {
 class FirebaseAuthService implements AuthService {
   final fa.FirebaseAuth _auth = fa.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: '217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
 
   AppUser? _currentUser;
 
@@ -121,11 +124,13 @@ class FirebaseAuthService implements AuthService {
   }) async {
     try {
       // Clear any previously cached Google session/account so the account
-      // chooser is shown again on every sign-in. Without this, tapping
-      // "Continue with Google" after a Firebase account is deleted silently
-      // reuses the last selected Google account and never shows a fresh picker.
-      if (_googleSignIn.currentUser != null) {
-        await _googleSignIn.signOut();
+      // chooser is shown again on every sign-in.
+      try {
+        if (_googleSignIn.currentUser != null) {
+          await _googleSignIn.signOut();
+        }
+      } catch (e) {
+        debugPrint('Google Sign-In signout cleanup warning: $e');
       }
       // Launch the Google account chooser. Returns null if the user cancels.
       final googleUser = await _googleSignIn.signIn();

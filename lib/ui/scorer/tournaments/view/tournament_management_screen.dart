@@ -24,6 +24,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
   late TextEditingController _organizerController;
   late TextEditingController _venueController;
   late TextEditingController _customOversController;
+  late TextEditingController _maxOversPerBowlerController;
   late TextEditingController _entryFeeController;
   late TextEditingController _winnerPrizeController;
   late TextEditingController _runnerUpPrizeController;
@@ -48,6 +49,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _organizerController = TextEditingController();
     _venueController = TextEditingController();
     _customOversController = TextEditingController(text: '20');
+    _maxOversPerBowlerController = TextEditingController(text: '4');
     _entryFeeController = TextEditingController();
     _winnerPrizeController = TextEditingController();
     _runnerUpPrizeController = TextEditingController();
@@ -72,6 +74,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         _venueController.text = tournament.venue;
 
         _customOversController.text = tournament.customOvers.toString();
+        _maxOversPerBowlerController.text = (tournament.maxOversPerBowler ?? (tournament.customOvers ~/ 5)).toString();
         _entryFeeController.text = tournament.entryFee != null ? tournament.entryFee!.toStringAsFixed(0) : '';
         _winnerPrizeController.text = tournament.winnerPrize != null ? tournament.winnerPrize!.toStringAsFixed(0) : '';
         _runnerUpPrizeController.text = tournament.runnerUpPrize != null ? tournament.runnerUpPrize!.toStringAsFixed(0) : '';
@@ -113,6 +116,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
     _organizerController.dispose();
     _venueController.dispose();
     _customOversController.dispose();
+    _maxOversPerBowlerController.dispose();
     _entryFeeController.dispose();
     _winnerPrizeController.dispose();
     _runnerUpPrizeController.dispose();
@@ -176,6 +180,7 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
         organizer: _organizerController.text.trim(),
         format: _defaultFormat,
         customOvers: int.tryParse(_customOversController.text) ?? 20,
+        maxOversPerBowler: int.tryParse(_maxOversPerBowlerController.text),
         startDate: DateTime.now(),
         endDate: DateTime.now().add(const Duration(days: 14)),
         venue: _venueController.text.trim(),
@@ -295,17 +300,38 @@ class _TournamentManagementScreenState extends ConsumerState<TournamentManagemen
                 // Match Format field removed as per requirements.
                 const Gap(16),
 
-                TextFormField(
-                  controller: _customOversController,
-                  keyboardType: TextInputType.number,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    labelText: l10n.translate('overs_per_innings'),
-                    labelStyle: TextStyle(color: subTextColor),
-                    filled: true,
-                    fillColor: surfaceColor,
-                    border: const OutlineInputBorder(),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _customOversController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: l10n.translate('overs_per_innings'),
+                          labelStyle: TextStyle(color: subTextColor),
+                          filled: true,
+                          fillColor: surfaceColor,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _maxOversPerBowlerController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Max Overs / Bowler',
+                          labelStyle: TextStyle(color: subTextColor),
+                          filled: true,
+                          fillColor: surfaceColor,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const Gap(16),
 

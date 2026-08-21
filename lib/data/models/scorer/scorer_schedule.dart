@@ -85,6 +85,7 @@ enum FixtureStatus { pending, ready, live, completed }
 enum ProgressionDestinationType {
   fixture,
   stage,
+  lowerBracket,
   waiting,
   qualify,
   champion,
@@ -95,11 +96,12 @@ enum ProgressionDestinationType {
 /// winner (or loser) of a [ScheduleFixture] after it completes.
 ///
 /// The destination is resolved by [destinationType]:
-///  - fixture:     routed into the empty slot of another fixture
-///  - stage:       routed into the first empty fixture of a stage
-///  - waiting:     stays in the flow, waiting for an opponent / next round
-///  - champion:    wins the tournament (no further match)
-///  - eliminated:  out of the tournament (no further match)
+///  - fixture:      routed into the empty slot of another fixture
+///  - stage:        routed into the first empty fixture of a stage
+///  - lowerBracket: routed into a lower bracket fixture or stage
+///  - waiting:      stays in the flow, waiting for an opponent / next round
+///  - champion:     wins the tournament (no further match)
+///  - eliminated:   out of the tournament (no further match)
 class FixtureProgressionRule {
   final String sourceFixtureId;
   final String outcome; // 'winner' | 'loser'
@@ -115,6 +117,8 @@ class FixtureProgressionRule {
     this.destinationStageId,
   });
 
+  bool get isLowerBracket =>
+      destinationType == ProgressionDestinationType.lowerBracket;
   bool get isWaiting => destinationType == ProgressionDestinationType.waiting;
   bool get isQualify => destinationType == ProgressionDestinationType.qualify;
   bool get isEliminated =>
@@ -123,7 +127,8 @@ class FixtureProgressionRule {
       destinationType == ProgressionDestinationType.champion;
   bool get isExplicit =>
       destinationType == ProgressionDestinationType.fixture ||
-      destinationType == ProgressionDestinationType.stage;
+      destinationType == ProgressionDestinationType.stage ||
+      destinationType == ProgressionDestinationType.lowerBracket;
 
   FixtureProgressionRule copyWith({
     String? outcome,

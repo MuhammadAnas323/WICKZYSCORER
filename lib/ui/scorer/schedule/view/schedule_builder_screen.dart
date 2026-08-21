@@ -398,96 +398,18 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
 
     final winnerId = choice == 0 ? fx.resolvedTeamAId : fx.resolvedTeamBId;
     final loserId = choice == 0 ? fx.resolvedTeamBId : fx.resolvedTeamAId;
-    final winnerName = _teamName(winnerId);
-    final loserName = _teamName(loserId);
 
-    // Step 2 — where should the loser go? (winner auto-advances to the next level)
-    final fate = await showModalBottomSheet<_LoserFate>(
-      context: context,
-      backgroundColor: theme.colorScheme.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Column(
-                children: [
-                  Text(l10n.translate('match_summary'),
-                      style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
-                  const SizedBox(height: 6),
-                  Text('$winnerName ${l10n.translate('winner')}',
-                      style: const TextStyle(
-                          color: AppColors.pitchGreenLight,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold)),
-                  Text('${l10n.translate('loser_fate')} $loserName?',
-                      style:
-                          TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.54), fontSize: 12)),
-                ],
-              ),
-            ),
-            Divider(color: theme.dividerColor, height: 1),
-            ListTile(
-              leading: const Icon(Icons.trending_up,
-                  color: AppColors.pitchGreenLight),
-              title: Text(l10n.translate('next_stage'),
-                  style: TextStyle(color: theme.colorScheme.onSurface)),
-              subtitle: Text(l10n.translate('next_stage'),
-                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.54), fontSize: 11)),
-              onTap: () => Navigator.pop(ctx, _LoserFate.nextStage),
-            ),
-            ListTile(
-              leading:
-                  const Icon(Icons.replay, color: AppColors.pitchGreenLight),
-              title: Text(l10n.translate('next_match'),
-                  style: TextStyle(color: theme.colorScheme.onSurface)),
-              subtitle: Text(l10n.translate('next_match'),
-                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.54), fontSize: 11)),
-              onTap: () => Navigator.pop(ctx, _LoserFate.nextMatch),
-            ),
-            ListTile(
-              leading: const Icon(Icons.highlight_off_outlined,
-                  color: Colors.redAccent),
-              title: Text(l10n.translate('eliminate'),
-                  style: const TextStyle(color: Colors.redAccent)),
-              subtitle: Text(l10n.translate('eliminate'),
-                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.54), fontSize: 11)),
-              onTap: () => Navigator.pop(ctx, _LoserFate.eliminate),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (fate == null) return;
+    if (winnerId == null || loserId == null) return;
 
-    setState(() {
-      final fixtures = List<ScheduleFixture>.from(stage.fixtures);
-      fixtures[fxIdx] =
-          fx.copyWith(status: FixtureStatus.completed, winnerTeamId: winnerId);
-      _stages[stageIdx] = _stages[stageIdx].copyWith(fixtures: fixtures);
-    });
+    // Use single source of truth TournamentProgressionEngine via repository
+    await ref.read(scorerRepositoryProvider).applyScheduleResult(
+          tournamentId: widget.tournamentId,
+          winnerTeamId: winnerId,
+          loserTeamId: loserId,
+          linkedFixtureId: fx.id,
+        );
 
-    if (fate == _LoserFate.eliminate) {
-      final loserTeam = _teams.where((t) => t.id == loserId).firstOrNull;
-      if (loserTeam != null && !loserTeam.isEliminated) {
-        await ref
-            .read(scorerRepositoryProvider)
-            .saveTeam(loserTeam.copyWith(isEliminated: true));
-        if (mounted) {
-          setState(() {
-            _teams = _teams
-                .map(
-                    (t) => t.id == loserId ? t.copyWith(isEliminated: true) : t)
-                .toList();
-          });
-        }
-      }
-    }
-    await _persist();
+    await _load();
   }
 
   String _teamName(String? id) => id == null
@@ -884,6 +806,17 @@ class _ScheduleBuilderScreenState extends ConsumerState<ScheduleBuilderScreen> {
         final s =
             _stages.where((s) => s.id == rule.destinationStageId).firstOrNull;
         return s?.name ?? _idShort(rule.destinationStageId);
+      case ProgressionDestinationType.lowerBracket:
+        if (rule.destinationFixtureId != null) {
+          for (final item in _allFixtureItems()) {
+            if (item.id == rule.destinationFixtureId) return 'Lower Bracket → ${item.label}';
+          }
+        }
+        if (rule.destinationStageId != null) {
+          final s = _stages.where((s) => s.id == rule.destinationStageId).firstOrNull;
+          if (s != null) return 'Lower Bracket → ${s.name}';
+        }
+        return 'Lower Bracket';
       case ProgressionDestinationType.waiting:
         return l10n.translate('waiting_for_opponent');
       case ProgressionDestinationType.qualify:
@@ -1102,6 +1035,16 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
       String label, String? value, ValueChanged<String?> onChanged) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final items = List<ScorerTeam>.from(widget.teams);
+    if (value != null && !items.any((t) => t.id == value)) {
+      items.add(ScorerTeam(
+        id: value,
+        name: value,
+        shortCode: value.length >= 3 ? value.substring(0, 3).toUpperCase() : value.toUpperCase(),
+        tournamentId: 't_custom',
+        playerIds: const [],
+      ));
+    }
     return DropdownButtonFormField<String>(
       value: value,
       dropdownColor: theme.colorScheme.surface,
@@ -1113,7 +1056,7 @@ class _MatchEditSheetState extends State<_MatchEditSheet> {
         fillColor: theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surfaceVariant,
         border: const OutlineInputBorder(),
       ),
-      items: widget.teams
+      items: items
           .map((t) => DropdownMenuItem(
               value: t.id,
               child: Text(t.name, overflow: TextOverflow.ellipsis)))
@@ -1178,6 +1121,7 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
   static const _loserOptions = [
     ProgressionDestinationType.fixture,
     ProgressionDestinationType.stage,
+    ProgressionDestinationType.lowerBracket,
     ProgressionDestinationType.waiting,
     ProgressionDestinationType.qualify,
     ProgressionDestinationType.eliminated,
@@ -1208,6 +1152,17 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
           outcome: outcome,
           destinationType: type,
           destinationStageId: stageId,
+        );
+      case ProgressionDestinationType.lowerBracket:
+        final target = fixtureId != null
+            ? widget.fixtureItems.where((i) => i.id == fixtureId).firstOrNull
+            : null;
+        return FixtureProgressionRule(
+          sourceFixtureId: widget.fixture.id,
+          outcome: outcome,
+          destinationType: type,
+          destinationFixtureId: fixtureId,
+          destinationStageId: target?.stageId ?? stageId,
         );
       case ProgressionDestinationType.waiting:
       case ProgressionDestinationType.qualify:
@@ -1242,6 +1197,8 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
         return l10n.translate('target_fixture');
       case ProgressionDestinationType.stage:
         return l10n.translate('target_stage');
+      case ProgressionDestinationType.lowerBracket:
+        return 'Lower Bracket';
       case ProgressionDestinationType.waiting:
         return l10n.translate('waiting_for_opponent');
       case ProgressionDestinationType.qualify:
@@ -1395,12 +1352,14 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
                 _loserType,
                 (v) => setState(() => _loserType = v),
               ),
-              if (_loserType == ProgressionDestinationType.fixture) ...[
+              if (_loserType == ProgressionDestinationType.fixture ||
+                  _loserType == ProgressionDestinationType.lowerBracket) ...[
                 const Gap(8),
                 fixtureDropdown(_loserFixtureId,
                     (v) => setState(() => _loserFixtureId = v)),
               ],
-              if (_loserType == ProgressionDestinationType.stage) ...[
+              if (_loserType == ProgressionDestinationType.stage ||
+                  _loserType == ProgressionDestinationType.lowerBracket) ...[
                 const Gap(8),
                 stageDropdown(_loserStageId,
                     (v) => setState(() => _loserStageId = v)),

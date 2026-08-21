@@ -13,11 +13,14 @@ import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 
+import 'package:go_router/go_router.dart';
+
 /// Shows the progression dialog for a just-completed tournament fixture.
 Future<void> showTournamentProgressionDialog({
   required BuildContext context,
   required FixtureProgression progression,
   required String Function(String?) teamName,
+  String? tournamentId,
 }) async {
   await showDialog<void>(
     context: context,
@@ -25,6 +28,7 @@ Future<void> showTournamentProgressionDialog({
     builder: (ctx) => TournamentProgressionDialog(
       progression: progression,
       teamName: teamName,
+      tournamentId: tournamentId,
     ),
   );
 }
@@ -32,11 +36,13 @@ Future<void> showTournamentProgressionDialog({
 class TournamentProgressionDialog extends StatelessWidget {
   final FixtureProgression progression;
   final String Function(String?) teamName;
+  final String? tournamentId;
 
   const TournamentProgressionDialog({
     super.key,
     required this.progression,
     required this.teamName,
+    this.tournamentId,
   });
 
   bool get _winnerIsChampion => progression.winnerFate.champion;
@@ -112,8 +118,33 @@ class TournamentProgressionDialog extends StatelessWidget {
         ),
       ),
       actions: [
+        if (tournamentId != null && tournamentId!.isNotEmpty) ...[
+          TextButton.icon(
+            icon: const Icon(Icons.calendar_month_outlined, size: 16),
+            label: const Text('Schedule / Stages'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push('/scorer/tournaments/$tournamentId/schedule');
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.pitchGreen,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.sports_cricket_rounded, size: 16),
+            label: const Text('Upcoming Matches'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push('/scorer/matches');
+            },
+          ),
+        ],
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            Navigator.of(context).pop();
+            context.go('/scorer/dashboard');
+          },
           child: Text(l10n.translate('continue'),
               style: const TextStyle(color: AppColors.pitchGreenLight)),
         ),
@@ -224,6 +255,33 @@ class _PathLine extends StatelessWidget {
         ],
       );
     }
+    if (fate.action == StageProgressionAction.lowerBracket || fate.nextStage?.name.toLowerCase().contains('lower') == true) {
+      final label = fate.nextFixture != null
+          ? '${l10n.translate('goes_to') == 'goes_to' ? 'Goes to' : l10n.translate('goes_to')} Lower Bracket (${fate.nextStage?.name ?? 'Lower Match'})'
+          : fate.nextStage != null
+              ? '${l10n.translate('goes_to') == 'goes_to' ? 'Goes to' : l10n.translate('goes_to')} ${fate.nextStage!.name}'
+              : 'Lower Bracket';
+      return Row(
+        children: [
+          const Icon(Icons.alt_route, color: Colors.amber, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ),
+          if (fate.nextFixtureWaiting) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.hourglass_bottom,
+                color: Colors.amber, size: 14),
+            Text(l10n.translate('waiting_for_opponent'),
+                style: const TextStyle(color: Colors.amber, fontSize: 11)),
+          ],
+        ],
+      );
+    }
     if (fate.nextFixture != null) {
       final label =
           '${l10n.translate('advances_to')} ${fate.nextStage?.name ?? l10n.translate('next_match')}';
@@ -267,12 +325,12 @@ class _PathLine extends StatelessWidget {
       );
     }
     if (fate.isEliminated) {
-      return const Row(
+      return Row(
         children: [
-          Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 16),
-          SizedBox(width: 6),
-          Text('⚰',
-              style: TextStyle(
+          const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 16),
+          const SizedBox(width: 6),
+          Text(l10n.translate('eliminated'),
+              style: const TextStyle(
                   color: Colors.redAccent,
                   fontSize: 13,
                   fontWeight: FontWeight.bold)),

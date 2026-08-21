@@ -22,6 +22,7 @@ class ScorerTournament {
   final String ownerId;
   final MatchFormat format;
   final int customOvers;
+  final int? maxOversPerBowler;
   final DateTime startDate;
   final DateTime endDate;
   final String venue;
@@ -49,6 +50,7 @@ class ScorerTournament {
     required this.ownerId,
     required this.format,
     required this.customOvers,
+    this.maxOversPerBowler,
     required this.startDate,
     required this.endDate,
     required this.venue,
@@ -77,6 +79,7 @@ class ScorerTournament {
     String? ownerId,
     MatchFormat? format,
     int? customOvers,
+    int? maxOversPerBowler,
     DateTime? startDate,
     DateTime? endDate,
     String? venue,
@@ -100,6 +103,7 @@ class ScorerTournament {
       ownerId: ownerId ?? this.ownerId,
       format: format ?? this.format,
       customOvers: customOvers ?? this.customOvers,
+      maxOversPerBowler: maxOversPerBowler ?? this.maxOversPerBowler,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       venue: venue ?? this.venue,

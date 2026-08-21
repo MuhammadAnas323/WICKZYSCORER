@@ -16,6 +16,7 @@ import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_schedule_serializers.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
+import 'package:sportyapp/data/models/scorer/tournament_progression.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 Future<ScorerRepository> _seedRepo(List<ScheduleStage> stages) async {
@@ -524,6 +525,226 @@ void main() {
       final clean = scheduleFixtureFromJson(scheduleFromFixtureToJson(fixture));
       expect(clean.winnerRule, isNull);
       expect(clean.loserRule, isNull);
+    });
+  });
+
+  group('Explicit Strict Test Cases A through F', () {
+    test('Case A: SF1 Winner -> Final (Winner reaches Final, shows Waiting for Opponent)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final stages = [
+        ScheduleStage(
+          id: 'semis',
+          name: 'Semis',
+          order: 0,
+          type: ScheduleStageType.knockout,
+          fixtures: [
+            _readyFixture(
+              id: 'sf1',
+              order: 1,
+              aId: 'team1',
+              bId: 'team2',
+              winnerRule: rule('sf1', 'winner', ProgressionDestinationType.fixture, fixtureId: 'final'),
+              loserRule: rule('sf1', 'loser', ProgressionDestinationType.eliminated),
+            ),
+          ],
+        ),
+        ScheduleStage(
+          id: 'finals',
+          name: 'Finals',
+          order: 1,
+          type: ScheduleStageType.knockout,
+          fixtures: [_readyFixture(id: 'final', order: 1)],
+        ),
+      ];
+      final repo = await _seedRepo(stages);
+
+      await repo.applyScheduleResult(
+        tournamentId: 't1',
+        winnerTeamId: 'team1',
+        loserTeamId: 'team2',
+        linkedFixtureId: 'sf1',
+        matchId: 'm1',
+      );
+
+      final finalFx = (await repo.getSchedule('t1'))[1].fixtures.first;
+      expect(finalFx.resolvedTeamAId, 'team1');
+      expect(finalFx.resolvedTeamBId, isNull);
+      expect(finalFx.status, FixtureStatus.pending); // Waiting for Opponent
+    });
+
+    test('Case B: SF2 Winner -> same Final (Final becomes Ready)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final stages = [
+        ScheduleStage(
+          id: 'semis',
+          name: 'Semis',
+          order: 0,
+          type: ScheduleStageType.knockout,
+          fixtures: [
+            _readyFixture(
+              id: 'sf1',
+              order: 1,
+              aId: 'team1',
+              bId: 'team2',
+              winnerRule: rule('sf1', 'winner', ProgressionDestinationType.fixture, fixtureId: 'final'),
+            ),
+            _readyFixture(
+              id: 'sf2',
+              order: 2,
+              aId: 'team3',
+              bId: 'team4',
+              winnerRule: rule('sf2', 'winner', ProgressionDestinationType.fixture, fixtureId: 'final'),
+            ),
+          ],
+        ),
+        ScheduleStage(
+          id: 'finals',
+          name: 'Finals',
+          order: 1,
+          type: ScheduleStageType.knockout,
+          fixtures: [_readyFixture(id: 'final', order: 1)],
+        ),
+      ];
+      final repo = await _seedRepo(stages);
+
+      await repo.applyScheduleResult(
+        tournamentId: 't1',
+        winnerTeamId: 'team1',
+        loserTeamId: 'team2',
+        linkedFixtureId: 'sf1',
+        matchId: 'm1',
+      );
+      await repo.applyScheduleResult(
+        tournamentId: 't1',
+        winnerTeamId: 'team3',
+        loserTeamId: 'team4',
+        linkedFixtureId: 'sf2',
+        matchId: 'm2',
+      );
+
+      final finalFx = (await repo.getSchedule('t1'))[1].fixtures.first;
+      expect(finalFx.resolvedTeamAId, 'team1');
+      expect(finalFx.resolvedTeamBId, 'team3');
+      expect(finalFx.status, FixtureStatus.ready); // Ready!
+    });
+
+    test('Case C: Loser -> Lower Bracket (Loser is NOT eliminated)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final stages = [
+        ScheduleStage(
+          id: 's1',
+          name: 'Main',
+          order: 0,
+          type: ScheduleStageType.knockout,
+          fixtures: [
+            _readyFixture(
+              id: 'm1',
+              order: 1,
+              aId: 'team1',
+              bId: 'team2',
+              loserRule: rule('m1', 'loser', ProgressionDestinationType.lowerBracket, fixtureId: 'lb1'),
+            ),
+            _readyFixture(id: 'lb1', order: 2),
+          ],
+        ),
+      ];
+      final repo = await _seedRepo(stages);
+
+      await repo.applyScheduleResult(
+        tournamentId: 't1',
+        winnerTeamId: 'team1',
+        loserTeamId: 'team2',
+        linkedFixtureId: 'm1',
+        matchId: 'm1',
+      );
+
+      final lbFx = (await repo.getSchedule('t1'))[0].fixtures.firstWhere((f) => f.id == 'lb1');
+      expect(lbFx.resolvedTeamAId, 'team2');
+      final team2 = (await repo.getAllTeams()).firstWhere((t) => t.id == 'team2');
+      expect(team2.isEliminated, isFalse);
+    });
+
+    test('Case D: Loser -> Eliminated (Loser is eliminated)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final stages = [
+        ScheduleStage(
+          id: 's1',
+          name: 'Main',
+          order: 0,
+          type: ScheduleStageType.knockout,
+          fixtures: [
+            _readyFixture(
+              id: 'm1',
+              order: 1,
+              aId: 'team1',
+              bId: 'team2',
+              loserRule: rule('m1', 'loser', ProgressionDestinationType.eliminated),
+            ),
+          ],
+        ),
+      ];
+      final repo = await _seedRepo(stages);
+
+      await repo.applyScheduleResult(
+        tournamentId: 't1',
+        winnerTeamId: 'team1',
+        loserTeamId: 'team2',
+        linkedFixtureId: 'm1',
+        matchId: 'm1',
+      );
+
+      final team2 = (await repo.getAllTeams()).firstWhere((t) => t.id == 'team2');
+      expect(team2.isEliminated, isTrue);
+    });
+
+    test('Case E: Final Winner -> Champion (Winner becomes Champion)', () async {
+      SharedPreferences.setMockInitialValues({});
+      bool championCalled = false;
+      final sf1 = _readyFixture(
+        id: 'fin',
+        order: 1,
+        aId: 'team1',
+        bId: 'team2',
+        winnerRule: rule('fin', 'winner', ProgressionDestinationType.champion),
+      );
+      final stages = [
+        ScheduleStage(id: 's1', name: 'Finals', order: 0, type: ScheduleStageType.knockout, fixtures: [sf1]),
+      ];
+      final repo = await _seedRepo(stages);
+
+      final engine = TournamentProgressionEngine();
+      engine.processMatchResult(
+        stages,
+        const MatchResultOutcome(matchId: 'm1', winnerTeamId: 'team1', loserTeamId: 'team2'),
+        onTeamUpdate: (id, {eliminated, qualified, champion}) {
+          if (id == 'team1' && champion == true) championCalled = true;
+        },
+      );
+
+      expect(championCalled, isTrue);
+    });
+
+    test('Case F: Winner has no configured Champion destination (Do NOT automatically call them Champion)', () {
+      final fix = ScheduleFixture(
+        id: 'm1',
+        order: 1,
+        teamASource: const ScheduleSource.team('team1'),
+        teamBSource: const ScheduleSource.team('team2'),
+        resolvedTeamAId: 'team1',
+        resolvedTeamBId: 'team2',
+        winnerTeamId: 'team1',
+        status: FixtureStatus.completed,
+      );
+      final stage = ScheduleStage(
+        id: 's1',
+        name: 'Final Stage',
+        order: 0,
+        type: ScheduleStageType.knockout,
+        fixtures: [fix],
+      );
+
+      final prog = TournamentProgressionResolver([stage]).resolve(fix);
+      expect(prog.winnerFate.champion, isFalse);
     });
   });
 }

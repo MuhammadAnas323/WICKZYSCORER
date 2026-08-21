@@ -545,27 +545,21 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
         ref.watch(scorerLiveMatchStreamProvider).value ?? liveRepo.activeMatch;
 
     if (match == null) {
+      // The stream briefly emits null when a match just ended (active draft
+      // cleared). Auto-redirect to the summary instead of showing a dead-end
+      // "match not found" screen. A short microtask delay lets the frame render
+      // (avoiding a Navigator call inside build) and also gives the live repo
+      // time to persist the completed match before the summary loads it.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final active = ref.read(scorerLiveMatchRepositoryProvider).activeMatch;
+        if (active != null) return; // race: stream settled, rebuild will handle it
+        context.go('/scorer/dashboard');
+      });
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.sports_score_outlined,
-                  color: Colors.grey, size: 72),
-              const Gap(16),
-              Text(l10n.translate('match_not_found'),
-                  style: const TextStyle(color: Colors.grey, fontSize: 18)),
-              const Gap(16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.pitchGreen,
-                    foregroundColor: Colors.white),
-                onPressed: () => context.go('/scorer/dashboard'),
-                child: Text(l10n.translate('back')),
-              ),
-            ],
-          ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.pitchGreen),
         ),
       );
     }
@@ -1430,6 +1424,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
     final colorScheme = theme.colorScheme;
     final liveRepo = ref.read(scorerLiveMatchRepositoryProvider);
     var overs = match.overs;
+    String selectedReason = '🌧 Bad Weather / Rain';
+    final noteController = TextEditingController();
+
+    final reasons = [
+      '🌧 Bad Weather / Rain',
+      '⏱ Slow Over Rate / Penalty',
+      '⌛ Time Limit / Delay',
+      '⚙ Technical Issue',
+      '📝 Other',
+    ];
 
     showDialog(
       context: context,
@@ -1443,43 +1447,102 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 style: TextStyle(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$overs',
-                    style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 32)),
-                Text(l10n.translate('overs'),
-                    style:
-                        const TextStyle(color: Colors.grey, fontSize: 12)),
-                const Gap(16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton.filled(
-                      style: IconButton.styleFrom(
-                          backgroundColor:
-                              AppColors.liveRed.withOpacity(0.15)),
-                      icon: const Icon(Icons.remove),
-                      color: Colors.redAccent,
-                      onPressed: () =>
-                          setDialogState(() => overs = (overs - 1).clamp(1, 50)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text('$overs',
+                      style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 36)),
+                  Text(l10n.translate('overs'),
+                      style:
+                          const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Gap(12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                            backgroundColor:
+                                AppColors.liveRed.withOpacity(0.15)),
+                        icon: const Icon(Icons.remove),
+                        color: Colors.redAccent,
+                        onPressed: () =>
+                            setDialogState(() => overs = (overs - 1).clamp(1, 50)),
+                      ),
+                      const Gap(24),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                            backgroundColor:
+                                AppColors.pitchGreen.withOpacity(0.15)),
+                        icon: const Icon(Icons.add),
+                        color: AppColors.pitchGreenLight,
+                        onPressed: () =>
+                            setDialogState(() => overs = (overs + 1).clamp(1, 50)),
+                      ),
+                    ],
+                  ),
+                  const Gap(16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Reason for Adjustment',
+                        style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  const Gap(6),
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    dropdownColor: colorScheme.surface,
+                    style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: theme.inputDecorationTheme.fillColor ??
+                          colorScheme.surfaceVariant,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
-                    const Gap(24),
-                    IconButton.filled(
-                      style: IconButton.styleFrom(
-                          backgroundColor:
-                              AppColors.pitchGreen.withOpacity(0.15)),
-                      icon: const Icon(Icons.add),
-                      color: AppColors.pitchGreenLight,
-                      onPressed: () =>
-                          setDialogState(() => overs = (overs + 1).clamp(1, 50)),
+                    items: reasons
+                        .map((r) => DropdownMenuItem(
+                            value: r,
+                            child: Text(r,
+                                style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 13))))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedReason = val);
+                      }
+                    },
+                  ),
+                  if (selectedReason == '📝 Other') ...[
+                    const Gap(10),
+                    TextField(
+                      controller: noteController,
+                      style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Enter reason (e.g. wet outfield)...',
+                        hintStyle: TextStyle(
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                        filled: true,
+                        fillColor: theme.inputDecorationTheme.fillColor ??
+                            colorScheme.surfaceVariant,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -1493,6 +1556,16 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
                 ),
                 onPressed: () {
                   liveRepo.setOvers(overs);
+                  final finalReason = selectedReason == '📝 Other' &&
+                          noteController.text.trim().isNotEmpty
+                      ? noteController.text.trim()
+                      : selectedReason;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Overs adjusted to $overs ($finalReason)'),
+                      backgroundColor: AppColors.pitchGreen,
+                    ),
+                  );
                   Navigator.pop(ctx);
                 },
                 child: Text(l10n.translate('confirm')),

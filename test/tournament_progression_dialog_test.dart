@@ -257,6 +257,11 @@ Future<ScorerRepository> _seedFinal() async {
           resolvedTeamBId: 'team2',
           status: FixtureStatus.live,
           winnerTeamId: 'team2',
+          winnerRule: const FixtureProgressionRule(
+            sourceFixtureId: 'final',
+            outcome: 'winner',
+            destinationType: ProgressionDestinationType.champion,
+          ),
         ),
       ],
       config: const StageConfiguration(

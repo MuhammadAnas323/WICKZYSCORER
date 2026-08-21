@@ -193,7 +193,8 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
     return byId.values.toList();
   }
 
-  Future<void> _finish(ScorerMatch match, _SummaryData data) async {
+  Future<void> _finish(ScorerMatch match, _SummaryData data,
+      {bool navigate = true}) async {
     if (_finishing) return;
     setState(() => _finishing = true);
     final l10n = AppLocalizations.of(context);
@@ -231,7 +232,7 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
         return;
       }
       if (!mounted) return;
-      context.go('/scorer/dashboard');
+      if (navigate) context.go('/scorer/dashboard');
       return;
     }
 
@@ -338,19 +339,32 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
       }
     }
 
-    // 3. Immediately after a tournament match with a winner/loser is completed,
-    // show the progression dialog: it surfaces the updated bracket path for
-    // BOTH teams (winner → next match/champion, loser → eliminated/lower match,
-    // waiting for opponent). It only READS the shared resolver output — it
-    // never re-derives or mutates the schedule. Non-tournament matches, ties
-    // and no-results skip it. Best-effort: a missing schedule or fixture just
-    // skips the dialog so completion is never blocked.
-    final isTournamentMatch = match.tournamentId.isNotEmpty &&
-        match.tournamentId != 't_custom';
+    if (!mounted) return;
+    // When navigate=false the caller (_finishAndShowProgression) will handle
+    // the progression dialog and then navigate to the dashboard itself.
+    if (navigate) context.go('/scorer/dashboard');
+  }
+
+  /// Called when the scorer taps the Complete/Save-Awards button.
+  /// For tournament matches with a decisive result, shows the bracket
+  /// progression dialog (winner's next fixture, loser's elimination status)
+  /// before navigating to the dashboard. For friendly matches or ties, it
+  /// calls [_finish] directly.
+  Future<void> _finishAndShowProgression(
+      ScorerMatch match, _SummaryData data, AppLocalizations l10n) async {
+    // 1. Complete/save the match without auto-navigating to dashboard yet.
+    await _finish(match, data, navigate: false);
+    if (!mounted) return;
+
+    // 2. Only show progression dialog for tournament matches with a decisive result.
+    final isTournamentMatch =
+        match.tournamentId.isNotEmpty && match.tournamentId != 't_custom';
+    final result = _result(match, data, l10n);
     if (isTournamentMatch &&
         result.winnerTeamId != null &&
         result.loserTeamId != null) {
       try {
+        final repo = ref.read(scorerRepositoryProvider);
         final stages = await repo.getSchedule(match.tournamentId);
         final fixture = _fixtureForMatch(stages, match);
         if (fixture != null) {
@@ -365,8 +379,8 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
                 : id == match.team2Id
                     ? data.team2Name
                     : (id ?? ''),
+            tournamentId: match.tournamentId,
           );
-          if (!mounted) return;
         }
       } catch (e) {
         debugPrint('[MatchSummary] progression dialog failed: $e');
@@ -567,7 +581,9 @@ class _MatchSummaryScreenState extends ConsumerState<MatchSummaryScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(5)),
             ),
-            onPressed: _finishing ? null : () => _finish(match, data),
+            onPressed: _finishing
+                ? null
+                : () => _finishAndShowProgression(match, data, l10n),
             child: Text(
                 _finishing
                     ? '...'

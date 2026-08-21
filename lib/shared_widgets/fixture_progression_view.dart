@@ -49,11 +49,7 @@ class FixtureProgressionView extends StatelessWidget {
         );
       }
       final wFate = progression.winnerFate;
-      final champion = wFate.champion ||
-          (wFate.nextFixture == null &&
-              !wFate.isEliminated &&
-              wFate.action == StageProgressionAction.advance &&
-              progression.stage.config.nextStageId == null);
+      final champion = wFate.champion;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -91,6 +87,7 @@ class _FateLine extends StatelessWidget {
   final bool tied;
 
   const _FateLine({
+    super.key,
     required this.teamName,
     required this.fate,
     required this.isWinner,
@@ -105,7 +102,7 @@ class _FateLine extends StatelessWidget {
         ? AppColors.floodlightGold
         : isWinner
             ? AppColors.pitchGreenLight
-            : Colors.redAccent;
+            : (fate.action == StageProgressionAction.lowerBracket ? Colors.amber : Colors.redAccent);
     final String label;
     final Widget? badge;
     if (champion) {
@@ -117,6 +114,9 @@ class _FateLine extends StatelessWidget {
     } else if (fate.waiting) {
       label = '$teamName · ${l10n.translate('waiting_for_opponent')}';
       badge = null;
+    } else if (fate.action == StageProgressionAction.lowerBracket) {
+      label = '$teamName → Lower Bracket (${fate.nextStage?.name ?? 'Lower Match'})';
+      badge = _FateBadge(fate);
     } else if (fate.nextFixture != null) {
       label = '$teamName → ${fate.nextStage?.name ?? l10n.translate('next_match')}';
       badge = _FateBadge(fate);

@@ -46,8 +46,11 @@ class AppErrorHandler {
     }
 
     if (e is PlatformException) {
-      if (e.code == 'sign_in_failed' || e.code == '12501' || e.code == 'sign_in_canceled') {
+      if (e.code == 'sign_in_canceled' || e.code == '12501') {
         return 'Google Sign-In was cancelled.';
+      }
+      if (e.code == 'sign_in_failed') {
+        return 'Google Sign-In failed. Please verify Google Play Services and your configuration.';
       }
       if (e.code == 'network_error') {
         return 'A network error occurred. Please check your internet connection.';

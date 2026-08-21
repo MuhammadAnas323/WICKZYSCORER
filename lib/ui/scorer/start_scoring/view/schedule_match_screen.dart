@@ -121,7 +121,7 @@ class _ScheduleMatchScreenState extends ConsumerState<ScheduleMatchScreen> {
       venue: _venue,
       dateTime: _dateTime,
       format: t.format,
-      overs: t.format == MatchFormat.t20 ? 20 : t.format == MatchFormat.odi ? 50 : t.customOvers,
+      overs: t.customOvers,
       status: MatchStatus.upcoming,
       playingXI1: const [],
       playingXI2: const [],

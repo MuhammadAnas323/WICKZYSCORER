@@ -224,7 +224,13 @@ class ScorerRepository {
 
   Future<List<ScorerTeam>> getTeamsByTournament(String tournamentId) async {
     await _ensureLoaded();
-    return _teams.where((t) => t.tournamentId == tournamentId).toList();
+    final tournament = _tournaments.where((t) => t.id == tournamentId).firstOrNull;
+    final tTeamIds = tournament?.teamIds.toSet() ?? {};
+    final matching = _teams
+        .where((t) => t.tournamentId == tournamentId || tTeamIds.contains(t.id))
+        .toList();
+    if (matching.isNotEmpty) return matching;
+    return _teams;
   }
 
   Future<List<ScorerTeam>> getAllTeams() async {
@@ -473,13 +479,7 @@ class ScorerRepository {
       venue: fixture.venue ?? tournament?.venue ?? 'TBD',
       dateTime: fixture.scheduledDateTime ?? DateTime.now(),
       format: tournament?.format ?? MatchFormat.t20,
-      overs: tournament == null
-          ? 20
-          : tournament.format == MatchFormat.t20
-              ? 20
-              : tournament.format == MatchFormat.odi
-                  ? 50
-                  : tournament.customOvers,
+      overs: tournament?.customOvers ?? 20,
       status: MatchStatus.scheduled,
       playingXI1: const [],
       playingXI2: const [],

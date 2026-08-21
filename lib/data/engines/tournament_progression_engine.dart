@@ -93,11 +93,11 @@ class TournamentProgressionEngine {
             ? fx.copyWith(resolvedTeamAId: teamId)
             : fx.copyWith(resolvedTeamBId: teamId);
         
-        // If both slots filled, mark Ready
+        // If both slots filled, mark Ready; otherwise pending (Waiting for Opponent)
         if (updated.resolvedTeamAId != null && updated.resolvedTeamBId != null) {
           return updated.copyWith(status: FixtureStatus.ready);
         }
-        return updated;
+        return updated.copyWith(status: FixtureStatus.pending);
       });
     } else if (fate.nextStage != null) {
       // Routing to first available fixture in stage
@@ -117,7 +117,7 @@ class TournamentProgressionEngine {
         if (updated.resolvedTeamAId != null && updated.resolvedTeamBId != null) {
           return updated.copyWith(status: FixtureStatus.ready);
         }
-        return updated;
+        return updated.copyWith(status: FixtureStatus.pending);
       });
     }
     return stages;
@@ -159,7 +159,12 @@ class TeamFate {
   });
 
   bool get isEliminated =>
-      action == StageProgressionAction.eliminate && nextFixture == null && !champion && !waiting && !qualify;
+      action == StageProgressionAction.eliminate &&
+      nextFixture == null &&
+      nextStage == null &&
+      !champion &&
+      !waiting &&
+      !qualify;
 }
 
 /// Bracket position of a single fixture: who won/lost, and where each side goes.
@@ -347,6 +352,7 @@ class TournamentProgressionResolver {
       nextStage: nextStage,
       nextFixtureReady: ready,
       nextFixtureWaiting: next != null && !ready,
+      champion: false,
     );
   }
 
@@ -390,7 +396,7 @@ class TournamentProgressionResolver {
             ? null
             : stages.where((s) => s.id == rule.destinationStageId).firstOrNull;
         if (nextStage == null) {
-            return const TeamFate(action: StageProgressionAction.advance);
+          return const TeamFate(action: StageProgressionAction.advance);
         }
         // Deterministic stage routing: find first fixture with an empty slot
         final next = nextStage.fixtures.firstWhere(
@@ -404,6 +410,53 @@ class TournamentProgressionResolver {
           nextStage: nextStage,
           nextFixtureReady: ready,
           nextFixtureWaiting: !ready,
+        );
+      case ProgressionDestinationType.lowerBracket:
+        ScheduleFixture? next;
+        ScheduleStage? nextStage;
+        if (rule.destinationFixtureId != null &&
+            _fixtureById.containsKey(rule.destinationFixtureId)) {
+          next = _fixtureById[rule.destinationFixtureId];
+          nextStage = _stageByFixtureId[rule.destinationFixtureId!];
+        } else if (rule.destinationStageId != null) {
+          nextStage =
+              stages.where((s) => s.id == rule.destinationStageId).firstOrNull;
+          if (nextStage != null) {
+            next = nextStage.fixtures.firstWhere(
+                (f) =>
+                    (f.resolvedTeamAId == null || f.resolvedTeamBId == null) &&
+                    f.status != FixtureStatus.completed,
+                orElse: () => nextStage!.fixtures.first);
+          }
+        } else {
+          nextStage = stages
+              .where((s) =>
+                  s.name.toLowerCase().contains('lower') ||
+                  s.config.loserAction == StageProgressionAction.lowerBracket)
+              .firstOrNull;
+          if (nextStage != null) {
+            next = nextStage.fixtures.firstWhere(
+                (f) =>
+                    (f.resolvedTeamAId == null || f.resolvedTeamBId == null) &&
+                    f.status != FixtureStatus.completed,
+                orElse: () => nextStage!.fixtures.first);
+          }
+        }
+        if (next == null && nextStage == null) {
+          return const TeamFate(
+            action: StageProgressionAction.lowerBracket,
+            waiting: true,
+          );
+        }
+        final ready = next != null &&
+            next.resolvedTeamAId != null &&
+            next.resolvedTeamBId != null;
+        return TeamFate(
+          action: StageProgressionAction.lowerBracket,
+          nextFixture: next,
+          nextStage: nextStage,
+          nextFixtureReady: ready,
+          nextFixtureWaiting: next != null && !ready,
         );
     }
   }
