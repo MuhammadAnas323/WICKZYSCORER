@@ -33,9 +33,7 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final async = ref.watch(playerDetailProvider(widget.playerId));
-    final cs = Theme.of(context).colorScheme;
 
     return async.when(
       loading: () => Scaffold(appBar: AppBar(), body: const MatchListSkeleton()),
@@ -231,7 +229,6 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),

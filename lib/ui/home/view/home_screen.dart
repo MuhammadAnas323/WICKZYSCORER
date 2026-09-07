@@ -59,7 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(width: 10),
             Text(
-              'WICKZYSCORER',
+              'WICKZY SCORER',
               style: AppTextStyles.titleLarge(cs.onBackground)
                   .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold),
             ),

@@ -187,7 +187,7 @@ class _WickzySplashOverlayState extends State<_WickzySplashOverlay>
 class _WickzyNameReveal extends StatelessWidget {
   const _WickzyNameReveal({required this.progress, required this.fontSize});
 
-  static const String name = 'WickzyScorer';
+  static const String name = 'Wickzy Scorer';
 
   final double progress;
   final double fontSize;

@@ -6,8 +6,16 @@ class AppLocalizations {
 
   static final Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'scorer_dashboard': 'WICKZYSCORER SCORER',
+      'scorer_dashboard': 'WICKZY SCORER',
       'welcome': 'Welcome',
+      'settings_and_info': 'Settings & Info',
+      'settings': 'Settings',
+      'about_app': 'About Wickzy Scorer',
+      'about_crixora': 'About Wickzy Scorer',
+      'contact_support': 'Contact Support',
+      'sign_out': 'Sign Out',
+      'sign_out_confirm': 'Are you sure you want to sign out?',
+      'sign_out_subtitle': 'Sign out of your current account',
       'tournaments': 'Tournaments',
       'manage_score_tournaments': 'Manage & score tournaments',
       'friendly_matches': 'Friendly Matches',
@@ -305,6 +313,14 @@ class AppLocalizations {
     'ur': {
       'scorer_dashboard': 'وکسزی اسکورر',
       'welcome': 'خوش آمدید',
+      'settings_and_info': 'ترتیبات اور معلومات',
+      'settings': 'ترتیبات',
+      'about_app': 'وکسزی اسکورر کے بارے میں',
+      'about_crixora': 'وکسزی اسکورر کے بارے میں',
+      'contact_support': 'سپورٹ سے رابطہ کریں',
+      'sign_out': 'لاگ آؤٹ',
+      'sign_out_confirm': 'کیا آپ واقعی لاگ آؤٹ کرنا چاہتے ہیں؟',
+      'sign_out_subtitle': 'اپنے اکاؤنٹ سے سائن آؤٹ کریں',
       'tournaments': 'ٹورنامنٹس',
       'manage_score_tournaments': 'ٹورنامنٹس کا انتظام اور اسکورنگ کریں',
       'friendly_matches': 'فرینڈلی میچز',

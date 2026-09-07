@@ -66,7 +66,7 @@ class SpectatorHomeState {
     var list = tournaments;
     if (searchQuery.trim().isNotEmpty) {
       final q = searchQuery.trim().toLowerCase();
-      list = list.where((t) => t.name.toLowerCase().contains(q) || (t.venue?.toLowerCase().contains(q) ?? false)).toList();
+      list = list.where((t) => t.name.toLowerCase().contains(q) || t.venue.toLowerCase().contains(q)).toList();
     }
     if (tournamentSubFilter == 'all') return list;
 
@@ -89,8 +89,7 @@ class SpectatorHomeState {
     // (see scorer create-local-match), so treat it as a friendly match too.
     var list = matches
         .where((m) =>
-            m.tournamentId == null ||
-            m.tournamentId!.isEmpty ||
+            m.tournamentId.isEmpty ||
             m.tournamentId == 't_custom')
         .toList();
 

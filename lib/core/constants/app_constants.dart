@@ -6,7 +6,7 @@ class AppConstants {
   AppConstants._();
 
   // App info
-  static const String appName = 'WickzyScorer';
+  static const String appName = 'Wickzy Scorer';
   static const String appTagline = 'Live Cricket. Every Ball.';
   static const String appVersion = '1.0.0';
 

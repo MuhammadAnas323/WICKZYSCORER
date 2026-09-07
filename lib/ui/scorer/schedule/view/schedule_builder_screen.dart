@@ -12,8 +12,6 @@ import 'package:sportyapp/data/models/scorer/scorer_schedule.dart';
 import 'package:sportyapp/data/models/scorer/scorer_team.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
-enum _LoserFate { nextStage, nextMatch, eliminate }
-
 class MatchDraft {
   final String teamAId;
   final String teamBId;

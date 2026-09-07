@@ -37,16 +37,21 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
 
   CurrentUserNotifier(this._auth, this._ready) : super(null) {
     _sub = _auth.authStateChanges().listen((fa.User? fbUser) {
-      debugPrint('[DEBUG] authStateChanges fired — fbUser == null: ${fbUser == null}, _isAuthenticating: $_isAuthenticating, _initialized: $_initialized');
       _onAuthChanged(fbUser);
     }, onError: (Object e) {
-      debugPrint('[DEBUG] authStateChanges onError: $e');
       state = null;
       _markReady();
     });
 
-    // The authStateChanges stream emits the restored session, but be defensive:
-    // kick off the same resolution straight away for already-restored sessions.
+    // Fallback: If authStateChanges does not emit within timeout (e.g. offline/tests),
+    // ensure initialization finishes so the app is never stuck on splash.
+    Future.delayed(_kAuthRefreshTimeout, () {
+      if (!_initialized) {
+        _markReady();
+      }
+    });
+
+    // Check if a session was already synchronous/available
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureInitialized());
   }
 
@@ -58,20 +63,15 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     _ready.markReady();
   }
 
-  /// Resolves the current user if the stream has not fired yet (e.g. session
-  /// restored before the listener was attached).
+  /// Resolves the current user if the instance already has an active user.
   void _ensureInitialized() {
     if (_initialized || _isAuthenticating || _resolving) return;
     try {
       final fbUser = fa.FirebaseAuth.instance.currentUser;
       if (fbUser != null) {
         _onAuthChanged(fbUser);
-      } else {
-        _markReady();
       }
     } catch (_) {
-      // Firebase not available (e.g. widget tests) — nothing to restore, so the
-      // splash can proceed as an anonymous visitor.
       _markReady();
     }
   }
@@ -86,12 +86,11 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
           // Fast path: if we have a locally cached profile for this account, use
           // it immediately so the splash can navigate without a slow network call.
           final cached = await _readCachedUser();
-          if (cached != null && cached.id == fbUser.uid && !_initialized) {
+          if (cached != null && cached.id == fbUser.uid) {
             state = cached;
             _markReady();
           }
-          // Refresh from Firestore in the background (never blocks startup),
-          // bounded so a hanging network call can't strand the splash.
+          // Refresh from Firestore, bounded so a hanging network call can't strand startup.
           try {
             await _auth.loadCurrentUser().timeout(_kAuthRefreshTimeout);
             if (_auth.currentUser != null) {
@@ -109,7 +108,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
           state = null;
           _markReady();
         }
-      } else if (fa.FirebaseAuth.instance.currentUser == null) {
+      } else {
         state = null;
         _markReady();
       }

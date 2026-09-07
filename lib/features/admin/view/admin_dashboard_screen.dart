@@ -17,7 +17,6 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(adminDashboardViewModelProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(

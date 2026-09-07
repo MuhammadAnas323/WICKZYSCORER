@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
-import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/ui/search/viewmodel/search_viewmodel.dart';
 import 'package:sportyapp/shared_widgets/match_card.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';

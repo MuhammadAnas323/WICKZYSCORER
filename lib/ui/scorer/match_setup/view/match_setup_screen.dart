@@ -505,7 +505,6 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   Widget _teamManualField(String label, TextEditingController controller) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
 
     return TextFormField(
       controller: controller,

@@ -4,7 +4,6 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/core/extensions/datetime_extensions.dart';
-import 'package:sportyapp/core/extensions/int_extensions.dart';
 import 'package:sportyapp/data/models/match_model.dart';
 import 'package:sportyapp/data/models/live_match_data.dart';
 import 'package:sportyapp/data/models/player_model.dart';
@@ -12,7 +11,6 @@ import 'package:sportyapp/ui/match_details/viewmodel/match_details_viewmodel.dar
 import 'package:sportyapp/shared_widgets/live_badge.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
-import 'package:sportyapp/shared_widgets/ball_strip.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
 
@@ -67,7 +65,6 @@ class _MatchDetailsScreenState extends ConsumerState<MatchDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final state = ref.watch(matchDetailsViewModelProvider(widget.matchId));
 
     if (state.isLoading) return Scaffold(appBar: AppBar(), body: const MatchListSkeleton());
@@ -216,7 +213,6 @@ class _InfoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     Widget row(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -262,7 +258,6 @@ class _ScorecardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     if (match.innings.isEmpty && liveData == null) {
       return const EmptyState(emoji: '📊', title: 'No Scorecard Yet',
         subtitle: 'Scorecard will appear once the match starts.');
@@ -349,7 +344,7 @@ class _InningsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: cs.outlineVariant ?? cs.outline, width: 0.5)),
+        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -381,7 +376,7 @@ class _InningsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: cs.outlineVariant ?? cs.outline, width: 0.5)),
+        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [

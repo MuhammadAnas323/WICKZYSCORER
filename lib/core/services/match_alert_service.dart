@@ -235,7 +235,7 @@ class MatchAlertListener {
     final team2 = (raw['team2Name'] as String?) ?? '';
     final vs =
         team1.isNotEmpty && team2.isNotEmpty ? '$team1 vs $team2' : 'Match';
-    final title = 'WickzyScorer';
+    final title = 'Wickzy Scorer';
     final body = switch (type) {
       'start' => '$vs has started',
       'first_innings_start' => '$vs — 1st innings has started',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/constants/app_constants.dart';
@@ -36,7 +35,6 @@ class _TournamentDetailScreenState extends ConsumerState<TournamentDetailScreen>
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(_tournamentDetailProvider(widget.tournamentId));
-    final cs = Theme.of(context).colorScheme;
 
     return async.when(
       loading: () => Scaffold(appBar: AppBar(), body: const MatchListSkeleton()),

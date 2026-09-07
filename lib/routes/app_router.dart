@@ -73,12 +73,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authHeartbeat = ValueNotifier(0);
   ref.onDispose(authHeartbeat.dispose);
   ref.listen<AppUser?>(currentUserProvider, (_, __) => authHeartbeat.value++);
+  ref.listen<bool>(authReadyProvider, (_, __) => authHeartbeat.value++);
 
   return GoRouter(
     initialLocation: '/role-selection',
     debugLogDiagnostics: false,
     refreshListenable: authHeartbeat,
     redirect: (context, state) {
+      final authReady = ref.read(authReadyProvider);
+
+      // ── Loading guard ────────────────────────────────────────────────────
+      // While the initial Firebase auth session is still being restored, do
+      // NOT redirect anywhere. The SplashGate overlay covers the entire screen,
+      // so the user sees nothing underneath regardless of the current route.
+      //
+      // Returning null here (i.e. "stay put") is critical: any redirect while
+      // !authReady risks a loop because a second authStateChanges emission
+      // (common on cold-start / wireless debugging as Firebase rehydrates the
+      // token) will re-evaluate the redirect against the route we just
+      // redirected *to*, potentially bouncing back in the opposite direction.
+      if (!authReady) return null;
+
+      // ── Auth-ready redirects ─────────────────────────────────────────────
       final currentUser = ref.read(currentUserProvider);
       final location = state.uri.toString();
 
@@ -93,18 +109,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ];
       final isPublic = publicRoutes.any(location.startsWith);
 
-      // Hold on the public landing screen until the cold-start auth session
-      // restore finishes, so an already-logged-in user never flashes the
-      // role-selection screen (the native launch screen with the default logo
-      // covers the engine start).
-      final authReady = ref.read(authReadyProvider);
-      if (!authReady && !isPublic) return '/role-selection';
-
       if (currentUser == null) {
+        // Signed-out user on a protected route → send to login flow.
         if (!isPublic) return '/role-selection';
         return null;
       }
 
+      // Signed-in user on a public/auth route → send to their home screen.
       if (isPublic) {
         return currentUser.isScorer ? '/scorer/dashboard' : '/home';
       }

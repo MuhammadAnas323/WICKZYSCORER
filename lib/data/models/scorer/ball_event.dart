@@ -48,7 +48,6 @@ class BallEvent {
       case ExtrasType.legBye:
         return '${extrasRuns}lb';
       case ExtrasType.none:
-      default:
         return runs.toString();
     }
   }

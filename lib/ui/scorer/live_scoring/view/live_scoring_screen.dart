@@ -534,9 +534,7 @@ class _LiveScoringScreenState extends ConsumerState<LiveScoringScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final liveRepo = ref.watch(scorerLiveMatchRepositoryProvider);
     // Watch the stream so any repo mutation (record ball, undo, swap strike,

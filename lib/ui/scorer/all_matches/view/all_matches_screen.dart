@@ -191,7 +191,6 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: cs.background,

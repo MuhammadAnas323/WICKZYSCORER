@@ -87,7 +87,6 @@ class _FateLine extends StatelessWidget {
   final bool tied;
 
   const _FateLine({
-    super.key,
     required this.teamName,
     required this.fate,
     required this.isWinner,

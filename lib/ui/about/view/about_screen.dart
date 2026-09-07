@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
-import 'package:sportyapp/core/constants/app_constants.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
@@ -35,7 +34,7 @@ class AboutScreen extends ConsumerWidget {
                       color: Colors.white, size: 44),
                 ),
                 const SizedBox(height: 16),
-                Text('WICKZYSCORER',
+                Text('WICKZY SCORER',
                     style: AppTextStyles.headlineLarge(cs.onSurface)
                         .copyWith(letterSpacing: 2)),
                 const SizedBox(height: 4),
@@ -49,7 +48,7 @@ class AboutScreen extends ConsumerWidget {
               style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 12),
           Text(
-            'WickzyScorer brings you live cricket scores, ball-by-ball commentary, match fixtures, player profiles, tournament standings, and the ability to broadcast your own matches live — all in one beautifully designed app.\n\nBuilt for cricket fans. By cricket fans. 🏑',
+            'Wickzy Scorer brings you live cricket scores, ball-by-ball commentary, match fixtures, player profiles, tournament standings, and the ability to broadcast your own matches live — all in one beautifully designed app.\n\nBuilt for cricket fans. By cricket fans. 🏑',
             style: AppTextStyles.bodyMedium(cs.onSurfaceVariant)
                 .copyWith(height: 1.7),
           ),

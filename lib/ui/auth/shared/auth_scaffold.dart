@@ -222,7 +222,7 @@ class _AuthLogo extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.asset(
-          'assets/images/Crixora.png',
+          'assets/images/app_icon.png',
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => const Icon(
             Icons.sports_cricket,

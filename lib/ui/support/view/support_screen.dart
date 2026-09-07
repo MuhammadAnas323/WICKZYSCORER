@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
-import 'package:sportyapp/theme/app_colors.dart';
-import 'package:sportyapp/core/constants/app_constants.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 
 class SupportScreen extends ConsumerStatefulWidget {
@@ -125,7 +123,7 @@ const _faqs = [
   ),
   (
     'Is my data saved?',
-    'WickzyScorer currently runs locally with no account required. Your profile and preferences are stored on your device.'
+    'Wickzy Scorer currently runs locally with no account required. Your profile and preferences are stored on your device.'
   ),
   (
     'How often do scores update?',

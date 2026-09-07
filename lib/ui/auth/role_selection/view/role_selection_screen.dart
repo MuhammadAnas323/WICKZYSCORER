@@ -33,7 +33,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 const SizedBox(height: 40),
                 Center(
                   child: Text(
-                    'WICKZYSCORER',
+                    'WICKZY SCORER',
                     style: AppTextStyles.displayLarge(cs.onBackground),
                   ),
                 ),

@@ -14,8 +14,8 @@ class LiveBrandHeader extends StatelessWidget {
 
   const LiveBrandHeader({
     super.key,
-    this.appName = 'WickzyScorer',
-    this.appLogoUrl = 'assets/images/Crixora.png',
+    this.appName = 'Wickzy Scorer',
+    this.appLogoUrl = 'assets/images/app_icon.png',
     this.streamName,
     this.broadcasterName,
     this.showLiveBadge = false,

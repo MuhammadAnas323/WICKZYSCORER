@@ -86,7 +86,7 @@ class SportyApp extends ConsumerWidget {
       textDirection: TextDirection.ltr,
       child: SplashGate(
         child: MaterialApp.router(
-          title: 'WickzyScorer',
+          title: 'Wickzy Scorer',
           debugShowCheckedModeBanner: false,
           builder: (context, child) {
             return Stack(

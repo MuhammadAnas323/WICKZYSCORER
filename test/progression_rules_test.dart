@@ -710,7 +710,7 @@ void main() {
       final stages = [
         ScheduleStage(id: 's1', name: 'Finals', order: 0, type: ScheduleStageType.knockout, fixtures: [sf1]),
       ];
-      final repo = await _seedRepo(stages);
+      await _seedRepo(stages);
 
       final engine = TournamentProgressionEngine();
       engine.processMatchResult(

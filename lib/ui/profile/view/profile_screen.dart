@@ -148,7 +148,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _navTile(context, Icons.settings_rounded,
                       l10n.translate('settings'), '/settings'),
                   _navTile(context, Icons.info_rounded,
-                      l10n.translate('about_crixora'), '/about'),
+                      l10n.translate('about_app'), '/about'),
                   _navTile(context, Icons.support_agent_rounded,
                       l10n.translate('contact_support'), '/support'),
                   const SizedBox(height: 16),
