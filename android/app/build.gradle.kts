@@ -14,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.sportyapp.sportyapp"
+    namespace = "com.wickzyscorer.app"
 
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
@@ -26,7 +26,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sportyapp.sportyapp"
+        applicationId = "com.wickzyscorer.app"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

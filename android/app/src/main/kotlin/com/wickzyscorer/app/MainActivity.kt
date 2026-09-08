@@ -1,4 +1,4 @@
-package com.sportyapp.sportyapp
+package com.wickzyscorer.app
 
 import io.flutter.embedding.android.FlutterActivity
 
