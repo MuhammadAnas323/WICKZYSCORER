@@ -235,21 +235,6 @@ class _TournamentDetailViewScreenState
                                 fontWeight: FontWeight.bold),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.pitchGreen.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            t.format.name.toUpperCase(),
-                            style: const TextStyle(
-                                color: AppColors.pitchGreenLight,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11),
-                          ),
-                        ),
                       ],
                     ),
                     const Gap(10),

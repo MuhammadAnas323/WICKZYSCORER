@@ -6,7 +6,7 @@ class ProfileState {
   final int savedMatches;
   final bool notificationsEnabled;
   const ProfileState({
-    this.displayName = 'Cricket Fan',
+    this.displayName = '',
     this.favoriteTeam = '🏑 Pakistan',
     this.savedMatches = 5,
     this.notificationsEnabled = true,

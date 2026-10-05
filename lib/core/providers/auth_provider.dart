@@ -219,6 +219,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     _isAuthenticating = true;
     try {
       final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
+      if (user == null) return;
       state = user;
       await _persistRole(AppUserRole.spectator);
       await _cacheUser(user);
@@ -234,6 +235,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
         role: AppUserRole.scorer,
         organization: organization,
       );
+      if (user == null) return;
       state = user;
       await _persistRole(AppUserRole.scorer);
       await _cacheUser(user);
@@ -247,6 +249,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     try {
       // Default to spectator if new, but signUpWithGoogle handles existing profile roles.
       final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
+      if (user == null) return;
       state = user;
       await _persistRole(user.role);
       await _cacheUser(user);

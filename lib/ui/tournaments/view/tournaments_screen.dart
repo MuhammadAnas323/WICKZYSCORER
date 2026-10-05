@@ -12,13 +12,40 @@ import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/shared_widgets/error_state.dart';
 
-class TournamentsScreen extends ConsumerWidget {
+class TournamentsScreen extends ConsumerStatefulWidget {
   const TournamentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TournamentsScreen> createState() => _TournamentsScreenState();
+}
+
+class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 150) {
+      ref.read(tournamentsViewModelProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(tournamentsViewModelProvider);
     final cs = Theme.of(context).colorScheme;
+    final displayed = state.displayedTournaments;
 
     return Scaffold(
       appBar: AppBar(
@@ -28,18 +55,37 @@ class TournamentsScreen extends ConsumerWidget {
         ? const MatchListSkeleton(count: 3)
         : state.error != null
             ? ErrorState(onRetry: () => ref.read(tournamentsViewModelProvider.notifier).load())
-            : state.tournaments.isEmpty
+            : displayed.isEmpty
                 ? const EmptyState(emoji: '🏆', title: 'No Tournaments',
                     subtitle: 'No tournaments found at this time.')
                 : RefreshIndicator(
                     onRefresh: () => ref.read(tournamentsViewModelProvider.notifier).load(),
                     child: ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
-                      itemCount: state.tournaments.length,
-                      itemBuilder: (_, i) => _TournamentCard(
-                        tournament: state.tournaments[i],
-                        onTap: () => context.push('/tournaments/${state.tournaments[i].id}'),
-                      ),
+                      itemCount: displayed.length + (state.hasMore || state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (_, i) {
+                        if (i >= displayed.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppColors.pitchGreen,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        final t = displayed[i];
+                        return _TournamentCard(
+                          tournament: t,
+                          onTap: () => context.push('/tournaments/${t.id}'),
+                        );
+                      },
                     ),
                   ),
     );

@@ -17,18 +17,38 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late TextEditingController _searchController;
+  late final TextEditingController _searchController;
+  late final ScrollController _tournamentsScrollController;
+  late final ScrollController _friendlyScrollController;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _tournamentsScrollController = ScrollController()..addListener(_onTournamentsScroll);
+    _friendlyScrollController = ScrollController()..addListener(_onFriendlyScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _tournamentsScrollController.dispose();
+    _friendlyScrollController.dispose();
     super.dispose();
+  }
+
+  void _onTournamentsScroll() {
+    if (_tournamentsScrollController.position.pixels >=
+        _tournamentsScrollController.position.maxScrollExtent - 150) {
+      ref.read(spectatorHomeViewModelProvider.notifier).loadMoreTournaments();
+    }
+  }
+
+  void _onFriendlyScroll() {
+    if (_friendlyScrollController.position.pixels >=
+        _friendlyScrollController.position.maxScrollExtent - 150) {
+      ref.read(spectatorHomeViewModelProvider.notifier).loadMoreFriendly();
+    }
   }
 
   @override
@@ -311,8 +331,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── 3. Tournaments List View ─────────────────────────────────────────────
   Widget _buildTournamentsList(BuildContext context, SpectatorHomeState state) {
-    final list = state.filteredTournaments;
-    if (list.isEmpty) {
+    final list = state.displayedTournaments;
+    if (state.filteredTournaments.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [
@@ -327,9 +347,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return ListView.builder(
+      controller: _tournamentsScrollController,
       padding: const EdgeInsets.only(bottom: 24, top: 4),
-      itemCount: list.length,
+      itemCount: list.length + (state.hasMoreTournaments || state.isLoadingMoreTournaments ? 1 : 0),
       itemBuilder: (context, i) {
+        if (i >= list.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.pitchGreen,
+                ),
+              ),
+            ),
+          );
+        }
         final t = list[i];
         return SpectatorTournamentCard(
           tournament: t,
@@ -344,8 +380,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── 4. Friendly Matches List View ────────────────────────────────────────
   Widget _buildFriendlyMatchesList(
       BuildContext context, SpectatorHomeState state) {
-    final list = state.filteredFriendlyMatches;
-    if (list.isEmpty) {
+    final list = state.displayedFriendlyMatches;
+    if (state.filteredFriendlyMatches.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [
@@ -360,9 +396,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return ListView.builder(
+      controller: _friendlyScrollController,
       padding: const EdgeInsets.only(bottom: 24, top: 4),
-      itemCount: list.length,
+      itemCount: list.length + (state.hasMoreFriendly || state.isLoadingMoreFriendly ? 1 : 0),
       itemBuilder: (context, i) {
+        if (i >= list.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.pitchGreen,
+                ),
+              ),
+            ),
+          );
+        }
         final m = list[i];
         return SpectatorMatchCard(
           match: m,
@@ -377,7 +429,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-// ── Tournament Card (5px border radius with full details) ───────────────────
 class _ErrorState extends StatelessWidget {
   final VoidCallback onRetry;
   const _ErrorState({required this.onRetry});

@@ -2,19 +2,18 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 
-/// Light-mode scaffold shared by the sign-in / sign-up / role screens.
-///
-/// Forces a light palette regardless of the app theme so the auth flow always
-/// feels bright and welcoming, and staggers a fade + slide entrance for the
-/// logo, heading and form card.
+/// Light/Dark scaffold shared by the sign-in / sign-up / role screens.
 class AuthScaffold extends StatefulWidget {
   final String title;
   final String subtitle;
   final List<Widget> children;
   final Widget? footer;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   const AuthScaffold({
     super.key,
@@ -22,6 +21,8 @@ class AuthScaffold extends StatefulWidget {
     required this.subtitle,
     required this.children,
     this.footer,
+    this.showBackButton = false,
+    this.onBack,
   });
 
   @override
@@ -72,6 +73,16 @@ class _AuthScaffoldState extends State<AuthScaffold>
     super.dispose();
   }
 
+  void _handleBack() {
+    if (widget.onBack != null) {
+      widget.onBack!();
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/role-selection');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -86,13 +97,13 @@ class _AuthScaffoldState extends State<AuthScaffold>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: isDark
-                ? [const Color(0xFF0D2818), theme.scaffoldBackgroundColor]
-                : [const Color(0xFFEAF6EE), theme.scaffoldBackgroundColor],
+                ? [const Color(0xFF0D1B2A), theme.scaffoldBackgroundColor]
+                : [const Color(0xFFE3F2FD), theme.scaffoldBackgroundColor],
           ),
         ),
         child: Stack(
           children: [
-            // Decorative blurred shapes (cricket-field vibe).
+            // Decorative blurred shapes.
             Positioned(
               top: -60,
               right: -50,
@@ -110,10 +121,25 @@ class _AuthScaffoldState extends State<AuthScaffold>
             ),
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
+                    if (widget.showBackButton)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.arrow_back,
+                            color: cs.onBackground,
+                            size: 26,
+                          ),
+                          onPressed: _handleBack,
+                          tooltip: 'Back to Role Selection',
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     FadeTransition(
                       opacity: _logoFade,
                       child: SlideTransition(

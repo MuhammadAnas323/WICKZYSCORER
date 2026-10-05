@@ -8,6 +8,10 @@ class ScorerTeam {
   final bool isEntryFeePaid;
   final String? ownerName;
   final String? whatsappNumber;
+  final bool isEliminated;
+  final bool isQualified;
+  final bool isChampion;
+  final String createdBy;
 
   const ScorerTeam({
     required this.id,
@@ -22,11 +26,8 @@ class ScorerTeam {
     this.isEliminated = false,
     this.isQualified = false,
     this.isChampion = false,
+    this.createdBy = '',
   });
-
-  final bool isEliminated;
-  final bool isQualified;
-  final bool isChampion;
 
   String get shortName => shortCode;
   List<String> get playersIds => playerIds;
@@ -44,6 +45,7 @@ class ScorerTeam {
     bool? isEliminated,
     bool? isQualified,
     bool? isChampion,
+    String? createdBy,
   }) {
     return ScorerTeam(
       id: id ?? this.id,
@@ -58,7 +60,7 @@ class ScorerTeam {
       isEliminated: isEliminated ?? this.isEliminated,
       isQualified: isQualified ?? this.isQualified,
       isChampion: isChampion ?? this.isChampion,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }
-

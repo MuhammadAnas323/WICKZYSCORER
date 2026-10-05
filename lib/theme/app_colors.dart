@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // ── Brand / Cricket palette ─────────────────────────────────────────────
-  static const Color pitchGreen = Color(0xFF1A7A3E);
-  static const Color pitchGreenLight = Color(0xFF2ECC71);
-  static const Color pitchGreenDark = Color(0xFF0D5C2E);
+  // ── Brand / Primary palette (Bluish Theme) ───────────────────────────────
+  static const Color pitchGreen = Color(0xFF1E88E5); // Primary Ocean Blue
+  static const Color pitchGreenLight = Color(0xFF42A5F5); // Light Electric Blue
+  static const Color pitchGreenDark = Color(0xFF0D47A1); // Deep Navy Blue
 
   static const Color willowBrown = Color(0xFF8B5E3C);
   static const Color willowBrownLight = Color(0xFFBF8A5E);
@@ -56,7 +56,7 @@ class AppColors {
   static const Gradient heroCardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A7A3E), Color(0xFF0D5C2E)],
+    colors: [Color(0xFF1E88E5), Color(0xFF0D47A1)],
   );
 
   static const Gradient liveCardGradient = LinearGradient(
@@ -176,10 +176,10 @@ class AppColors {
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightSurfaceVariant = Color(0xFFEEF2F5);
 
-  // ── Dark theme surfaces ──────────────────────────────────────────────────
-  static const Color darkBackground = Color(0xFF0F0F0F);
-  static const Color darkSurface = Color(0xFF1A1A1A);
-  static const Color darkSurfaceVariant = Color(0xFF242424);
+  // ── Dark theme surfaces (Deep Navy Theme) ────────────────────────────────
+  static const Color darkBackground = Color(0xFF0A1118);
+  static const Color darkSurface = Color(0xFF121D2A);
+  static const Color darkSurfaceVariant = Color(0xFF1A2636);
 
   // ── Glass card overlay ───────────────────────────────────────────────────
   static const Color glassFill = Color(0x1AFFFFFF);

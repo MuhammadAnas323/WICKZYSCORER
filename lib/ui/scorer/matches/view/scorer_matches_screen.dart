@@ -55,9 +55,9 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen>
     final user = ref.read(currentUserProvider);
     final uid = user?.id;
 
-    final allMatches = await repo.getMatches();
-    final tournaments = await repo.getTournaments();
-    final teams = await repo.getAllTeams();
+    final allMatches = await repo.getMatches(forCurrentUserOnly: true);
+    final tournaments = await repo.getTournaments(forCurrentUserOnly: true);
+    final teams = await repo.getAllTeams(forCurrentUserOnly: true);
 
     final fixtureMatches = <ScorerMatch>[];
     final fixtureEntries = <String, _FixtureEntry>{};
@@ -261,17 +261,35 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen>
         title: Text(l10n.translate('matches'),
             style: AppTextStyles.titleMedium(cs.onSurface)
                 .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.pitchGreen,
-          indicatorWeight: 3,
-          labelColor: AppColors.pitchGreenLight,
-          unselectedLabelColor: cs.onSurfaceVariant,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          tabs: [
-            Tab(text: l10n.translate('friendly_matches')),
-            Tab(text: l10n.translate('tournament_matches')),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(54),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: AppColors.pitchGreen, width: 1.2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(5),
+                  color: AppColors.pitchGreen,
+                ),
+                indicatorColor: Colors.transparent,
+                labelColor: Colors.white,
+                unselectedLabelColor: cs.onSurfaceVariant,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                tabs: [
+                  Tab(text: l10n.translate('friendly_matches')),
+                  Tab(text: l10n.translate('tournament_matches')),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(

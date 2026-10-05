@@ -33,6 +33,19 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions.add("default")
+    productFlavors {
+        create("dev") {
+            dimension = "default"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "Wickzy Dev")
+        }
+        create("prod") {
+            dimension = "default"
+            resValue("string", "app_name", "Wickzy Scorer")
+        }
+    }
+
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties.getProperty("keyAlias")

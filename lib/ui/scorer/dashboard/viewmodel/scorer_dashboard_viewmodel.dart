@@ -110,12 +110,11 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
       final user = ref.read(currentUserProvider);
       final uid = user?.id;
 
-      final allTournaments = await repo.getTournaments();
-      final allMatches = await repo.getMatches();
-      final allTeams = await repo.getAllTeams();
+      final allTournaments = await repo.getTournaments(forCurrentUserOnly: true);
+      final allMatches = await repo.getMatches(forCurrentUserOnly: true);
+      final allTeams = await repo.getAllTeams(forCurrentUserOnly: true);
 
       // Scorer side: only show tournaments/matches created by the current user.
-      // No fallback to empty createdBy — other users' data must never leak here.
       final myTournaments = uid == null || uid.isEmpty
           ? allTournaments
           : allTournaments
@@ -134,10 +133,6 @@ class ScorerDashboardViewModel extends StateNotifier<ScorerDashboardState> {
         userId: uid,
       );
     } catch (e, stack) {
-      // Keep the dashboard usable instead of throwing out of the data-version
-      // listener (or the constructor) and leaving isLoading stuck on true.
-      // Log the failure so a load error that empties the list is visible in
-      // the console instead of silently looking like "no tournaments".
       debugPrint('[ScorerDashboard] loadDashboard failed: $e\n$stack');
       state = state.copyWith(isLoading: false);
     }

@@ -12,11 +12,10 @@ import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 
 /// Data state for the spectator side of WICKZYSCORER.
-///
-/// Everything the spectator sees (tournaments, teams, squads, matches) is
-/// driven by data created in the scorer portion via [ScorerRepository].
 class SpectatorHomeState {
   final bool isLoading;
+  final bool isLoadingMoreTournaments;
+  final bool isLoadingMoreFriendly;
   final String? error;
   final List<ScorerTournament> tournaments;
   final List<ScorerTeam> teams;
@@ -27,14 +26,16 @@ class SpectatorHomeState {
   final String tournamentSubFilter; // 'all', 'live', 'upcoming', 'completed'
   final String friendlySubFilter; // 'all', 'live', 'upcoming', 'completed'
   final String searchQuery;
+  final int tournamentLimit;
+  final int friendlyLimit;
 
-  /// RTDB live payloads keyed by matchId. This is the real-time transport for
-  /// live matches; it overrides the Firestore snapshot on the match cards so
-  /// spectators always see the latest ball.
+  /// RTDB live payloads keyed by matchId.
   final Map<String, LiveMatchData> rtdbLiveMatches;
 
   const SpectatorHomeState({
     this.isLoading = true,
+    this.isLoadingMoreTournaments = false,
+    this.isLoadingMoreFriendly = false,
     this.error,
     this.tournaments = const [],
     this.teams = const [],
@@ -45,6 +46,8 @@ class SpectatorHomeState {
     this.tournamentSubFilter = 'all',
     this.friendlySubFilter = 'all',
     this.searchQuery = '',
+    this.tournamentLimit = 6,
+    this.friendlyLimit = 6,
     this.rtdbLiveMatches = const {},
   });
 
@@ -68,25 +71,29 @@ class SpectatorHomeState {
       final q = searchQuery.trim().toLowerCase();
       list = list.where((t) => t.name.toLowerCase().contains(q) || t.venue.toLowerCase().contains(q)).toList();
     }
-    if (tournamentSubFilter == 'all') return list;
-
-    return list.where((t) {
-      final tourneyMatches = matches.where((m) => m.tournamentId == t.id).toList();
-      if (tournamentSubFilter == 'live') {
-        return tourneyMatches.any((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live);
-      } else if (tournamentSubFilter == 'upcoming') {
-        return tourneyMatches.any((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled);
-      } else if (tournamentSubFilter == 'completed') {
-        return tourneyMatches.any((m) => m.status == MatchStatus.completed);
-      }
-      return true;
-    }).toList();
+    if (tournamentSubFilter != 'all') {
+      list = list.where((t) {
+        final tourneyMatches = matches.where((m) => m.tournamentId == t.id).toList();
+        if (tournamentSubFilter == 'live') {
+          return tourneyMatches.any((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live);
+        } else if (tournamentSubFilter == 'upcoming') {
+          return tourneyMatches.any((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled);
+        } else if (tournamentSubFilter == 'completed') {
+          return tourneyMatches.any((m) => m.status == MatchStatus.completed);
+        }
+        return true;
+      }).toList();
+    }
+    return list;
   }
+
+  List<ScorerTournament> get displayedTournaments =>
+      filteredTournaments.take(tournamentLimit).toList();
+
+  bool get hasMoreTournaments => tournamentLimit < filteredTournaments.length;
 
   // ── Spectator Filtered Friendly Matches ────────────────────────────────
   List<ScorerMatch> get filteredFriendlyMatches {
-    // Friendly/local matches are stored under the pseudo-tournament 't_custom'
-    // (see scorer create-local-match), so treat it as a friendly match too.
     var list = matches
         .where((m) =>
             m.tournamentId.isEmpty ||
@@ -104,14 +111,19 @@ class SpectatorHomeState {
     }
 
     if (friendlySubFilter == 'live') {
-      return list.where((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live).toList();
+      list = list.where((m) => m.status == MatchStatus.inProgress || m.status == MatchStatus.live).toList();
     } else if (friendlySubFilter == 'upcoming') {
-      return list.where((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled).toList();
+      list = list.where((m) => m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled).toList();
     } else if (friendlySubFilter == 'completed') {
-      return list.where((m) => m.status == MatchStatus.completed).toList();
+      list = list.where((m) => m.status == MatchStatus.completed).toList();
     }
     return list;
   }
+
+  List<ScorerMatch> get displayedFriendlyMatches =>
+      filteredFriendlyMatches.take(friendlyLimit).toList();
+
+  bool get hasMoreFriendly => friendlyLimit < filteredFriendlyMatches.length;
 
   ScorerTournament? tournamentById(String id) =>
       tournaments.where((t) => t.id == id).firstOrNull;
@@ -125,7 +137,6 @@ class SpectatorHomeState {
   List<ScorerMatch> matchesForTournament(String tournamentId) =>
       matches.where((m) => m.tournamentId == tournamentId).toList();
 
-  /// Stage-wise schedule for a tournament (empty when none was built).
   List<ScheduleStage> scheduleForTournament(String tournamentId) =>
       schedules[tournamentId] ?? const [];
 
@@ -154,6 +165,8 @@ class SpectatorHomeState {
 
   SpectatorHomeState copyWith({
     bool? isLoading,
+    bool? isLoadingMoreTournaments,
+    bool? isLoadingMoreFriendly,
     String? error,
     List<ScorerTournament>? tournaments,
     List<ScorerTeam>? teams,
@@ -164,10 +177,14 @@ class SpectatorHomeState {
     String? tournamentSubFilter,
     String? friendlySubFilter,
     String? searchQuery,
+    int? tournamentLimit,
+    int? friendlyLimit,
     Map<String, LiveMatchData>? rtdbLiveMatches,
   }) {
     return SpectatorHomeState(
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMoreTournaments: isLoadingMoreTournaments ?? this.isLoadingMoreTournaments,
+      isLoadingMoreFriendly: isLoadingMoreFriendly ?? this.isLoadingMoreFriendly,
       error: error,
       tournaments: tournaments ?? this.tournaments,
       teams: teams ?? this.teams,
@@ -178,6 +195,8 @@ class SpectatorHomeState {
       tournamentSubFilter: tournamentSubFilter ?? this.tournamentSubFilter,
       friendlySubFilter: friendlySubFilter ?? this.friendlySubFilter,
       searchQuery: searchQuery ?? this.searchQuery,
+      tournamentLimit: tournamentLimit ?? this.tournamentLimit,
+      friendlyLimit: friendlyLimit ?? this.friendlyLimit,
       rtdbLiveMatches: rtdbLiveMatches ?? this.rtdbLiveMatches,
     );
   }
@@ -196,10 +215,6 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
     ref.listen(currentUserProvider, (_, next) {
       if (next != null) load();
     });
-    // Pull fresh data from Firestore whenever the scorer creates/edits data
-    // (e.g. a friendly match is completed with its ball-by-ball innings).
-    // Debounced so the rapid per-ball version bumps during live scoring don't
-    // trigger a full reload on every delivery.
     ref.listen(scorerDataVersionProvider, (_, __) => _onScorerDataChanged());
   }
 
@@ -216,24 +231,41 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
   }
 
   void setTournamentSubFilter(String filter) {
-    state = state.copyWith(tournamentSubFilter: filter);
+    state = state.copyWith(tournamentSubFilter: filter, tournamentLimit: 6);
   }
 
   void setFriendlySubFilter(String filter) {
-    state = state.copyWith(friendlySubFilter: filter);
+    state = state.copyWith(friendlySubFilter: filter, friendlyLimit: 6);
   }
 
   void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+    state = state.copyWith(searchQuery: query, tournamentLimit: 6, friendlyLimit: 6);
   }
 
-  /// Watches Firestore for scorer matches that are in progress/live. The scorer
-  /// persists the full match document (score, striker, non-striker, current
-  /// bowler, ball-by-ball innings) to Firestore on every ball, so this single
-  /// stream gives spectators:
-  ///   • instant discovery of matches that just went live on another device,
-  ///   • real-time score updates on the live match cards,
-  ///   • fresh player stats (runs, balls, wickets) in the match detail screen.
+  void loadMoreTournaments() {
+    if (state.isLoadingMoreTournaments || !state.hasMoreTournaments) return;
+    state = state.copyWith(isLoadingMoreTournaments: true);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoadingMoreTournaments: false,
+        tournamentLimit: state.tournamentLimit + 6,
+      );
+    });
+  }
+
+  void loadMoreFriendly() {
+    if (state.isLoadingMoreFriendly || !state.hasMoreFriendly) return;
+    state = state.copyWith(isLoadingMoreFriendly: true);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoadingMoreFriendly: false,
+        friendlyLimit: state.friendlyLimit + 6,
+      );
+    });
+  }
+
   void _listenToLiveMatches() {
     _liveSubscription?.cancel();
     try {
@@ -241,16 +273,6 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
           ref.read(firestoreScorerServiceProvider).watchLiveMatches().listen(
         (liveMatches) {
           if (!mounted) return;
-
-          // A match went live that we have never loaded before (created by another
-          // user after our last Firestore sync) — pull its tournament/team/player
-          // context so it renders properly for every spectator. This only fires
-          // when an unknown match id shows up, so constant score updates during a
-          // match never trigger a reload.
-          final known = state.matches.map((m) => m.id).toSet();
-
-          // Merge the live matches into the cached list so the live section,
-          // filters and match cards all see the freshest ball-by-ball data.
           final byId = <String, ScorerMatch>{
             for (final m in state.matches) m.id: m,
           };
@@ -258,29 +280,14 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
             byId[m.id] = m;
           }
           state = state.copyWith(matches: byId.values.toList());
-
-          if (liveMatches.any((m) => !known.contains(m.id))) {
-            load(showLoading: false);
-          }
         },
-        onError: (e) {
-          // Firestore connection issue — keep existing state, don't crash.
-          // ignore: avoid_print
-          print('[Live] Live match listener error: $e');
-        },
+        onError: (_) {},
       );
-    } catch (e) {
-      // Firebase not available (e.g. widget tests / pre-initialization) — keep
-      // the spectator home functional without the live-matches feed.
+    } catch (_) {
       _liveSubscription = null;
-      // ignore: avoid_print
-      print('[Live] Live match listener could not start: $e');
     }
   }
 
-  /// Watches RTDB for the compact live payloads of every live match. These
-  /// override the Firestore snapshot on the live match cards so spectators see
-  /// the latest ball in real time, while Firestore stays the permanent record.
   void _listenToRtdbLive() {
     _rtdbSubscription?.close();
     try {
@@ -291,12 +298,8 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
           state = state.copyWith(rtdbLiveMatches: data);
         }
       });
-    } catch (e) {
-      // Firebase not available (e.g. widget tests / pre-initialization) — keep
-      // the spectator home functional without the RTDB live payload feed.
+    } catch (_) {
       _rtdbSubscription = null;
-      // ignore: avoid_print
-      print('[Live] RTDB live listener could not start: $e');
     }
   }
 
@@ -306,14 +309,11 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
     }
     try {
       final repo = ref.read(scorerRepositoryProvider);
-      // Pull the freshest data from Firestore so matches/tournaments created
-      // or edited by other users (new players, live sessions, results) show up
-      // for every spectator. No currentUserId filtering — spectators see all.
       await repo.refreshFromCloud();
-      final tournaments = await repo.getTournaments();
-      final teams = await repo.getAllTeams();
-      final players = await repo.getAllPlayers();
-      final matches = await repo.getMatches();
+      final tournaments = await repo.getTournaments(forCurrentUserOnly: false);
+      final teams = await repo.getAllTeams(forCurrentUserOnly: false);
+      final players = await repo.getAllPlayers(forCurrentUserOnly: false);
+      final matches = await repo.getMatches(forCurrentUserOnly: false);
       final schedules = <String, List<ScheduleStage>>{};
       for (final t in tournaments) {
         schedules[t.id] = await repo.getSchedule(t.id);
@@ -325,6 +325,8 @@ class SpectatorHomeViewModel extends StateNotifier<SpectatorHomeState> {
         players: players,
         matches: matches,
         schedules: schedules,
+        tournamentLimit: 6,
+        friendlyLimit: 6,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Failed to load data.');

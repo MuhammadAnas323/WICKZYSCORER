@@ -1,5 +1,5 @@
 // lib/ui/scorer/all_matches/view/all_matches_screen.dart
-// "Start Scoring" tab — lists every match (tournament + local) with search.
+// Friendly match selection & management screen with visible search and player details.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/data/models/scorer/scorer_match.dart';
 import 'package:sportyapp/data/models/scorer/scorer_tournament.dart';
+import 'package:sportyapp/data/models/scorer/scorer_player.dart';
 import 'package:sportyapp/data/repositories/scorer_repository.dart';
 import 'package:sportyapp/data/providers/repository_providers.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
@@ -28,11 +29,9 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   List<ScorerMatch> _matches = [];
   List<ScorerTournament> _tournaments = [];
   Map<String, String> _teamNames = {};
+  Map<String, List<ScorerPlayer>> _teamPlayers = {};
   bool _isLoading = true;
 
-  /// Match ids that back a tournament schedule fixture. Even when such a match
-  /// carries a 't_custom' tournamentId (stale/mis-flagged data), it must never
-  /// surface in the friendly/local list — it is a tournament match.
   final Set<String> _scheduledMatchIds = {};
 
   @override
@@ -53,12 +52,11 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     final user = ref.read(currentUserProvider);
     final uid = user?.id;
 
-    final allMatches = await repo.getMatches();
-    final tournaments = await repo.getTournaments();
-    final teams = await repo.getAllTeams();
+    final allMatches = await repo.getMatches(forCurrentUserOnly: true);
+    final tournaments = await repo.getTournaments(forCurrentUserOnly: true);
+    final teams = await repo.getAllTeams(forCurrentUserOnly: true);
+    final players = await repo.getAllPlayers(forCurrentUserOnly: true);
 
-    // Collect every match that backs a tournament schedule fixture so those can
-    // be excluded from the friendly list even if their tournamentId is wrong.
     final scheduledMatchIds = <String>{};
     for (final tournament in tournaments) {
       final stages = await repo.getSchedule(tournament.id);
@@ -75,11 +73,17 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
         ? allMatches
         : allMatches.where((m) => m.createdBy == uid).toList();
 
+    final teamPlayers = <String, List<ScorerPlayer>>{};
+    for (final p in players) {
+      teamPlayers.putIfAbsent(p.teamId, () => []).add(p);
+    }
+
     if (!mounted) return;
     setState(() {
       _matches = matches;
       _tournaments = tournaments;
       _teamNames = {for (final t in teams) t.id: t.name};
+      _teamPlayers = teamPlayers;
       _scheduledMatchIds
         ..clear()
         ..addAll(scheduledMatchIds);
@@ -101,13 +105,24 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
     return list.where((m) {
       final a = _teamNames[m.team1Id]?.toLowerCase() ?? '';
       final b = _teamNames[m.team2Id]?.toLowerCase() ?? '';
+      final playersA = (_teamPlayers[m.team1Id] ?? [])
+          .map((p) => p.name.toLowerCase())
+          .join(' ');
+      final playersB = (_teamPlayers[m.team2Id] ?? [])
+          .map((p) => p.name.toLowerCase())
+          .join(' ');
+
       return a.contains(q) ||
           b.contains(q) ||
+          playersA.contains(q) ||
+          playersB.contains(q) ||
           m.venue.toLowerCase().contains(q);
     }).toList();
   }
 
   String _teamName(String id) => _teamNames[id] ?? id;
+
+  List<ScorerPlayer> _getPlayers(String teamId) => _teamPlayers[teamId] ?? [];
 
   String _tournamentName(String tournamentId, AppLocalizations l10n) {
     final tournament =
@@ -146,7 +161,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
   }
 
   String _resultSummary(AppLocalizations l10n) {
-    return '${_matches.length} ${l10n.translate('matches')}';
+    return '${_filtered.length} ${l10n.translate('matches')}';
   }
 
   Future<void> _deleteMatch(ScorerMatch match, AppLocalizations l10n) async {
@@ -205,7 +220,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [AppColors.pitchGreen, Color(0xFF1A7A3E)],
+                  colors: [AppColors.pitchGreen, Color(0xFF0D47A1)],
                 ),
               ),
               child: const Icon(Icons.sports_cricket_rounded,
@@ -213,11 +228,11 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
             ),
             const Gap(10),
             Text(
-              l10n.translate('start_scoring_title'),
+              widget.onlyFriendly ? 'Select Friendly Match' : l10n.translate('start_scoring_title'),
               style: TextStyle(
                   color: cs.onBackground,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0),
+                  letterSpacing: 0.5),
             ),
           ],
         ),
@@ -227,33 +242,39 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
               child: CircularProgressIndicator(color: AppColors.pitchGreen))
           : Column(
               children: [
+                // ── Visible & Styled Search Bar ──────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _query = v),
-                    style: TextStyle(color: cs.onSurface),
-                    decoration: InputDecoration(
-                      hintText: l10n.translate('search_hint'),
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon:
-                          const Icon(Icons.search, color: Colors.white54),
-                      suffixIcon: _query.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close,
-                                  color: Colors.white54),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor:
-                          Theme.of(context).inputDecorationTheme.fillColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: cs.outline.withValues(alpha: 0.3), width: 1.2),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _query = v),
+                      style: TextStyle(color: cs.onSurface, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Search match, team or player name...',
+                        hintStyle: TextStyle(
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon:
+                            Icon(Icons.search, color: cs.primary),
+                        suffixIcon: _query.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.close,
+                                    color: cs.onSurfaceVariant),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _query = '');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                       ),
                     ),
                   ),
@@ -264,8 +285,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _resultSummary(l10n),
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
                     ),
                   ),
                 ),
@@ -274,7 +294,7 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                   child: _filtered.isEmpty
                       ? Center(
                           child: Text(l10n.translate('no_matches_found'),
-                              style: const TextStyle(color: Colors.white54)))
+                              style: TextStyle(color: cs.onSurfaceVariant)))
                       : RefreshIndicator(
                           color: AppColors.pitchGreen,
                           onRefresh: _load,
@@ -300,11 +320,11 @@ class _AllMatchesScreenState extends ConsumerState<AllMatchesScreen> {
                                   ...group.matches.map((match) => _MatchTile(
                                         match: match,
                                         teamName: _teamName,
+                                        players1: _getPlayers(match.team1Id),
+                                        players2: _getPlayers(match.team2Id),
                                         onTap: () {
                                           if (match.status ==
                                                   MatchStatus.completed) {
-                                            // A completed match has no active
-                                            // live session — show its summary.
                                             context.push(
                                                 '/scorer/match-summary?matchId=${match.id}');
                                             return;
@@ -351,6 +371,8 @@ class _TournamentGroup {
 class _MatchTile extends StatelessWidget {
   final ScorerMatch match;
   final String Function(String) teamName;
+  final List<ScorerPlayer> players1;
+  final List<ScorerPlayer> players2;
   final VoidCallback onTap;
   final Future<void> Function() onDelete;
   final AppLocalizations l10n;
@@ -358,6 +380,8 @@ class _MatchTile extends StatelessWidget {
   const _MatchTile({
     required this.match,
     required this.teamName,
+    required this.players1,
+    required this.players2,
     required this.onTap,
     required this.onDelete,
     required this.l10n,
@@ -376,67 +400,132 @@ class _MatchTile extends StatelessWidget {
     if (match.status == MatchStatus.completed)
       statusText = l10n.translate('completed');
 
+    final name1 = teamName(match.team1Id);
+    final name2 = teamName(match.team2Id);
+    final squad1 = players1.map((p) => p.name).join(', ');
+    final squad2 = players2.map((p) => p.name).join(', ');
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: AppColors.cardGradientFor(match.id),
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white24),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${teamName(match.team1Id)}  vs  ${teamName(match.team2Id)}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15),
-                  ),
-                  const Gap(4),
-                  Text(
-                    '${match.overs} ${l10n.translate('overs')} • ${match.venue}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const Gap(8),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  color: Colors.redAccent, size: 18),
-              tooltip: l10n.translate('delete'),
-              onPressed: onDelete,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isLive
-                    ? AppColors.liveRed.withValues(alpha: 0.35)
-                    : Colors.white24,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                statusText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$name1  vs  $name2',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16),
+                      ),
+                      const Gap(4),
+                      Text(
+                        '${match.overs} ${l10n.translate('overs')} • ${match.venue}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(8),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
+                  tooltip: l10n.translate('delete'),
+                  onPressed: onDelete,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isLive
+                        ? AppColors.liveRed.withValues(alpha: 0.85)
+                        : Colors.white24,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // ── Display Teams & Players ──────────────────────────────────────
+            const Divider(color: Colors.white24, height: 16, thickness: 0.8),
+            _TeamPlayersRow(teamName: name1, playersText: squad1),
+            const SizedBox(height: 6),
+            _TeamPlayersRow(teamName: name2, playersText: squad2),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _TeamPlayersRow extends StatelessWidget {
+  final String teamName;
+  final String playersText;
+
+  const _TeamPlayersRow({required this.teamName, required this.playersText});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.groups, color: Colors.white70, size: 14),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              text: '$teamName: ',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              children: [
+                TextSpan(
+                  text: playersText.isNotEmpty ? playersText : 'No players added yet',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

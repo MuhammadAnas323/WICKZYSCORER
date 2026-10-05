@@ -1,0 +1,99 @@
+{
+  "project_info": {
+    "project_number": "217796585547",
+    "firebase_url": "https://fitnessapp-bcc3b-default-rtdb.firebaseio.com",
+    "project_id": "fitnessapp-bcc3b",
+    "storage_bucket": "fitnessapp-bcc3b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:217796585547:android:9058f3eb1b448a01f485ce",
+        "android_client_info": {
+          "package_name": "com.sportyapp.sportyapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "217796585547-b88demitomvuo7q6lkkq3akfov55d53g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sportyapp.sportyapp",
+            "certificate_hash": "3fc58fd0efc74bd8b58e59d60e02aa2a35428efb"
+          }
+        },
+        {
+          "client_id": "217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwfhk3MSCFk6kHJ9-3Tfc9OtnbeM_028U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "217796585547-2f0i43dakhvtlto2mao0q5hos0nje0b9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sportyapp.sportyapp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:217796585547:android:7bb6aca3a8b128c5f485ce",
+        "android_client_info": {
+          "package_name": "com.wickzyscorer.app.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "217796585547-jqb48ddlgut1ibl1ju09gs6k2u1mr4g1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wickzyscorer.app.dev",
+            "certificate_hash": "3fc58fd0efc74bd8b58e59d60e02aa2a35428efb"
+          }
+        },
+        {
+          "client_id": "217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwfhk3MSCFk6kHJ9-3Tfc9OtnbeM_028U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "217796585547-2f0i43dakhvtlto2mao0q5hos0nje0b9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sportyapp.sportyapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

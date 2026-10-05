@@ -18,8 +18,8 @@ class RoleSelectionScreen extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
-                ? [const Color(0xFF0D2818), theme.scaffoldBackgroundColor]
-                : [const Color(0xFFEAF6EE), theme.scaffoldBackgroundColor],
+                ? [const Color(0xFF0D1B2A), theme.scaffoldBackgroundColor]
+                : [const Color(0xFFE3F2FD), theme.scaffoldBackgroundColor],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -58,29 +58,11 @@ class RoleSelectionScreen extends StatelessWidget {
                   subtitle: 'Manage matches & score ball-by-ball',
                   icon: Icons.sports_score,
                   gradient: const LinearGradient(
-                    colors: [AppColors.floodlightGold, Colors.orangeAccent],
+                    colors: [Color(0xFF0288D1), Color(0xFF00ACC1)],
                   ),
                   onTap: () => context.push('/scorer-signup'),
                 ),
                 const Spacer(),
-                Center(
-                  child: GestureDetector(
-                    onTap: () => context.push('/signin'),
-                    child: RichText(
-                      text: TextSpan(
-                        text: 'Already have an account? ',
-                        style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
-                        children: [
-                          TextSpan(
-                            text: 'Sign In',
-                            style:
-                                AppTextStyles.titleMedium(AppColors.pitchGreen),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 24),
               ],
             ),

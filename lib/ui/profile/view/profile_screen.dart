@@ -45,56 +45,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: cs.background,
       body: CustomScrollView(
         slivers: [
+          // ── Header Card ────────────────────────────────────────────────
           SliverAppBar(
             pinned: true,
-            expandedHeight: 200,
-            backgroundColor:
-                isDark ? const Color(0xFF141414) : AppColors.pitchGreenDark,
+            expandedHeight: 180,
+            backgroundColor: isDark ? const Color(0xFF0D1B2A) : AppColors.pitchGreen,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF1A7A3E), Color(0xFF0D2818)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: AppColors.heroCardGradient,
                 ),
                 child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      GestureDetector(
-                        child: Stack(
-                          alignment: Alignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.white24,
-                              child: Text(
-                                displayName.isNotEmpty
-                                    ? displayName[0].toUpperCase()
-                                    : '👤',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isScorer ? Icons.sports_score : Icons.sports_cricket,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isScorer ? 'Scorer Account' : 'Spectator Account',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        displayName,
-                        style: AppTextStyles.headlineSmall(Colors.white),
-                      ),
-                      Text(
-                        email,
-                        style: AppTextStyles.bodySmall(Colors.white70),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        Text(
+                          displayName,
+                          style: AppTextStyles.headlineMedium(Colors.white).copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.email_outlined, color: Colors.white70, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                email,
+                                style: AppTextStyles.bodyMedium(Colors.white.withValues(alpha: 0.85)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -151,90 +176,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       l10n.translate('about_app'), '/about'),
                   _navTile(context, Icons.support_agent_rounded,
                       l10n.translate('contact_support'), '/support'),
-                  const SizedBox(height: 16),
-
-                  // ── Sign Out Button ─────────────────────────────────────
-                  InkWell(
-                    borderRadius: BorderRadius.circular(5),
-                    onTap: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          backgroundColor:
-                              isDark ? const Color(0xFF222222) : Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5)),
-                          title: Text(l10n.translate('sign_out'),
-                              style: TextStyle(
-                                  color: cs.onSurface,
-                                  fontWeight: FontWeight.bold)),
-                          content: Text(l10n.translate('sign_out_confirm'),
-                              style: TextStyle(color: cs.onSurfaceVariant)),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: Text(l10n.translate('cancel'),
-                                  style: const TextStyle(color: Colors.grey)),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(5)),
-                              ),
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: Text(l10n.translate('sign_out')),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true) {
-                        await ref.read(currentUserProvider.notifier).signOut();
-                        if (context.mounted) context.go('/role-selection');
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: BorderRadius.circular(
-                            5), // 5px border radius as required
-                        border: Border.all(
-                            color: Colors.redAccent.withOpacity(0.4)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Icon(Icons.logout_rounded,
-                                color: Colors.red, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(l10n.translate('sign_out'),
-                                    style: const TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.w600)),
-                                Text(l10n.translate('sign_out_subtitle'),
-                                    style: const TextStyle(
-                                        color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -254,48 +195,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     VoidCallback onTap,
   ) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius:
-              BorderRadius.circular(5), // 5px border radius as required
-          border: Border.all(
-            color: isDark ? Colors.white10 : Colors.black.withOpacity(0.08),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5),
+          side: BorderSide(
+            color: AppColors.pitchGreen.withValues(alpha: 0.4),
+            width: 1.2,
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.bodyMedium(cs.onBackground)
-                        .copyWith(fontWeight: FontWeight.bold),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(5),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                  Text(subtitle,
-                      style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
-                ],
-              ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTextStyles.bodyMedium(cs.onBackground)
+                            .copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(subtitle,
+                          style: AppTextStyles.labelSmall(cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+              ],
             ),
-            Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-          ],
+          ),
         ),
       ),
     );
@@ -304,19 +250,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget _navTile(
       BuildContext context, IconData icon, String title, String route) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(5), // 5px border radius as required
-        border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white10
-              : Colors.black.withOpacity(0.05),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        tileColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5),
+          side: BorderSide(
+            color: AppColors.pitchGreen.withValues(alpha: 0.3),
+            width: 1.2,
+          ),
+        ),
         leading: Icon(icon, color: AppColors.pitchGreen),
         title: Text(title,
             style: AppTextStyles.bodyMedium(cs.onBackground)

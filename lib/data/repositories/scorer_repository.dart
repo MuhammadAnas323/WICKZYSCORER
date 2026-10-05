@@ -20,25 +20,15 @@ class ScorerRepository {
 
   final FirestoreScorerService? _cloud;
 
-  /// Bumped after every scorer mutation so screens (Matches tab, Home) can
-  /// watch it and refresh their lists when data changes elsewhere in the app.
+  /// Bumped after every scorer mutation so screens can watch it and refresh.
   final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
 
-  /// Holds the last Firestore write failure message (if any) so silent
-  /// failures become visible. Screens (e.g. the scorer shell) can listen to
-  /// this and surface a toast/snackbar.
+  /// Holds the last Firestore write failure message (if any).
   final ValueNotifier<String?> lastCloudError = ValueNotifier<String?>(null);
 
-  /// Cleared by whoever shows the error toast, so the same failure is not
-  /// re-toasted on every rebuild.
   void clearCloudError() => lastCloudError.value = null;
 
   Future<void>? _loading;
-
-  /// Serializes Firestore writes so full-document `.set()` calls (one per ball
-  /// during live scoring) can never complete out of order. Without this a
-  /// fire-and-forget save from earlier in the innings could land AFTER the
-  /// final completed-match write and leave spectators with a stale/empty copy.
   Future<void> _writeQueue = Future.value();
 
   ScorerRepository([this._cloud]);
@@ -59,9 +49,6 @@ class ScorerRepository {
     }
   }
 
-  /// Returns true when the write succeeded (or the cloud is not configured).
-  /// On failure it logs the error and stores it in [lastCloudError] so the UI
-  /// can toast "could not sync to cloud — check your connection / sign-in".
   Future<bool> _cloudWrite(Future<void> Function(FirestoreScorerService cloud) op) async {
     final cloud = _cloud;
     if (cloud == null) return true;
@@ -79,22 +66,12 @@ class ScorerRepository {
 
   Future<void> _ensureLoaded() => _loading ??= _loadFromCloud();
 
-  /// Re-reads the full scorer data set from Firestore and applies it to the
-  /// in-memory lists.
-  ///
-  /// The spectator side calls this on every load/refresh so tournaments,
-  /// teams, players, matches and live results created or edited by OTHER
-  /// users become visible. It intentionally reads everything (no
-  /// currentUserId filter) so spectators see all users' data.
   Future<void> refreshFromCloud() async {
     await _ensureLoaded();
     _loading = null;
     await _ensureLoaded();
   }
 
-  /// Loads the scorer data purely from Firestore — the single source of truth.
-  /// When the cloud is unavailable or not configured the lists simply stay
-  /// empty; there is no local cache to fall back on.
   Future<void> _loadFromCloud() async {
     final cloud = _cloud;
     if (cloud == null) return;
@@ -124,13 +101,6 @@ class ScorerRepository {
 
   void _bumpVersion() => dataVersion.value++;
 
-  /// Persists a single entity to Firestore (best-effort). Granular writes keep
-  /// a failure on one document from blocking the rest of the data from reaching
-  /// the cloud.
-  ///
-  /// Failures are surfaced via [lastCloudError] (and logged) instead of being
-  /// silently swallowed, so a Firestore security-rule denial or network error
-  /// is visible in the UI.
   Future<void> _persistToCloud(
       Future<void> Function(FirestoreScorerService cloud) op) async {
     _writeQueue = _writeQueue.then((_) async {
@@ -142,44 +112,45 @@ class ScorerRepository {
     await _writeQueue;
   }
 
-  // ── Public Repository Methods ─────────────────────────────────────────────
+  // ── Public Repository Methods (Enforcing Strict Data Isolation) ───────────
 
-  /// Removes every tournament whose name contains [nameFragment] (case
-  /// insensitive), cascading teams/players/matches/schedule + Firestore.
-  /// Returns how many tournaments were deleted.
   Future<int> purgeTournamentsByName(String nameFragment) async {
     await _ensureLoaded();
     final fragment = nameFragment.trim().toLowerCase();
     if (fragment.isEmpty) return 0;
-    final ids = _tournaments
+    final ids = (await getTournaments())
         .where((t) => t.name.toLowerCase().contains(fragment))
         .map((t) => t.id)
         .toList();
-    // Delete from a copy because deleteTournament mutates the list.
     for (final id in ids) {
       await deleteTournament(id);
     }
     return ids.length;
   }
 
-  Future<List<ScorerTournament>> getTournaments() async {
+  /// Returns tournaments belonging ONLY to the signed-in scorer.
+  Future<List<ScorerTournament>> getTournaments({bool forCurrentUserOnly = true}) async {
     await _ensureLoaded();
+    final uid = currentUserId;
+    if (forCurrentUserOnly && uid != null && uid.isNotEmpty) {
+      return _tournaments
+          .where((t) => t.createdBy == uid || t.ownerId == uid)
+          .toList();
+    }
     return _tournaments;
   }
 
   Future<ScorerTournament?> getTournament(String id) async {
     await _ensureLoaded();
-    return _tournaments.where((t) => t.id == id).firstOrNull;
+    final list = await getTournaments();
+    return list.where((t) => t.id == id).firstOrNull;
   }
 
   Future<void> saveTournament(ScorerTournament tournament) async {
     await _ensureLoaded();
+    final uid = currentUserId ?? '';
     final index = _tournaments.indexWhere((t) => t.id == tournament.id);
     if (index >= 0) {
-      // Never let an edit wipe the original owner: the form can't always
-      // resolve the profile uid, so keep the stored createdBy/ownerId when the
-      // incoming copy doesn't carry one. Otherwise the tournament would be
-      // filtered out of "My Tournaments" after being edited.
       var updated = tournament;
       final existing = _tournaments[index];
       if (updated.createdBy.isEmpty && existing.createdBy.isNotEmpty) {
@@ -187,29 +158,25 @@ class ScorerRepository {
           createdBy: existing.createdBy,
           ownerId: existing.ownerId,
         );
+      } else if (updated.createdBy.isEmpty) {
+        updated = updated.copyWith(createdBy: uid, ownerId: uid);
       }
       _tournaments[index] = updated;
+      await _persistToCloud((cloud) => cloud.saveTournament(updated));
     } else {
-      // Ownership: newly created tournaments are bound to the signed-in user.
-      // Never overwrite createdBy on subsequent edits.
       var t = tournament;
       if (t.createdBy.isEmpty) {
         t = t.copyWith(
-          createdBy: currentUserId ?? '',
-          ownerId: currentUserId ?? t.ownerId,
+          createdBy: uid,
+          ownerId: uid,
         );
       }
       _tournaments.add(t);
       await _cloudWrite((cloud) => cloud.saveTournament(t));
-      _bumpVersion();
-      return;
     }
-    await _persistToCloud((cloud) => cloud.saveTournament(tournament));
     _bumpVersion();
   }
 
-  /// Deletes a tournament and everything that belongs to it (teams, their
-  /// players, matches and schedule).
   Future<void> deleteTournament(String tournamentId) async {
     await _ensureLoaded();
     final teamIds = _teams.where((t) => t.tournamentId == tournamentId).map((t) => t.id).toSet();
@@ -224,42 +191,61 @@ class ScorerRepository {
 
   Future<List<ScorerTeam>> getTeamsByTournament(String tournamentId) async {
     await _ensureLoaded();
-    final tournament = _tournaments.where((t) => t.id == tournamentId).firstOrNull;
+    final tournament = (await getTournaments()).where((t) => t.id == tournamentId).firstOrNull;
     final tTeamIds = tournament?.teamIds.toSet() ?? {};
-    final matching = _teams
+    final allUserTeams = await getAllTeams();
+    return allUserTeams
         .where((t) => t.tournamentId == tournamentId || tTeamIds.contains(t.id))
         .toList();
-    if (matching.isNotEmpty) return matching;
-    return _teams;
   }
 
-  Future<List<ScorerTeam>> getAllTeams() async {
+  /// Returns teams belonging ONLY to the signed-in scorer.
+  Future<List<ScorerTeam>> getAllTeams({bool forCurrentUserOnly = true}) async {
     await _ensureLoaded();
+    final uid = currentUserId;
+    if (forCurrentUserOnly && uid != null && uid.isNotEmpty) {
+      final userTournamentIds = _tournaments
+          .where((t) => t.createdBy == uid || t.ownerId == uid)
+          .map((t) => t.id)
+          .toSet();
+      final userMatchTeamIds = _matches
+          .where((m) => m.createdBy == uid)
+          .expand((m) => [m.team1Id, m.team2Id])
+          .toSet();
+      return _teams.where((t) =>
+          (t.createdBy.isNotEmpty && t.createdBy == uid) ||
+          userTournamentIds.contains(t.tournamentId) ||
+          userMatchTeamIds.contains(t.id)).toList();
+    }
     return _teams;
   }
 
   Future<ScorerTeam?> getTeam(String id) async {
     await _ensureLoaded();
-    return _teams.where((t) => t.id == id).firstOrNull;
+    return (await getAllTeams()).where((t) => t.id == id).firstOrNull;
   }
 
   Future<void> saveTeam(ScorerTeam team) async {
     await _ensureLoaded();
-    final index = _teams.indexWhere((t) => t.id == team.id);
+    final uid = currentUserId ?? '';
+    var updated = team;
+    if (updated.createdBy.isEmpty) {
+      updated = updated.copyWith(createdBy: uid);
+    }
+    final index = _teams.indexWhere((t) => t.id == updated.id);
     if (index >= 0) {
-      _teams[index] = team;
+      _teams[index] = updated;
     } else {
-      _teams.add(team);
-      // Link team to tournament if team.tournamentId is set
-      final tournament = _tournaments.where((t) => t.id == team.tournamentId).firstOrNull;
-      if (tournament != null && !tournament.teamIds.contains(team.id)) {
+      _teams.add(updated);
+      final tournament = _tournaments.where((t) => t.id == updated.tournamentId).firstOrNull;
+      if (tournament != null && !tournament.teamIds.contains(updated.id)) {
         await saveTournament(tournament.copyWith(
-          teamIds: [...tournament.teamIds, team.id],
+          teamIds: [...tournament.teamIds, updated.id],
           numTeams: tournament.teamIds.length + 1,
         ));
       }
     }
-    await _persistToCloud((cloud) => cloud.saveTeam(team));
+    await _persistToCloud((cloud) => cloud.saveTeam(updated));
     _bumpVersion();
   }
 
@@ -304,14 +290,16 @@ class ScorerRepository {
     return _players.where((p) => p.teamId == teamId).toList();
   }
 
-  Future<List<ScorerPlayer>> getAllPlayers() async {
+  Future<List<ScorerPlayer>> getAllPlayers({bool forCurrentUserOnly = true}) async {
     await _ensureLoaded();
-    return _players;
+    final userTeams = await getAllTeams(forCurrentUserOnly: forCurrentUserOnly);
+    final userTeamIds = userTeams.map((t) => t.id).toSet();
+    return _players.where((p) => userTeamIds.contains(p.teamId)).toList();
   }
 
   Future<ScorerPlayer?> getPlayer(String id) async {
     await _ensureLoaded();
-    return _players.where((p) => p.id == id).firstOrNull;
+    return (await getAllPlayers()).where((p) => p.id == id).firstOrNull;
   }
 
   Future<void> savePlayer(ScorerPlayer player) async {
@@ -321,7 +309,6 @@ class ScorerRepository {
       _players[index] = player;
     } else {
       _players.add(player);
-      // Ensure team has player ID registered
       final team = _teams.where((t) => t.id == player.teamId).firstOrNull;
       if (team != null && !team.playerIds.contains(player.id)) {
         await saveTeam(team.copyWith(playerIds: [...team.playerIds, player.id]));
@@ -352,24 +339,26 @@ class ScorerRepository {
     _bumpVersion();
   }
 
-  Future<List<ScorerMatch>> getMatches() async {
+  /// Returns matches belonging ONLY to the signed-in scorer.
+  Future<List<ScorerMatch>> getMatches({bool forCurrentUserOnly = true}) async {
     await _ensureLoaded();
+    final uid = currentUserId;
+    if (forCurrentUserOnly && uid != null && uid.isNotEmpty) {
+      return _matches.where((m) => m.createdBy == uid).toList();
+    }
     return _matches;
   }
 
   Future<List<ScorerMatch>> getMatchesByTournament(String tournamentId) async {
     await _ensureLoaded();
-    return _matches.where((m) => m.tournamentId == tournamentId).toList();
+    return (await getMatches()).where((m) => m.tournamentId == tournamentId).toList();
   }
 
   Future<ScorerMatch?> getMatch(String id) async {
     await _ensureLoaded();
-    return _matches.where((m) => m.id == id).firstOrNull;
+    return (await getMatches()).where((m) => m.id == id).firstOrNull;
   }
 
-  /// Streams a single match document from Firestore so spectators can watch
-  /// live, ball-by-ball scoring updates. Emits nothing when no cloud is
-  /// configured (offline scorer-only mode).
   Stream<ScorerMatch?> watchMatch(String matchId) {
     final cloud = _cloud;
     if (cloud == null) return const Stream.empty();
@@ -378,22 +367,23 @@ class ScorerRepository {
 
   Future<void> saveMatch(ScorerMatch match) async {
     await _ensureLoaded();
+    final uid = currentUserId ?? '';
     final index = _matches.indexWhere((m) => m.id == match.id);
     if (index >= 0) {
-      _matches[index] = match;
+      var updated = match;
+      if (updated.createdBy.isEmpty) {
+        updated = updated.copyWith(createdBy: uid);
+      }
+      _matches[index] = updated;
+      await _persistToCloud((cloud) => cloud.saveMatch(updated));
     } else {
-      // Ownership: newly created matches are bound to the signed-in user.
-      // Never overwrite createdBy on subsequent edits.
       var m = match;
       if (m.createdBy.isEmpty) {
-        m = m.copyWith(createdBy: currentUserId ?? '');
+        m = m.copyWith(createdBy: uid);
       }
       _matches.add(m);
       await _cloudWrite((cloud) => cloud.saveMatch(m));
-      _bumpVersion();
-      return;
     }
-    await _persistToCloud((cloud) => cloud.saveMatch(match));
     _bumpVersion();
   }
 
@@ -406,12 +396,14 @@ class ScorerRepository {
 
   Future<ScorerMatch?> firstInProgressMatch() async {
     await _ensureLoaded();
-    return _matches.where((m) => m.status == MatchStatus.inProgress).firstOrNull;
+    return (await getMatches())
+        .where((m) => m.status == MatchStatus.inProgress)
+        .firstOrNull;
   }
 
   Future<List<ScorerMatch>> getUpcomingMatchesByTournament(String tournamentId) async {
     await _ensureLoaded();
-    return _matches
+    return (await getMatches())
         .where((m) =>
             m.tournamentId == tournamentId &&
             (m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled))
@@ -420,7 +412,7 @@ class ScorerRepository {
 
   Future<ScorerMatch?> findMatchById(String id) async {
     await _ensureLoaded();
-    return _matches.where((m) => m.id == id).firstOrNull;
+    return (await getMatches()).where((m) => m.id == id).firstOrNull;
   }
 
   // ── Schedule (stages & fixtures) ────────────────────────────────────────
@@ -443,19 +435,12 @@ class ScorerRepository {
     _bumpVersion();
   }
 
-  /// Returns the [ScorerMatch] backing a schedule [fixture] — either an
-  /// existing one (linked by id, or matching the two resolved teams) or a newly
-  /// created one.
-  ///
-  /// Creating a match from a fixture is the "start scoring" entry point for a
-  /// scheduled fixture: it snapshots the resolved teams, venue and date into a
-  /// real match and links the fixture so a completed result can auto-advance
-  /// the schedule. Returns null when the fixture's teams are not yet resolved.
   Future<ScorerMatch?> findOrCreateMatchForFixture({
     required String tournamentId,
     required ScheduleFixture fixture,
   }) async {
     await _ensureLoaded();
+    final uid = currentUserId ?? '';
     if (fixture.linkedMatchId != null) {
       final linked = _matches.where((m) => m.id == fixture.linkedMatchId).firstOrNull;
       if (linked != null) return linked;
@@ -484,14 +469,13 @@ class ScorerRepository {
       playingXI1: const [],
       playingXI2: const [],
       currentInnings: 1,
+      createdBy: uid,
     );
     await saveMatch(match);
     await _linkFixtureToMatch(tournamentId, fixture.id, match.id);
     return match;
   }
 
-  /// Records that a match was created from a schedule fixture so future lookups
-  /// reuse it instead of creating duplicates.
   Future<void> _linkFixtureToMatch(
     String tournamentId,
     String fixtureId,
@@ -514,12 +498,6 @@ class ScorerRepository {
     }
   }
 
-  /// Auto-advancement: called after a match is completed.
-  ///
-  /// Finds the fixture and:
-  ///  - marks it completed,
-  ///  - resolves every downstream destination (push model) or source (pull model),
-  ///  - flips destination fixtures to `ready` once both sides are known.
   Future<void> applyScheduleResult({
     required String tournamentId,
     required String winnerTeamId,
@@ -559,11 +537,6 @@ class ScorerRepository {
     await saveSchedule(tournamentId, updatedStages);
   }
 
-  /// Marks the fixture for a tied match ([tournamentId]) as completed.
-  ///
-  /// A tie produces no winner, so no team advances: the fixture itself shows a
-  /// tied decision and every downstream `matchResult` stays unresolved (waiting
-  /// for an opponent) until a decider is played.
   Future<void> applyScheduleTie({
     required String tournamentId,
     required String matchTeam1Id,
@@ -575,7 +548,6 @@ class ScorerRepository {
     final stages = _schedules[tournamentId];
     if (stages == null) return;
 
-    // For a tie, we mark the source fixture completed but provide no winner/loser to advance.
     final engine = TournamentProgressionResolver(stages);
     final fx = engine.findFixtureByMatchId(matchId ?? linkedFixtureId ?? '') ??
                engine.findFixtureByTeams('', matchTeam1Id, matchTeam2Id);

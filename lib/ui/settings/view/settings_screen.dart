@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 
@@ -35,7 +36,11 @@ class SettingsScreen extends ConsumerWidget {
               onSelectionChanged: (s) {
                 ref.read(settingsViewModelProvider.notifier).setThemeMode(s.first);
               },
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(5))),
+                side: WidgetStateProperty.all(BorderSide(color: AppColors.pitchGreen.withValues(alpha: 0.6), width: 1.2)),
+              ),
             ),
           ),
           ListTile(
@@ -50,7 +55,11 @@ class SettingsScreen extends ConsumerWidget {
               onSelectionChanged: (s) {
                 ref.read(settingsViewModelProvider.notifier).setLocale(Locale(s.first));
               },
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(5))),
+                side: WidgetStateProperty.all(BorderSide(color: AppColors.pitchGreen.withValues(alpha: 0.6), width: 1.2)),
+              ),
             ),
           ),
           const Divider(),

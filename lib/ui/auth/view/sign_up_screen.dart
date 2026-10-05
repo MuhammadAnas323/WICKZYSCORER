@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/core/utils/app_error_handler.dart';
@@ -16,17 +17,18 @@ class SignUpScreen extends ConsumerStatefulWidget {
 }
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _isLogin = false;
 
   void _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
     final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
-    if (email.isEmpty || password.isEmpty) return;
-    if (!_isLogin && name.isEmpty) return;
 
     final vm = ref.read(authViewModelProvider.notifier);
     try {
@@ -39,7 +41,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       debugPrint('Auth submit error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e))),
+          SnackBar(
+            content: Text(AppErrorHandler.getUserFriendlyMessage(e)),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -63,10 +68,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       subtitle: _isLogin
           ? 'Sign in as a spectator or a scorer'
           : 'Join as a spectator or a scorer',
+      showBackButton: true,
+      onBack: () => context.go('/role-selection'),
       footer: TextButton(
         onPressed: () {
           setState(() {
             _isLogin = !_isLogin;
+            _formKey.currentState?.reset();
           });
         },
         child: Text(
@@ -77,51 +85,80 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
       ),
       children: [
-        if (!_isLogin) ...[
-          TextField(
-            controller: _nameCtrl,
-            textCapitalization: TextCapitalization.words,
-            style: AppTextStyles.bodyMedium(cs.onSurface),
-            decoration: InputDecoration(
-              labelText: 'Full Name',
-              prefixIcon: const Icon(Icons.person_outline, color: AppColors.pitchGreen),
-              filled: true,
-              fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!_isLogin) ...[
+                TextFormField(
+                  controller: _nameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  style: AppTextStyles.bodyMedium(cs.onSurface),
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: const Icon(Icons.person_outline, color: AppColors.pitchGreen),
+                    filled: true,
+                    fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  validator: (val) {
+                    if (!_isLogin && (val == null || val.trim().isEmpty)) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+              TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                style: AppTextStyles.bodyMedium(cs.onSurface),
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email_outlined, color: AppColors.pitchGreen),
+                  filled: true,
+                  fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                validator: (val) {
+                  final email = val?.trim() ?? '';
+                  final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', caseSensitive: false);
+                  if (!regex.hasMatch(email)) {
+                    return 'Please, email address is not correct';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordCtrl,
+                obscureText: true,
+                style: AppTextStyles.bodyMedium(cs.onSurface),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outline, color: AppColors.pitchGreen),
+                  filled: true,
+                  fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  if (!_isLogin && val.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32),
+              AppPrimaryButton(
+                label: _isLogin ? 'Login' : 'Sign Up',
+                isLoading: isLoading,
+                onPressed: _submit,
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-        ],
-        TextField(
-          controller: _emailCtrl,
-          keyboardType: TextInputType.emailAddress,
-          style: AppTextStyles.bodyMedium(cs.onSurface),
-          decoration: InputDecoration(
-            labelText: 'Email',
-            prefixIcon: const Icon(Icons.email_outlined, color: AppColors.pitchGreen),
-            filled: true,
-            fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _passwordCtrl,
-          obscureText: true,
-          style: AppTextStyles.bodyMedium(cs.onSurface),
-          decoration: InputDecoration(
-            labelText: 'Password',
-            prefixIcon: const Icon(Icons.lock_outline, color: AppColors.pitchGreen),
-            filled: true,
-            fillColor: cs.surfaceVariant.withValues(alpha: 0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 32),
-        AppPrimaryButton(
-          label: _isLogin ? 'Login' : 'Sign Up',
-          isLoading: isLoading,
-          onPressed: _submit,
         ),
         const SizedBox(height: 16),
         Row(
@@ -143,7 +180,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(AppErrorHandler.getUserFriendlyMessage(e))),
+                  SnackBar(
+                    content: Text(AppErrorHandler.getUserFriendlyMessage(e)),
+                    backgroundColor: AppColors.error,
+                  ),
                 );
               }
             }

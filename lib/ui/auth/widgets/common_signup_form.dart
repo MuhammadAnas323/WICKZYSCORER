@@ -133,7 +133,14 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
             controller: emailController,
             label: 'Email',
             icon: Icons.email_outlined,
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+            validator: (val) {
+              final email = val?.trim() ?? '';
+              final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', caseSensitive: false);
+              if (!regex.hasMatch(email)) {
+                return 'Please, email address is not correct';
+              }
+              return null;
+            },
           ),
           if (widget.isScorer)
             _buildField(
@@ -148,7 +155,11 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
             isPassword: true,
             obscureText: _obscurePassword,
             onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Required';
+              if (val.length < 6) return 'Password must be at least 6 characters';
+              return null;
+            },
           ),
           _buildField(
             controller: confirmPasswordController,

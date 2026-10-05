@@ -94,6 +94,7 @@ class _CreateLocalMatchScreenState extends ConsumerState<CreateLocalMatchScreen>
       shortCode: trimmed.length >= 3 ? trimmed.substring(0, 3).toUpperCase() : trimmed.toUpperCase(),
       tournamentId: 't_custom',
       playerIds: const [],
+      createdBy: repo.currentUserId ?? '',
     );
     await repo.saveTeam(team);
     if (mounted) setState(() => _allTeams = List.of(_allTeams)..add(team));

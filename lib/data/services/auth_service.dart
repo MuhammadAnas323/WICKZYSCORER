@@ -18,7 +18,7 @@ abstract class AuthService {
     required String password,
     String? organization,
   });
-  Future<AppUser> signUpWithGoogle({
+  Future<AppUser?> signUpWithGoogle({
     required AppUserRole role,
     String? organization,
   });
@@ -32,10 +32,10 @@ class FirebaseAuthService implements AuthService {
   final fa.FirebaseAuth _auth = fa.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: '217796585547-9bfn2au32rj5g7up5vb8gbl3itn8q51i.apps.googleusercontent.com',
     scopes: ['email', 'profile'],
   );
 
+  @override
   AppUser? _currentUser;
 
   @override
@@ -118,13 +118,12 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<AppUser> signUpWithGoogle({
+  Future<AppUser?> signUpWithGoogle({
     required AppUserRole role,
     String? organization,
   }) async {
     try {
-      // Clear any previously cached Google session/account so the account
-      // chooser is shown again on every sign-in.
+      // Clear cached Google session so account chooser is shown
       try {
         if (_googleSignIn.currentUser != null) {
           await _googleSignIn.signOut();
@@ -132,12 +131,19 @@ class FirebaseAuthService implements AuthService {
       } catch (e) {
         debugPrint('Google Sign-In signout cleanup warning: $e');
       }
-      // Launch the Google account chooser. Returns null if the user cancels.
+
+      // Launch Google account chooser. Returns null if user cancels.
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        throw Exception('Google sign-in was cancelled');
+        // User cancelled sign in
+        return null;
       }
+
       final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null && googleAuth.accessToken == null) {
+        throw Exception('Google authentication tokens could not be retrieved. Please try again.');
+      }
+
       final credential = fa.GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -149,13 +155,9 @@ class FirebaseAuthService implements AuthService {
       final doc = await docRef.get();
       final now = DateTime.now();
       if (doc.exists) {
-        // Same Google account used again: adopt the freshly-chosen role so the
-        // profile always matches where the user signed up from.
         final existing = AppUser.fromJson(doc.data()!);
-        final updated = existing.copyWith(role: role, organization: organization);
-        await docRef.set(updated.toJson());
-        _currentUser = updated;
-        return updated;
+        _currentUser = existing;
+        return existing;
       }
 
       final user = AppUser(
@@ -177,7 +179,7 @@ class FirebaseAuthService implements AuthService {
     } catch (e) {
       debugPrint('Google Sign-In service error: $e');
       if (e.toString().contains('sign_in_canceled') || e.toString().contains('12501')) {
-        throw Exception('Google sign-in was cancelled');
+        return null; // Treat cancellation gracefully
       }
       rethrow;
     }
@@ -201,6 +203,9 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> signOut() async {
     debugPrint('[DEBUG] FirebaseAuthService.signOut() CALLED. Stack: ${StackTrace.current}');
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
     await _auth.signOut();
     _currentUser = null;
   }

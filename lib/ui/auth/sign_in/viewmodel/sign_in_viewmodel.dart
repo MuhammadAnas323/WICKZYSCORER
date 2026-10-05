@@ -48,7 +48,11 @@ class SignInViewModel extends StateNotifier<SignInState> {
     state = state.copyWith(isGoogleLoading: true, error: null);
     try {
       await ref.read(currentUserProvider.notifier).signInWithGoogle();
-      state = state.copyWith(isGoogleLoading: false, success: true);
+      final user = ref.read(currentUserProvider);
+      state = state.copyWith(
+        isGoogleLoading: false,
+        success: user != null,
+      );
     } catch (e) {
       state = state.copyWith(isGoogleLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }
@@ -58,4 +62,3 @@ class SignInViewModel extends StateNotifier<SignInState> {
 final signInViewModelProvider = StateNotifierProvider.autoDispose<SignInViewModel, SignInState>((ref) {
   return SignInViewModel(ref);
 });
-

@@ -17,12 +17,41 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:sportyapp/firebase_options.dart';
 
 void main() {
-  mainCommon(DefaultFirebaseOptions.currentPlatform);
+  mainCommon(DefaultFirebaseOptionsDev.currentPlatform);
 }
 
 /// Common app entry point called by main_dev.dart and main_prod.dart
 void mainCommon(FirebaseOptions firebaseOptions) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Override default red error screen with a clean user-friendly fallback widget
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.info_outline, color: Color(0xFF1E88E5), size: 48),
+              SizedBox(height: 16),
+              Text(
+                'Something went wrong',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'An unexpected error occurred. Please try again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  };
 
   // Initialise Firebase with environment-specific options
   try {
@@ -32,8 +61,11 @@ void mainCommon(FirebaseOptions firebaseOptions) async {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
     );
-  } catch (_) {
-    // Already initialized — safe to ignore.
+  } catch (e, stack) {
+    debugPrint('Firebase initialization error: $e\n$stack');
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow;
+    }
   }
 
   // Set system UI style overlays
