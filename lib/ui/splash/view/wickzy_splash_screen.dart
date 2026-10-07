@@ -28,7 +28,7 @@ class SplashGate extends StatefulWidget {
 }
 
 class _SplashGateState extends State<SplashGate> {
-  bool _gone = false;
+  bool _splashDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -36,11 +36,14 @@ class _SplashGateState extends State<SplashGate> {
       fit: StackFit.expand,
       children: [
         widget.child,
-        if (!_gone)
-          _WickzySplashOverlay(
-            onFinished: () {
-              if (mounted) setState(() => _gone = true);
-            },
+        if (!_splashDone)
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: _WickzySplashOverlay(
+              onFinished: () {
+                if (mounted) setState(() => _splashDone = true);
+              },
+            ),
           ),
       ],
     );

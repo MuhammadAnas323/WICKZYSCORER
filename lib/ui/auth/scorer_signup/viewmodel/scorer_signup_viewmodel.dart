@@ -60,11 +60,11 @@ class ScorerSignupViewModel extends StateNotifier<ScorerSignupState> {
       await ref
           .read(currentUserProvider.notifier)
           .signUpScorerWithGoogle(organization: organization);
-      final user = ref.read(currentUserProvider);
-      state = state.copyWith(
-        isGoogleLoading: false,
-        success: user != null,
-      );
+      // The router listens to currentUserProvider and will automatically
+      // redirect to /scorer/dashboard once the user is set. No need to set
+      // success=true here (which would incorrectly navigate to /verify-email
+      // for Google users who are already email-verified).
+      state = state.copyWith(isGoogleLoading: false);
     } catch (e) {
       state = state.copyWith(isGoogleLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }

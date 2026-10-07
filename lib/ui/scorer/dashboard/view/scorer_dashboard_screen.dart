@@ -78,12 +78,10 @@ class ScorerDashboardScreen extends ConsumerWidget {
                           : const [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
                       iconColor: isDark ? Colors.amber : const Color(0xFF1D4ED8),
                       textColor: isDark ? Colors.white : const Color(0xFF1E3A8A),
-                      onTap: () => context.push('/scorer/tournaments'),
+                      onTap: () => context.go('/scorer/tournaments'),
                     ),
 
-                    // 2. Friendly Matches Card — only local/friendly matches
-                    // (pseudo-tournament 't_custom'). Tournament matches must
-                    // never appear in this list, so always pass onlyFriendly.
+                    // 2. Friendly Matches Card
                     _LargeNavCard(
                       title: l10n.translate('friendly_matches'),
                       subtitle: l10n.translate('individual_matches'),
@@ -93,8 +91,7 @@ class ScorerDashboardScreen extends ConsumerWidget {
                           : const [Color(0xFFD1FAE5), Color(0xA110B981)],
                       iconColor: isDark ? AppColors.pitchGreenLight : const Color(0xFF047857),
                       textColor: isDark ? Colors.white : const Color(0xFF065F46),
-                      onTap: () =>
-                          context.push('/scorer/all-matches?onlyFriendly=true'),
+                      onTap: () => context.go('/scorer/matches'),
                     ),
 
                     // 3. Profile Card
@@ -107,7 +104,7 @@ class ScorerDashboardScreen extends ConsumerWidget {
                           : const [Color(0xFFEDE9FE), Color(0xFFDDD6FE)],
                       iconColor: isDark ? Colors.purpleAccent : const Color(0xFF6D28D9),
                       textColor: isDark ? Colors.white : const Color(0xFF5B21B6),
-                      onTap: () => context.push('/scorer/profile'),
+                      onTap: () => context.go('/scorer/profile'),
                     ),
 
                     // 4. Start Scoring Card
@@ -120,7 +117,7 @@ class ScorerDashboardScreen extends ConsumerWidget {
                           : const [Color(0xFFFEE2E2), Color(0xFFFCA5A5)],
                       iconColor: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626),
                       textColor: isDark ? Colors.white : const Color(0xFF991B1B),
-                      onTap: () => context.push('/scorer/start-scoring'),
+                      onTap: () => context.go('/scorer/start-scoring'),
                     ),
                   ],
                 ),
@@ -162,7 +159,7 @@ class _LargeNavCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(_cardRadius), // Exactly 5px border radius as required
+          borderRadius: BorderRadius.circular(_cardRadius),
           gradient: LinearGradient(
             colors: gradientColors,
             begin: Alignment.topLeft,
@@ -222,4 +219,3 @@ class _LargeNavCard extends StatelessWidget {
     );
   }
 }
-

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'dart:ui';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -12,6 +13,8 @@ class RoleSelectionScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -40,22 +43,22 @@ class RoleSelectionScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    'Choose your role',
+                    l10n.translate('choose_your_role'),
                     style: AppTextStyles.titleLarge(cs.onSurfaceVariant),
                   ),
                 ),
                 const Spacer(),
                 _RoleCard(
-                  title: 'Watch as Spectator',
-                  subtitle: 'Follow live scores, matches & tournaments',
+                  title: l10n.translate('watch_as_spectator'),
+                  subtitle: l10n.translate('watch_as_spectator_sub'),
                   icon: Icons.sports_cricket,
                   gradient: AppColors.heroCardGradient,
                   onTap: () => context.push('/spectator-signup'),
                 ),
                 const SizedBox(height: 24),
                 _RoleCard(
-                  title: 'Score a Match',
-                  subtitle: 'Manage matches & score ball-by-ball',
+                  title: l10n.translate('score_a_match'),
+                  subtitle: l10n.translate('score_a_match_sub'),
                   icon: Icons.sports_score,
                   gradient: const LinearGradient(
                     colors: [Color(0xFF0288D1), Color(0xFF00ACC1)],

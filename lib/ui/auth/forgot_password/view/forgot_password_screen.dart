@@ -6,6 +6,7 @@ import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/shared_widgets/app_button.dart';
 import 'package:sportyapp/core/utils/app_error_handler.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void _sendResetLink() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final l10n = AppLocalizations.of(context);
     final email = _emailController.text.trim();
     setState(() => _isLoading = true);
 
@@ -45,8 +47,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No account found with this email address.'),
+            SnackBar(
+              content: Text(l10n.translate('no_account_found_email')),
               backgroundColor: AppColors.error,
             ),
           );
@@ -68,7 +70,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         setState(() => _isLoading = false);
         String message = AppErrorHandler.getUserFriendlyMessage(e);
         if (e.code == 'user-not-found') {
-          message = 'No account found with this email address.';
+          message = l10n.translate('no_account_found_email');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -93,27 +95,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
     return AuthScaffold(
-      title: _isSuccess ? 'Check your email' : 'Reset Password',
+      title: _isSuccess ? l10n.translate('check_your_email') : l10n.translate('reset_password'),
       subtitle: _isSuccess 
-          ? 'We have sent reset instructions' 
-          : 'Enter your email and we will send you a reset link.',
+          ? l10n.translate('reset_instructions_sent').replaceAll('{email}', _emailController.text) 
+          : l10n.translate('reset_password_sub'),
       showBackButton: true,
       onBack: () => context.go('/signin'),
       footer: TextButton(
         onPressed: () => context.go('/signin'),
-        child: Text('Back to Sign In', style: AppTextStyles.labelLarge(AppColors.pitchGreen)),
+        child: Text(l10n.translate('back_to_sign_in'), style: AppTextStyles.labelLarge(AppColors.pitchGreen)),
       ),
       children: [
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
-          child: _isSuccess ? _buildSuccessView(cs) : _buildFormView(cs),
+          child: _isSuccess ? _buildSuccessView(cs, l10n) : _buildFormView(cs, l10n),
         ),
       ],
     );
   }
 
-  Widget _buildFormView(ColorScheme cs) {
+  Widget _buildFormView(ColorScheme cs, AppLocalizations l10n) {
     return Form(
       key: _formKey,
       child: Column(
@@ -125,7 +129,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             keyboardType: TextInputType.emailAddress,
             style: AppTextStyles.bodyMedium(cs.onSurface),
             decoration: InputDecoration(
-              labelText: 'Email',
+              labelText: l10n.translate('email'),
               labelStyle: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
               prefixIcon: const Icon(Icons.email_outlined, color: AppColors.pitchGreen),
               filled: true,
@@ -136,14 +140,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               final email = val?.trim() ?? '';
               final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', caseSensitive: false);
               if (!regex.hasMatch(email)) {
-                return 'Please, email address is not correct';
+                return l10n.translate('invalid_email');
               }
               return null;
             },
           ),
           const SizedBox(height: 32),
           AppPrimaryButton(
-            label: 'Send Reset Link',
+            label: l10n.translate('send_reset_link'),
             isLoading: _isLoading,
             onPressed: _sendResetLink,
           ),
@@ -152,7 +156,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildSuccessView(ColorScheme cs) {
+  Widget _buildSuccessView(ColorScheme cs, AppLocalizations l10n) {
     return Column(
       key: const ValueKey('success'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -160,7 +164,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         const Icon(Icons.check_circle_outline, color: AppColors.pitchGreen, size: 80),
         const SizedBox(height: 24),
         Text(
-          'We have sent password reset instructions to ${_emailController.text}',
+          l10n.translate('reset_instructions_sent').replaceAll('{email}', _emailController.text),
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMedium(cs.onSurfaceVariant),
         ),

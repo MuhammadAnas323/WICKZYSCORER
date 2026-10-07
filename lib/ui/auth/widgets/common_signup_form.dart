@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 class CommonSignupForm extends StatefulWidget {
   final bool isScorer;
@@ -119,25 +120,27 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Form(
       key: _formKey,
       child: Column(
         children: [
           _buildField(
             controller: nameController,
-            label: 'Full Name',
+            label: l10n.translate('full_name'),
             icon: Icons.person_outline,
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+            validator: (val) => val == null || val.isEmpty ? l10n.translate('required') : null,
           ),
           _buildField(
             controller: emailController,
-            label: 'Email',
+            label: l10n.translate('email'),
             icon: Icons.email_outlined,
             validator: (val) {
               final email = val?.trim() ?? '';
               final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', caseSensitive: false);
               if (!regex.hasMatch(email)) {
-                return 'Please, email address is not correct';
+                return l10n.translate('invalid_email');
               }
               return null;
             },
@@ -145,32 +148,32 @@ class CommonSignupFormState extends State<CommonSignupForm> with SingleTickerPro
           if (widget.isScorer)
             _buildField(
               controller: orgController,
-              label: 'Organization / Club (Optional)',
+              label: l10n.translate('org_club_optional'),
               icon: Icons.business_outlined,
             ),
           _buildField(
             controller: passwordController,
-            label: 'Password',
+            label: l10n.translate('password'),
             icon: Icons.lock_outline,
             isPassword: true,
             obscureText: _obscurePassword,
             onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
             validator: (val) {
-              if (val == null || val.isEmpty) return 'Required';
-              if (val.length < 6) return 'Password must be at least 6 characters';
+              if (val == null || val.isEmpty) return l10n.translate('required');
+              if (val.length < 6) return l10n.translate('password_min_length');
               return null;
             },
           ),
           _buildField(
             controller: confirmPasswordController,
-            label: 'Confirm Password',
+            label: l10n.translate('confirm_password'),
             icon: Icons.lock_outline,
             isPassword: true,
             obscureText: _obscureConfirm,
             onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
             validator: (val) {
-              if (val == null || val.isEmpty) return 'Required';
-              if (val != passwordController.text) return 'Passwords do not match';
+              if (val == null || val.isEmpty) return l10n.translate('required');
+              if (val != passwordController.text) return l10n.translate('passwords_dont_match');
               return null;
             },
           ),

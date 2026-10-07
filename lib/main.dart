@@ -111,43 +111,40 @@ class SportyApp extends ConsumerWidget {
       router.push('/spectator/match/$matchId');
     };
 
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: SplashGate(
-        child: MaterialApp.router(
-          title: 'Wickzy Scorer',
-          debugShowCheckedModeBanner: false,
-          builder: (context, child) {
-            return Stack(
-              children: [
-                if (child != null) child,
-                const CloudErrorToast(),
-              ],
-            );
-          },
+    return MaterialApp.router(
+      title: 'Wickzy Scorer',
+      debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return SplashGate(
+          child: Stack(
+            children: [
+              if (child != null) child,
+              const CloudErrorToast(),
+            ],
+          ),
+        );
+      },
 
-          // Theme Mode configurations
-          themeMode: themeMode,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
+      // Theme Mode configurations
+      themeMode: themeMode,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
 
-          // Localization
-          locale: locale,
-          supportedLocales: const [
-            Locale('en', ''),
-            Locale('ur', ''),
-          ],
-          localizationsDelegates: [
-            const AppLocalizationsDelegate(),
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+      // Localization
+      locale: locale,
+      supportedLocales: const [
+        Locale('en', ''),
+        Locale('ur', ''),
+      ],
+      localizationsDelegates: const [
+        AppLocalizationsDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
 
-          // Router configuration
-          routerConfig: router,
-        ),
-      ),
+      // Router configuration
+      routerConfig: router,
     );
   }
 }

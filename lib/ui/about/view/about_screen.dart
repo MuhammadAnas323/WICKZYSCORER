@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/extensions/string_extensions.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 
@@ -9,9 +11,10 @@ class AboutScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('About', style: AppTextStyles.headlineSmall(cs.onSurface)),
+        title: Text(l10n.translate('about').toTitleCase, style: AppTextStyles.headlineSmall(cs.onSurface)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
@@ -38,29 +41,29 @@ class AboutScreen extends ConsumerWidget {
                     style: AppTextStyles.headlineLarge(cs.onSurface)
                         .copyWith(letterSpacing: 2)),
                 const SizedBox(height: 4),
-                Text('Version 1.0.0',
+                Text('${l10n.translate('version').toTitleCase} 1.0.0',
                     style: AppTextStyles.bodySmall(cs.onSurfaceVariant)),
               ],
             ),
           ),
           const SizedBox(height: 32),
-          Text('Your Premium Cricket Companion',
+          Text(l10n.translate('premium_cricket_companion').toTitleCase,
               style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 12),
           Text(
-            'Wickzy Scorer brings you live cricket scores, ball-by-ball commentary, match fixtures, player profiles, tournament standings, and the ability to broadcast your own matches live — all in one beautifully designed app.\n\nBuilt for cricket fans. By cricket fans. 🏑',
+            l10n.translate('about_description'),
             style: AppTextStyles.bodyMedium(cs.onSurfaceVariant)
                 .copyWith(height: 1.7),
           ),
           const SizedBox(height: 32),
-          Text('Features', style: AppTextStyles.titleLarge(cs.onSurface)),
+          Text(l10n.translate('features').toTitleCase, style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 12),
           ...[
-            ('🔴', 'Live Scores & Commentary'),
-            ('📅', 'Fixtures & Results'),
-            ('🏆', 'Tournaments & Points Tables'),
-            ('📊', 'Player & Team Stats'),
-            ('📡', 'Go Live — Stream Your Own Match'),
+            ('🔴', l10n.translate('feat_live_scores').toTitleCase),
+            ('📅', l10n.translate('feat_fixtures').toTitleCase),
+            ('🏆', l10n.translate('feat_tournaments').toTitleCase),
+            ('📊', l10n.translate('feat_stats').toTitleCase),
+            ('📡', l10n.translate('feat_go_live')),
           ].map((item) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
@@ -73,10 +76,10 @@ class AboutScreen extends ConsumerWidget {
                 ),
               )),
           const SizedBox(height: 32),
-          Text('Legal', style: AppTextStyles.titleLarge(cs.onSurface)),
+          Text(l10n.translate('legal').toTitleCase, style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 8),
           Text(
-            'The live streaming feature allows you to broadcast only from your own camera or sources you have rights to. Capturing or rebroadcasting third-party broadcast feeds is not permitted.',
+            l10n.translate('legal_description'),
             style: AppTextStyles.bodySmall(cs.onSurfaceVariant)
                 .copyWith(height: 1.6),
           ),

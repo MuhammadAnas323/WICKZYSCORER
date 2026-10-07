@@ -10,15 +10,11 @@ import 'package:sportyapp/data/services/auth_service.dart';
 final authServiceProvider = Provider<AuthService>((ref) => FirebaseAuthService());
 
 /// Tracks whether the initial Firebase auth session restore has finished.
-/// The splash screen waits for this before deciding where to navigate so we
-/// never flash the role-selection / sign-in screen for an already-logged-in user.
 class AuthReadyNotifier extends StateNotifier<bool> {
   AuthReadyNotifier() : super(false);
   void markReady() => state = true;
 }
 
-/// Exposes a boolean that flips to `true` once the current user (or the
-/// absence of one) has been established after an app cold start.
 final authReadyProvider =
     StateNotifierProvider<AuthReadyNotifier, bool>((ref) => AuthReadyNotifier());
 
@@ -30,9 +26,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
   bool _initialized = false;
   bool _resolving = false;
 
-  /// Upper bound for the Firestore-backed profile refresh during startup. If a
-  /// flaky/offline network makes the `.get()` hang, we still want the splash to
-  /// navigate instead of getting stuck forever.
   static const _kAuthRefreshTimeout = Duration(seconds: 4);
 
   CurrentUserNotifier(this._auth, this._ready) : super(null) {
@@ -43,27 +36,21 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
       _markReady();
     });
 
-    // Fallback: If authStateChanges does not emit within timeout (e.g. offline/tests),
-    // ensure initialization finishes so the app is never stuck on splash.
     Future.delayed(_kAuthRefreshTimeout, () {
       if (!_initialized) {
         _markReady();
       }
     });
 
-    // Check if a session was already synchronous/available
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureInitialized());
   }
 
-  /// Flipped exactly once so the splash can never wait on the session forever.
-  /// Safe to call from any resolution path (idempotent).
   void _markReady() {
     if (_initialized) return;
     _initialized = true;
     _ready.markReady();
   }
 
-  /// Resolves the current user if the instance already has an active user.
   void _ensureInitialized() {
     if (_initialized || _isAuthenticating || _resolving) return;
     try {
@@ -83,23 +70,18 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
       if (fbUser != null) {
         if (_isAuthenticating) return;
         try {
-          // Fast path: if we have a locally cached profile for this account, use
-          // it immediately so the splash can navigate without a slow network call.
           final cached = await _readCachedUser();
           if (cached != null && cached.id == fbUser.uid) {
             state = cached;
             _markReady();
           }
-          // Refresh from Firestore, bounded so a hanging network call can't strand startup.
           try {
             await _auth.loadCurrentUser().timeout(_kAuthRefreshTimeout);
             if (_auth.currentUser != null) {
               state = _auth.currentUser;
               await _cacheUser(_auth.currentUser!);
             }
-          } catch (_) {
-            // Keep the cached profile; network failure shouldn't log the user out.
-          }
+          } catch (_) {}
           if (!_initialized) {
             state = _auth.currentUser ?? state;
             _markReady();
@@ -114,8 +96,6 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
       }
     } finally {
       _resolving = false;
-      // Safety net: a cold-start resolution (no sign-in in flight) must always
-      // flip the ready flag so the splash can move on.
       if (!_initialized && !_isAuthenticating) {
         _markReady();
       }
@@ -128,9 +108,7 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kCachedUserKey, jsonEncode(user.toJson()));
-    } catch (_) {
-      // Best effort.
-    }
+    } catch (_) {}
   }
 
   Future<AppUser?> _readCachedUser() async {
@@ -244,18 +222,74 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     }
   }
 
-  Future<void> signInWithGoogle() async {
+  Future<void> signInAsSpectator(String email, String password) async {
     _isAuthenticating = true;
     try {
-      // Default to spectator if new, but signUpWithGoogle handles existing profile roles.
-      final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
-      if (user == null) return;
+      final user = await _auth.signIn(email, password);
+      if (user.role != AppUserRole.spectator) {
+        await _auth.signOut();
+        throw Exception('This email is registered as a Scorer. Please login from the Scorer section.');
+      }
       state = user;
       await _persistRole(user.role);
       await _cacheUser(user);
     } finally {
       _isAuthenticating = false;
     }
+  }
+
+  Future<void> signInAsScorer(String email, String password) async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.signIn(email, password);
+      if (user.role != AppUserRole.scorer) {
+        await _auth.signOut();
+        throw Exception('This email is registered as a Spectator. Please login from the Spectator section.');
+      }
+      state = user;
+      await _persistRole(user.role);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signInSpectatorWithGoogle() async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.signUpWithGoogle(role: AppUserRole.spectator);
+      if (user == null) return;
+      if (user.role != AppUserRole.spectator) {
+        await _auth.signOut();
+        throw Exception('This email is registered as a Scorer. Please login from the Scorer section.');
+      }
+      state = user;
+      await _persistRole(user.role);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signInScorerWithGoogle() async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.signUpWithGoogle(role: AppUserRole.scorer);
+      if (user == null) return;
+      if (user.role != AppUserRole.scorer) {
+        await _auth.signOut();
+        throw Exception('This email is registered as a Spectator. Please login from the Spectator section.');
+      }
+      state = user;
+      await _persistRole(user.role);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    await signInSpectatorWithGoogle();
   }
 
   Future<void> signIn(String email, String password) async {
@@ -268,6 +302,41 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     } finally {
       _isAuthenticating = false;
     }
+  }
+
+  Future<void> reactivateAccount(String email, String password) async {
+    _isAuthenticating = true;
+    try {
+      final user = await _auth.reactivateAccount(email, password);
+      state = user;
+      await _persistRole(user.role);
+      await _cacheUser(user);
+    } finally {
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<bool> switchToRole(AppUserRole targetRole) async {
+    if (state == null) return false;
+    try {
+      await _auth.switchToRole(targetRole);
+      state = state!.copyWith(role: targetRole);
+      await _persistRole(targetRole);
+      await _cacheUser(state!);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> softDeleteAccount(String email, String password) async {
+    await _auth.softDeleteAccount(email, password);
+    state = null;
+    _initialized = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kCachedUserKey);
+    } catch (_) {}
   }
 
   Future<void> switchRole(AppUserRole targetRole) async {
@@ -307,9 +376,6 @@ final currentUserProvider = StateNotifierProvider<CurrentUserNotifier, AppUser?>
   ),
 );
 
-/// The signed-in user's id (null when signed out). Kept as a separate, cheap
-/// provider so long-lived services (e.g. the match alert listener) can watch
-/// just the uid without depending on the whole [currentUserProvider] notifier.
 final currentUserIdProvider = Provider<String?>(
   (ref) => ref.watch(currentUserProvider)?.id,
 );

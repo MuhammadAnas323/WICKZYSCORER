@@ -74,6 +74,22 @@ service cloud.firestore {
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // ── Spectators collection ──────────────────────────────────────────────
+    match /spectators/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+      allow list: if true;
+    }
+
+    // ── Scorers collection ─────────────────────────────────────────────────
+    match /scorers/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+      allow list: if true;
+    }
+
     // ── User devices (FCM tokens): owner-only, read by the Cloud Function
     //    sender via the Admin SDK (which bypasses rules). ───────────────────
     match /users/{userId}/devices/{deviceId} {

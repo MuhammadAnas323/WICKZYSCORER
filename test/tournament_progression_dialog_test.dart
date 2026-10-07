@@ -73,6 +73,17 @@ class MockAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> switchToRole(AppUserRole targetRole) async {}
+
+  @override
+  Future<void> softDeleteAccount(String email, String password) async {}
+
+  @override
+  Future<AppUser> reactivateAccount(String email, String password) async {
+    throw UnimplementedError();
+  }
 }
 
 /// An in-progress match: innings 1 closed on 10 runs, innings 2 currently on

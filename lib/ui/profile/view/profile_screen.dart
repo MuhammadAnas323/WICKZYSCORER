@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/extensions/string_extensions.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/profile/viewmodel/profile_viewmodel.dart';
@@ -25,18 +26,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final displayName = fbUser?.displayName ??
-        (state.displayName.isNotEmpty
-            ? state.displayName
-            : (appUser?.name ?? 'User'));
+    final l10n = AppLocalizations.of(context);
+    final displayName = (fbUser?.displayName ??
+            (state.displayName.isNotEmpty
+                ? state.displayName
+                : (appUser?.name ?? l10n.translate('user'))))
+        .toTitleCase;
     final email = fbUser?.email ??
         (appUser?.email.isNotEmpty == true
             ? appUser!.email
             : 'user@wickzyscorer.com');
     final isScorer = appUser?.role == AppUserRole.scorer;
-    final l10n = AppLocalizations.of(context);
-    final switchTarget =
-        isScorer ? l10n.translate('spectator') : l10n.translate('scorer');
+    final switchTitle = isScorer
+        ? l10n.translate('switch_to_spectator')
+        : l10n.translate('switch_to_scorer');
     final switchSubtitle = isScorer
         ? l10n.translate('switch_to_spectator_subtitle')
         : l10n.translate('switch_to_scorer_subtitle');
@@ -81,7 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    isScorer ? 'Scorer Account' : 'Spectator Account',
+                                    isScorer ? l10n.translate('scorer_account') : l10n.translate('spectator_account'),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -132,25 +135,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Mode Switch Tile ─────────────────────────────────────
-                  Text(l10n.translate('mode'),
+                  Text(l10n.translate('mode').toTitleCase,
                       style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 8),
                   _actionTile(
                     context,
                     Icons.swap_horiz_rounded,
-                    '${l10n.translate('switch_to')} $switchTarget',
+                    switchTitle,
                     switchSubtitle,
                     AppColors.pitchGreen,
                     () async {
                       final notifier = ref.read(currentUserProvider.notifier);
                       final targetRole =
                           isScorer ? AppUserRole.spectator : AppUserRole.scorer;
-                      final hasTargetAccount = isScorer
-                          ? await notifier.hasSpectatorAccount()
-                          : await notifier.hasScorerAccount();
+                      final success = await notifier.switchToRole(targetRole);
 
-                      if (hasTargetAccount) {
-                        await notifier.switchRole(targetRole);
+                      if (success) {
                         if (context.mounted) {
                           context.go(targetRole == AppUserRole.scorer
                               ? '/scorer/dashboard'
@@ -159,7 +159,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       } else {
                         await notifier.signOut();
                         if (context.mounted) {
-                          context.go('/role-selection');
+                          context.go(targetRole == AppUserRole.scorer
+                              ? '/scorer-signup'
+                              : '/spectator-signup');
                         }
                       }
                     },
@@ -167,15 +169,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 24),
 
                   // ── Main Settings & Info Section ─────────────────────────
-                  Text(l10n.translate('settings_and_info'),
+                  Text(l10n.translate('settings_and_info').toTitleCase,
                       style: AppTextStyles.titleLarge(cs.onBackground)),
                   const SizedBox(height: 12),
                   _navTile(context, Icons.settings_rounded,
-                      l10n.translate('settings'), '/settings'),
+                      l10n.translate('settings').toTitleCase, '/settings'),
                   _navTile(context, Icons.info_rounded,
-                      l10n.translate('about_app'), '/about'),
+                      l10n.translate('about_app').toTitleCase, '/about'),
                   _navTile(context, Icons.support_agent_rounded,
-                      l10n.translate('contact_support'), '/support'),
+                      l10n.translate('contact_support').toTitleCase, '/support'),
                   const SizedBox(height: 32),
                 ],
               ),

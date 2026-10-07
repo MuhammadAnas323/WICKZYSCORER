@@ -8,6 +8,7 @@ import 'package:sportyapp/core/utils/app_error_handler.dart';
 import 'package:sportyapp/ui/auth/widgets/common_signup_form.dart';
 import 'package:sportyapp/ui/auth/widgets/google_sign_in_button.dart';
 import 'package:sportyapp/ui/auth/spectator_signup/viewmodel/spectator_signup_viewmodel.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 import 'package:sportyapp/ui/auth/shared/auth_scaffold.dart';
 
 class SpectatorSignupScreen extends ConsumerStatefulWidget {
@@ -29,27 +30,28 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
         );
       }
       if (next.success) {
-        context.go('/home');
+        context.go('/verify-email');
       }
     });
 
     final state = ref.watch(spectatorSignupViewModelProvider);
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return AuthScaffold(
-      title: 'Spectator Sign Up',
-      subtitle: 'Follow your favorite tournaments',
+      title: l10n.translate('spectator_signup'),
+      subtitle: l10n.translate('spectator_signup_sub'),
       showBackButton: true,
       onBack: () => context.go('/role-selection'),
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Already have an account? ',
+          Text(l10n.translate('already_have_account'),
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
           GestureDetector(
-            onTap: () => context.go('/signin'),
-            child: const Text('Sign In',
-                style: TextStyle(
+            onTap: () => context.go('/spectator-signin'),
+            child: Text(l10n.translate('sign_in'),
+                style: const TextStyle(
                   color: AppColors.pitchGreen,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -61,7 +63,7 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
         CommonSignupForm(key: _formKey, isScorer: false),
         const SizedBox(height: 32),
         AppPrimaryButton(
-          label: 'Sign Up',
+          label: l10n.translate('sign_up'),
           isLoading: state.isEmailLoading,
           onPressed: () {
             try {
@@ -89,7 +91,7 @@ class _SpectatorSignupScreenState extends ConsumerState<SpectatorSignupScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'or',
+                l10n.translate('or'),
                 style: AppTextStyles.bodyMedium(cs.onSurface.withOpacity(0.5)),
               ),
             ),

@@ -56,6 +56,14 @@ class SpectatorHomeState {
           m.status == MatchStatus.inProgress || m.status == MatchStatus.live)
       .toList();
 
+  List<ScorerMatch> get liveFriendlyMatches => liveMatches
+      .where((m) => m.tournamentId.isEmpty || m.tournamentId == 't_custom')
+      .toList();
+
+  List<ScorerMatch> get liveTournamentMatches => liveMatches
+      .where((m) => m.tournamentId.isNotEmpty && m.tournamentId != 't_custom')
+      .toList();
+
   List<ScorerMatch> get upcomingMatches => matches
       .where((m) =>
           m.status == MatchStatus.upcoming || m.status == MatchStatus.scheduled)

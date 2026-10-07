@@ -38,6 +38,7 @@ class ScorerTournamentsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: BackButton(onPressed: () => context.go('/scorer/dashboard')),
         title: Row(
           children: [
             Container(

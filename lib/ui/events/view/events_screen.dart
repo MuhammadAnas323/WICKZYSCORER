@@ -27,11 +27,10 @@ class EventsScreen extends ConsumerWidget {
       body: state.isLoading
           ? const MatchListSkeleton()
           : state.tournaments.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   emoji: '🏆',
-                  title: 'No tournaments yet',
-                  subtitle:
-                      'Tournaments, teams and matches created by scorers will appear here.',
+                  title: l10n.translate('no_tournaments'),
+                  subtitle: l10n.translate('no_tournaments_events_sub'),
                 )
               : RefreshIndicator(
                   onRefresh: () => ref
@@ -71,6 +70,7 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final gradient = AppColors.tournamentGradientFor(tournament.id);
 
     return GestureDetector(
@@ -124,7 +124,7 @@ class _EventCard extends StatelessWidget {
                         Text(
                           tournament.venue.isNotEmpty
                               ? tournament.venue
-                              : 'Venue TBA',
+                              : l10n.translate('venue_tba'),
                           style: AppTextStyles.bodySmall(cs.onSurfaceVariant),
                         ),
                       ],
@@ -138,14 +138,14 @@ class _EventCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _statItem('📅 Dates',
+                    child: _statItem('📅 ${l10n.translate('dates')}',
                         '${tournament.startDate.day}/${tournament.startDate.month} — ${tournament.endDate.day}/${tournament.endDate.month}', cs),
                   ),
                   Expanded(
-                    child: _statItem('🏑 Teams', '$teamCount', cs),
+                    child: _statItem('🏑 ${l10n.translate('teams')}', '$teamCount', cs),
                   ),
                   Expanded(
-                    child: _statItem('🏏 Matches', '$matchCount', cs),
+                    child: _statItem('🏏 ${l10n.translate('matches')}', '$matchCount', cs),
                   ),
                 ],
               ),

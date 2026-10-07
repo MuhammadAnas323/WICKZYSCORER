@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ── Preference keys ──────────────────────────────────────────────────────────
 const _kTheme = 'pref_theme_mode';
 const _kLocale = 'pref_locale';
+const _kHasSelectedLanguage = 'has_selected_language';
 const _kNotifEnabled = 'pref_notif_enabled';
 const _kLiveScore = 'pref_live_score';
 const _kWicket = 'pref_wicket';
@@ -13,6 +14,7 @@ const _kMatchStart = 'pref_match_start';
 class SettingsState {
   final ThemeMode themeMode;
   final Locale locale;
+  final bool hasSelectedLanguage;
   final bool notificationsEnabled;
   final bool liveScoreAlerts;
   final bool wicketAlerts;
@@ -20,6 +22,7 @@ class SettingsState {
   const SettingsState({
     this.themeMode = ThemeMode.light,
     this.locale = const Locale('en'),
+    this.hasSelectedLanguage = false,
     this.notificationsEnabled = true,
     this.liveScoreAlerts = true,
     this.wicketAlerts = true,
@@ -28,6 +31,7 @@ class SettingsState {
   SettingsState copyWith({
     ThemeMode? themeMode,
     Locale? locale,
+    bool? hasSelectedLanguage,
     bool? notificationsEnabled,
     bool? liveScoreAlerts,
     bool? wicketAlerts,
@@ -36,6 +40,7 @@ class SettingsState {
     SettingsState(
       themeMode: themeMode ?? this.themeMode,
       locale: locale ?? this.locale,
+      hasSelectedLanguage: hasSelectedLanguage ?? this.hasSelectedLanguage,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       liveScoreAlerts: liveScoreAlerts ?? this.liveScoreAlerts,
       wicketAlerts: wicketAlerts ?? this.wicketAlerts,
@@ -49,11 +54,13 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
   // ── Load from SharedPreferences on startup ────────────────────────────────
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final langCode = prefs.getString(_kLocale) ?? 'en';
+    final langCode = prefs.getString(_kLocale);
+    final hasSelected = prefs.getBool(_kHasSelectedLanguage) ?? (langCode != null);
     state = SettingsState(
       // The app is light-mode only; ignore any previously saved dark theme.
       themeMode: ThemeMode.light,
-      locale: Locale(langCode),
+      locale: Locale(langCode ?? 'en'),
+      hasSelectedLanguage: hasSelected,
       notificationsEnabled: prefs.getBool(_kNotifEnabled) ?? true,
       liveScoreAlerts: prefs.getBool(_kLiveScore) ?? true,
       wicketAlerts: prefs.getBool(_kWicket) ?? true,
@@ -66,6 +73,7 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kTheme, state.themeMode.index);
     await prefs.setString(_kLocale, state.locale.languageCode);
+    await prefs.setBool(_kHasSelectedLanguage, state.hasSelectedLanguage);
     await prefs.setBool(_kNotifEnabled, state.notificationsEnabled);
     await prefs.setBool(_kLiveScore, state.liveScoreAlerts);
     await prefs.setBool(_kWicket, state.wicketAlerts);
@@ -79,7 +87,7 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
   }
 
   Future<void> setLocale(Locale locale) async {
-    state = state.copyWith(locale: locale);
+    state = state.copyWith(locale: locale, hasSelectedLanguage: true);
     await _save();
   }
 
@@ -108,13 +116,13 @@ final settingsViewModelProvider = StateNotifierProvider<SettingsViewModel, Setti
   (ref) => SettingsViewModel());
 
 // Global theme mode provider watched by MaterialApp
-final themeModeProvider = StateProvider<ThemeMode>((ref) {
+final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsViewModelProvider);
   return settings.themeMode;
 });
 
 // Global locale provider watched by MaterialApp
-final localeProvider = StateProvider<Locale>((ref) {
+final localeProvider = Provider<Locale>((ref) {
   final settings = ref.watch(settingsViewModelProvider);
   return settings.locale;
 });

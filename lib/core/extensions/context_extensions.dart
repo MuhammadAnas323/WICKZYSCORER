@@ -2,8 +2,15 @@
 // BuildContext convenience extensions for theme/media access.
 
 import 'package:flutter/material.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
 
 extension ContextExtensions on BuildContext {
+  /// Localized strings provider.
+  AppLocalizations get l10n => AppLocalizations.of(this);
+
+  /// Convenient string lookup translation method.
+  String tr(String key) => AppLocalizations.of(this).translate(key);
+
   /// Current theme data.
   ThemeData get theme => Theme.of(this);
 

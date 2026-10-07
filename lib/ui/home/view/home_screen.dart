@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sportyapp/theme/app_colors.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/home/viewmodel/spectator_home_viewmodel.dart';
+import 'package:sportyapp/core/extensions/context_extensions.dart';
 import 'package:sportyapp/shared_widgets/empty_state.dart';
 import 'package:sportyapp/shared_widgets/skeleton_loader.dart';
 import 'package:sportyapp/shared_widgets/spectator_tournament_card.dart';
@@ -145,14 +146,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Expanded(
             child: _tabButton(
-              title: '🏆 Tournaments',
+              title: '🏆 ${context.tr('tournaments')}',
               isSelected: state.topTab == 0,
               onTap: () => notifier.setTopTab(0),
             ),
           ),
           Expanded(
             child: _tabButton(
-              title: '🏏 Friendly Matches',
+              title: '🏏 ${context.tr('friendly_matches')}',
               isSelected: state.topTab == 1,
               onTap: () => notifier.setTopTab(1),
             ),
@@ -217,10 +218,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         state.topTab == 0 ? state.tournamentSubFilter : state.friendlySubFilter;
 
     final subFilterOptions = [
-      ('all', 'All'),
-      ('live', '🔴 Live'),
-      ('upcoming', '📅 Upcoming'),
-      ('completed', '🏁 Completed'),
+      ('all', context.tr('all')),
+      ('live', '🔴 ${context.tr('live')}'),
+      ('upcoming', '📅 ${context.tr('upcoming')}'),
+      ('completed', '🏁 ${context.tr('completed')}'),
     ];
 
     return Container(
@@ -243,8 +244,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: TextStyle(color: cs.onSurface, fontSize: 13),
               decoration: InputDecoration(
                 hintText: state.topTab == 0
-                    ? 'Search tournaments by name...'
-                    : 'Search matches by team or venue...',
+                    ? context.tr('search_tournaments_hint')
+                    : context.tr('search_friendly_hint'),
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
                 prefixIcon:
                     const Icon(Icons.search, size: 18, color: Colors.grey),
@@ -335,12 +336,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (state.filteredTournaments.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 80),
+        children: [
+          const SizedBox(height: 80),
           EmptyState(
             emoji: '🏆',
-            title: 'No Tournaments Found',
-            subtitle: 'No tournaments match your filter criteria.',
+            title: context.tr('no_tournaments_found'),
+            subtitle: context.tr('no_tournaments_match'),
           ),
         ],
       );
@@ -384,12 +385,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (state.filteredFriendlyMatches.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 80),
+        children: [
+          const SizedBox(height: 80),
           EmptyState(
             emoji: '🏏',
-            title: 'No Friendly Matches Found',
-            subtitle: 'No non-tournament matches match your criteria.',
+            title: context.tr('no_friendly_found'),
+            subtitle: context.tr('no_friendly_match'),
           ),
         ],
       );
@@ -420,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           match: m,
           teamName: state.teamName,
           teamShort: state.teamShort,
-          tournamentName: (id) => 'Friendly Match',
+          tournamentName: (id) => context.tr('friendly_match'),
           live: state.rtdbLiveMatches[m.id],
           onTap: () => context.push('/spectator/match/${m.id}'),
         );
@@ -438,9 +439,9 @@ class _ErrorState extends StatelessWidget {
     return Center(
       child: EmptyState(
         emoji: '⚠️',
-        title: 'Something went wrong',
-        subtitle: 'Unable to load matches or tournaments.',
-        actionLabel: 'Retry',
+        title: context.tr('something_went_wrong'),
+        subtitle: context.tr('unable_to_load_matches'),
+        actionLabel: context.tr('retry'),
         onAction: onRetry,
       ),
     );

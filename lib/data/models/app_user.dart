@@ -10,6 +10,8 @@ class AppUser {
   final String? organization;
   final String? favoriteTournamentId;
   final DateTime createdAt;
+  final bool? isDeleted;
+  final DateTime? deletionDate;
 
   const AppUser({
     required this.id,
@@ -21,6 +23,8 @@ class AppUser {
     this.organization,
     this.favoriteTournamentId,
     required this.createdAt,
+    this.isDeleted,
+    this.deletionDate,
   });
 
   bool get isScorer => role == AppUserRole.scorer;
@@ -36,6 +40,8 @@ class AppUser {
     String? organization,
     String? favoriteTournamentId,
     DateTime? createdAt,
+    bool? isDeleted,
+    DateTime? deletionDate,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -47,6 +53,8 @@ class AppUser {
       organization: organization ?? this.organization,
       favoriteTournamentId: favoriteTournamentId ?? this.favoriteTournamentId,
       createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletionDate: deletionDate ?? this.deletionDate,
     );
   }
 
@@ -60,6 +68,8 @@ class AppUser {
     'organization': organization,
     'favoriteTournamentId': favoriteTournamentId,
     'createdAt': createdAt.toIso8601String(),
+    'isDeleted': isDeleted,
+    'deletionDate': deletionDate?.toIso8601String(),
   };
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
@@ -72,5 +82,7 @@ class AppUser {
     organization: json['organization'] as String?,
     favoriteTournamentId: json['favoriteTournamentId'] as String?,
     createdAt: DateTime.parse(json['createdAt'] as String),
+    isDeleted: json['isDeleted'] as bool?,
+    deletionDate: json['deletionDate'] != null ? DateTime.parse(json['deletionDate'] as String) : null,
   );
 }

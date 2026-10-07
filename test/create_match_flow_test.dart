@@ -66,6 +66,17 @@ class MockAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> switchToRole(AppUserRole targetRole) async {}
+
+  @override
+  Future<void> softDeleteAccount(String email, String password) async {}
+
+  @override
+  Future<AppUser> reactivateAccount(String email, String password) async {
+    throw UnimplementedError();
+  }
 }
 
 ScorerMatch _match(String id, String t1, String t2) {
@@ -188,7 +199,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No matches yet'), findsOneWidget);
+    expect(find.text('No friendly matches yet'), findsOneWidget);
 
     // Simulate a match being created from another screen.
     await repo.saveMatch(_match('m1', 't1', 't2'));
@@ -196,5 +207,6 @@ void main() {
 
     expect(find.textContaining('India'), findsWidgets);
     expect(find.textContaining('Australia'), findsWidgets);
+    await tester.pump(const Duration(seconds: 5));
   });
 }

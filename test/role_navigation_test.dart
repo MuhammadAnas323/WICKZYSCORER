@@ -93,6 +93,23 @@ class MockAuthService implements AuthService {
   Future<void> signOut() async {
     _user = null;
   }
+
+  @override
+  Future<void> switchToRole(AppUserRole targetRole) async {
+    if (_user != null) {
+      _user = _user!.copyWith(role: targetRole);
+    }
+  }
+
+  @override
+  Future<void> softDeleteAccount(String email, String password) async {
+    _user = null;
+  }
+
+  @override
+  Future<AppUser> reactivateAccount(String email, String password) async {
+    return signIn(email, password);
+  }
 }
 
 void main() {

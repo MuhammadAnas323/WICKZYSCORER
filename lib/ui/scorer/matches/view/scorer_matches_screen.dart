@@ -258,6 +258,7 @@ class _ScorerMatchesScreenState extends ConsumerState<ScorerMatchesScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: BackButton(onPressed: () => context.go('/scorer/dashboard')),
         title: Text(l10n.translate('matches'),
             style: AppTextStyles.titleMedium(cs.onSurface)
                 .copyWith(letterSpacing: 1.0, fontWeight: FontWeight.bold)),

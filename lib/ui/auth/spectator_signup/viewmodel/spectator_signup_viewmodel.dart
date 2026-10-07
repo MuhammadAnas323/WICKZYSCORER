@@ -60,11 +60,11 @@ class SpectatorSignupViewModel extends StateNotifier<SpectatorSignupState> {
       await ref
           .read(currentUserProvider.notifier)
           .signUpSpectatorWithGoogle();
-      final user = ref.read(currentUserProvider);
-      state = state.copyWith(
-        isGoogleLoading: false,
-        success: user != null,
-      );
+      // The router listens to currentUserProvider and will automatically
+      // redirect to /home once the user is set. No need to set success=true
+      // here (which would incorrectly navigate to /verify-email for Google
+      // users who are already email-verified).
+      state = state.copyWith(isGoogleLoading: false);
     } catch (e) {
       state = state.copyWith(isGoogleLoading: false, error: AppErrorHandler.getUserFriendlyMessage(e));
     }

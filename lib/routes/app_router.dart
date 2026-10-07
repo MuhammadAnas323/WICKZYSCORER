@@ -1,19 +1,24 @@
 // lib/routes/app_router.dart
 // go_router configuration for WICKZYSCORER.
-// Spectator shell: 4-tab bottom navigation (Home, Live, Events, Profile).
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
 
 // Screen imports
 import 'package:sportyapp/ui/onboarding/view/onboarding_screen.dart';
 import 'package:sportyapp/ui/auth/view/sign_up_screen.dart';
 import 'package:sportyapp/ui/auth/sign_in/view/sign_in_screen.dart';
+import 'package:sportyapp/ui/auth/sign_in/view/spectator_sign_in_screen.dart';
+import 'package:sportyapp/ui/auth/sign_in/view/scorer_sign_in_screen.dart';
+import 'package:sportyapp/ui/auth/verify_email/view/email_verification_screen.dart';
 import 'package:sportyapp/ui/auth/role_selection/view/role_selection_screen.dart';
 import 'package:sportyapp/ui/auth/spectator_signup/view/spectator_signup_screen.dart';
 import 'package:sportyapp/ui/auth/scorer_signup/view/scorer_signup_screen.dart';
 import 'package:sportyapp/ui/auth/forgot_password/view/forgot_password_screen.dart';
+import 'package:sportyapp/ui/auth/language_selection_screen.dart';
+import 'package:sportyapp/ui/settings/viewmodel/settings_viewmodel.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 import 'package:sportyapp/data/models/app_user.dart';
 import 'package:sportyapp/ui/home/view/home_screen.dart';
@@ -65,15 +70,11 @@ import 'package:sportyapp/ui/scorer/schedule/view/schedule_view_screen.dart';
 
 /// The app's GoRouter instance.
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // The router instance is created ONCE. A plain Provider that returns a new
-  // GoRouter every time auth changes would reset to [initialLocation]
-  // (`/role-selection`) on every login/sign-out/role-switch. Instead we ping a
-  // `refreshListenable` so go_router re-runs the redirect while keeping the
-  // same instance and current location.
   final authHeartbeat = ValueNotifier(0);
   ref.onDispose(authHeartbeat.dispose);
   ref.listen<AppUser?>(currentUserProvider, (_, __) => authHeartbeat.value++);
   ref.listen<bool>(authReadyProvider, (_, __) => authHeartbeat.value++);
+  ref.listen<SettingsState>(settingsViewModelProvider, (_, __) => authHeartbeat.value++);
 
   return GoRouter(
     initialLocation: '/role-selection',
@@ -81,20 +82,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: authHeartbeat,
     redirect: (context, state) {
       final authReady = ref.read(authReadyProvider);
-
-      // ── Loading guard ────────────────────────────────────────────────────
-      // While the initial Firebase auth session is still being restored, do
-      // NOT redirect anywhere. The SplashGate overlay covers the entire screen,
-      // so the user sees nothing underneath regardless of the current route.
-      //
-      // Returning null here (i.e. "stay put") is critical: any redirect while
-      // !authReady risks a loop because a second authStateChanges emission
-      // (common on cold-start / wireless debugging as Firebase rehydrates the
-      // token) will re-evaluate the redirect against the route we just
-      // redirected *to*, potentially bouncing back in the opposite direction.
       if (!authReady) return null;
 
-      // ── Auth-ready redirects ─────────────────────────────────────────────
       final currentUser = ref.read(currentUserProvider);
       final location = state.uri.toString();
 
@@ -102,6 +91,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/onboarding',
         '/signup',
         '/signin',
+        '/spectator-signin',
+        '/scorer-signin',
+        '/verify-email',
         '/role-selection',
         '/spectator-signup',
         '/scorer-signup',
@@ -110,19 +102,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isPublic = publicRoutes.any(location.startsWith);
 
       if (currentUser == null) {
-        // Signed-out user on a protected route → send to login flow.
         if (!isPublic) return '/role-selection';
         return null;
       }
 
-      // Signed-in user on a public/auth route → send to their home screen.
-      if (isPublic) {
+      // Check email verification
+      final fbUser = fa.FirebaseAuth.instance.currentUser;
+      if (fbUser != null && !fbUser.emailVerified) {
+        if (location != '/verify-email') {
+          return '/verify-email';
+        }
+        return null;
+      }
+
+      // Post-verification / Auth check: Prompt Language Selection if not yet selected
+      final hasSelectedLanguage = ref.read(settingsViewModelProvider).hasSelectedLanguage;
+      if (!hasSelectedLanguage) {
+        if (location != '/language-selection') {
+          return '/language-selection';
+        }
+        return null;
+      }
+
+      if (isPublic || location == '/language-selection') {
         return currentUser.isScorer ? '/scorer/dashboard' : '/home';
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        name: 'root',
+        redirect: (context, state) => '/role-selection',
+      ),
       GoRoute(
         path: '/signup',
         name: 'signup',
@@ -132,6 +145,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/signin',
         name: 'signin',
         builder: (context, state) => const SignInScreen(),
+      ),
+      GoRoute(
+        path: '/spectator-signin',
+        name: 'spectator-signin',
+        builder: (context, state) => const SpectatorSignInScreen(),
+      ),
+      GoRoute(
+        path: '/scorer-signin',
+        name: 'scorer-signin',
+        builder: (context, state) => const ScorerSignInScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verify-email',
+        builder: (context, state) => const EmailVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/language-selection',
+        name: 'language-selection',
+        builder: (context, state) => const LanguageSelectionScreen(),
       ),
       GoRoute(
         path: '/role-selection',
@@ -158,7 +191,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
-      // â”€â”€ Full-screen routes (no shell) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Full-screen routes (no shell) ──────────────────────────────
       GoRoute(
         path: '/match/:id',
         name: 'match-details',
@@ -219,7 +252,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'support',
         builder: (context, state) => const SupportScreen(),
       ),
-      // â”€â”€ Admin routes (no shell) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Admin routes (no shell) ────────────────────────────────────
       GoRoute(
         path: '/admin',
         name: 'admin-dashboard',
@@ -230,7 +263,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'create-match',
         builder: (context, state) => const CreateMatchScreen(),
       ),
-      // â”€â”€ Standalone routes for push navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Standalone routes for push navigation ──────────────────────
       GoRoute(
         path: '/events/:id',
         name: 'event-detail',
@@ -269,7 +302,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // â”€â”€ Scorer full-screen routes (no shell) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Scorer full-screen routes (no shell) ──────────────────────
       GoRoute(
         path: '/scorer/match-setup',
         name: 'scorer-match-setup',
@@ -382,7 +415,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             TossScreen(matchId: state.uri.queryParameters['matchId'] ?? ''),
       ),
-      // â”€â”€ Shell: Spectator bottom navigation (Home Â· Live Â· Events Â· Profile) â”€â”€
+      // ── Shell: Spectator bottom navigation ────────────────────────
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             SpectatorShell(navigationShell: navigationShell),
@@ -425,7 +458,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // â”€â”€ Shell: Scorer bottom navigation (Home Â· Tournaments Â· Profile) â”€â”€
+      // ── Shell: Scorer bottom navigation ───────────────────────────
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScorerShell(navigationShell: navigationShell),

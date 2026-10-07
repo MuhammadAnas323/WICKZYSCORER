@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportyapp/core/localization/app_localizations.dart';
+import 'package:sportyapp/core/extensions/string_extensions.dart';
 import 'package:sportyapp/theme/app_text_styles.dart';
 
 class SupportScreen extends ConsumerWidget {
@@ -8,26 +10,33 @@ class SupportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final faqs = [
+      (l10n.translate('faq_1_q'), l10n.translate('faq_1_a')),
+      (l10n.translate('faq_2_q'), l10n.translate('faq_2_a')),
+      (l10n.translate('faq_3_q'), l10n.translate('faq_3_a')),
+      (l10n.translate('faq_4_q'), l10n.translate('faq_4_a')),
+    ];
     return Scaffold(
       appBar: AppBar(
-        title: Text('Contact / Support',
+        title: Text(l10n.translate('contact_support').toTitleCase,
             style: AppTextStyles.headlineSmall(cs.onSurface)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Get in Touch',
+          Text(l10n.translate('get_in_touch').toTitleCase,
               style: AppTextStyles.headlineMedium(cs.onSurface)),
           const SizedBox(height: 8),
           Text(
-              'Have a question or feedback regarding text scoring and tournaments? We\'d love to hear from you.',
+              l10n.translate('support_subtitle'),
               style: AppTextStyles.bodyMedium(cs.onSurfaceVariant)),
           const SizedBox(height: 24),
           // FAQs
-          Text('Common Questions',
+          Text(l10n.translate('common_questions').toTitleCase,
               style: AppTextStyles.titleLarge(cs.onSurface)),
           const SizedBox(height: 12),
-          ..._faqs.map((faq) => ExpansionTile(
+          ...faqs.map((faq) => ExpansionTile(
                 title: Text(faq.$1,
                     style: AppTextStyles.bodyMedium(cs.onSurface)
                         .copyWith(fontWeight: FontWeight.w600)),
@@ -46,22 +55,3 @@ class SupportScreen extends ConsumerWidget {
     );
   }
 }
-
-const _faqs = [
-  (
-    'How do I score a match?',
-    'Tap the Scorer option from the role selection or dashboard, create or select a tournament or friendly match, set up your teams and squads, and start scoring ball-by-ball.'
-  ),
-  (
-    'Is my data saved?',
-    'Wickzy Scorer saves your tournaments, teams, players, and match records securely in cloud storage so you can access them anytime.'
-  ),
-  (
-    'How often do scores update?',
-    'Scores and ball-by-ball updates are recorded in real-time as you score.'
-  ),
-  (
-    'Can spectators view live scores?',
-    'Yes! Spectators can follow live scores, fixtures, and points tables in real-time.'
-  ),
-];

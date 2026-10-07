@@ -8,40 +8,44 @@ import 'package:sportyapp/theme/app_text_styles.dart';
 import 'package:sportyapp/ui/onboarding/viewmodel/onboarding_viewmodel.dart';
 import 'package:sportyapp/core/providers/auth_provider.dart';
 
+import 'package:sportyapp/core/localization/app_localizations.dart';
+
 class _OnboardingSlide {
   final String emoji;
-  final String title;
-  final String subtitle;
+  final String titleKey;
+  final String subtitleKey;
   final List<Color> gradient;
   const _OnboardingSlide({
-    required this.emoji, required this.title,
-    required this.subtitle, required this.gradient,
+    required this.emoji,
+    required this.titleKey,
+    required this.subtitleKey,
+    required this.gradient,
   });
 }
 
 const _slides = [
   _OnboardingSlide(
     emoji: '🏑',
-    title: 'Live Scores,\nEvery Ball',
-    subtitle: 'Follow live cricket action with ball-by-ball commentary, scoreboards, and real-time stats.',
+    titleKey: 'onboarding_title_1',
+    subtitleKey: 'onboarding_sub_1',
     gradient: [Color(0xFF0D2818), Color(0xFF1A7A3E)],
   ),
   _OnboardingSlide(
     emoji: '🏆',
-    title: 'All Tournaments,\nOne App',
-    subtitle: 'Track international series, ICC events, leagues, domestic competitions, and women\'s cricket — all in one place.',
+    titleKey: 'onboarding_title_2',
+    subtitleKey: 'onboarding_sub_2',
     gradient: [Color(0xFF1B2838), Color(0xFF2C4A6E)],
   ),
   _OnboardingSlide(
     emoji: '📡',
-    title: 'Go Live,\nBroadcast Your Game',
-    subtitle: 'Stream your own match using your phone\'s camera. Share the excitement of cricket you\'re broadcasting — live!',
+    titleKey: 'onboarding_title_3',
+    subtitleKey: 'onboarding_sub_3',
     gradient: [Color(0xFF2D1B00), Color(0xFF8B5E3C)],
   ),
   _OnboardingSlide(
     emoji: '👥',
-    title: 'Players, Teams\n& Stats',
-    subtitle: 'Explore in-depth profiles, career stats, team rankings, and points tables for every format.',
+    titleKey: 'onboarding_title_4',
+    subtitleKey: 'onboarding_sub_4',
     gradient: [Color(0xFF1A0A2E), Color(0xFF4A148C)],
   ),
 ];
@@ -88,6 +92,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(onboardingViewModelProvider);
+    final l10n = AppLocalizations.of(context);
     final isLast = state.currentPage == _slides.length - 1;
 
     return Scaffold(
@@ -116,8 +121,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   context.go('/role-selection');
                 }
               },
-              child: Text('Skip',
-                style: AppTextStyles.labelLarge(Colors.white70)),
+              child: Text(
+                l10n.translate('skip'),
+                style: AppTextStyles.labelLarge(Colors.white70),
+              ),
             ),
           ),
 
@@ -153,7 +160,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     onPressed: _next,
                     child: Text(
-                      isLast ? 'Get Started 🏑' : 'Next',
+                      isLast ? l10n.translate('get_started') : l10n.translate('next'),
                       style: GoogleFonts.poppins(
                         fontSize: 16, fontWeight: FontWeight.w700),
                     ),
@@ -174,6 +181,7 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -196,13 +204,13 @@ class _OnboardingPage extends StatelessWidget {
               ),
               const Spacer(),
               // Title
-              Text(slide.title,
+              Text(l10n.translate(slide.titleKey),
                 style: GoogleFonts.poppins(
                   fontSize: 34, fontWeight: FontWeight.w800,
                   color: Colors.white, height: 1.2)),
               const SizedBox(height: 16),
               // Subtitle
-              Text(slide.subtitle,
+              Text(l10n.translate(slide.subtitleKey),
                 style: GoogleFonts.inter(
                   fontSize: 16, fontWeight: FontWeight.w400,
                   color: Colors.white70, height: 1.6)),
